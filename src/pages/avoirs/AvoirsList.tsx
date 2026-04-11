@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { useReactToPrint } from 'react-to-print';
 import { FactureDocument } from '@/components/documents/FactureDocument';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { supabase } from '@/lib/supabase';
 
 interface Avoir {
   id: number;
@@ -50,8 +51,8 @@ export function AvoirsList() {
   const fetchAvoirs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/avoirs');
-      const data = await res.json();
+      const { data, error } = await supabase.from('avoirs').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setAvoirs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch avoirs', error);
@@ -62,9 +63,9 @@ export function AvoirsList() {
 
   const fetchEntreprise = async () => {
     try {
-      const res = await fetch('/api/parametres');
-      const data = await res.json();
-      setEntreprise(data);
+      const { data, error } = await supabase.from('parametres').select('*').limit(1);
+      if (error) throw error;
+      setEntreprise(data?.[0] || null);
     } catch (error) {
       console.error('Failed to fetch entreprise settings', error);
     }

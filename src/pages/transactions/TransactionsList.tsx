@@ -18,6 +18,7 @@ import { useReactToPrint } from 'react-to-print';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface Transaction {
   id: number;
@@ -64,35 +65,33 @@ export function TransactionsList() {
   const fetchAllTransactions = async () => {
     setIsLoading(true);
     try {
-      const [facturesRes, devisRes, commandesRes, livraisonsRes, depensesRes, ventesRes] = await Promise.all([
-        fetch('/api/factures'),
-        fetch('/api/devis'),
-        fetch('/api/bons-commande'),
-        fetch('/api/bons-livraison'),
-        fetch('/api/depenses'),
-        fetch('/api/ventes-passagers'),
+      const [{ data: factures }, { data: devis }, { data: commandes }, { data: livraisons }, { data: depenses }, { data: ventes }] = await Promise.all([
+        supabase.from('factures').select('*'),
+        supabase.from('devis').select('*'),
+        supabase.from('bons_commande').select('*'),
+        supabase.from('bons_livraison').select('*'),
+        supabase.from('depenses').select('*'),
+        supabase.from('ventes_passagers').select('*'),
       ]);
 
       const allTransactions: Transaction[] = [];
 
       // Factures
-      const factures = await facturesRes.json();
       if (Array.isArray(factures)) {
         allTransactions.push(...factures.map((f: any) => ({
           id: f.id,
           type: 'facture' as const,
           numero: f.numero,
           client: f.client,
-          date: f.dateEmission || f.date,
-          montantHt: f.montantHt || 0,
-          montantTva: f.montantTva || 0,
-          montantTtc: f.montantTtc || 0,
+          date: f.date_emission || f.date,
+          montantHt: f.montant_ht || 0,
+          montantTva: f.montant_tva || 0,
+          montantTtc: f.montant_ttc || 0,
           statut: f.statut,
         })));
       }
 
       // Devis
-      const devis = await devisRes.json();
       if (Array.isArray(devis)) {
         allTransactions.push(...devis.map((d: any) => ({
           id: d.id,
@@ -108,23 +107,21 @@ export function TransactionsList() {
       }
 
       // Bons Commande
-      const commandes = await commandesRes.json();
       if (Array.isArray(commandes)) {
         allTransactions.push(...commandes.map((c: any) => ({
           id: c.id,
           type: 'commande' as const,
           numero: c.numero,
           fournisseur: c.fournisseur,
-          date: c.dateCommande || c.date,
-          montantHt: c.montantHt || 0,
-          montantTva: c.montantTva || 0,
-          montantTtc: c.montantTtc || 0,
+          date: c.date_commande || c.date,
+          montantHt: c.montant_ht || 0,
+          montantTva: c.montant_tva || 0,
+          montantTtc: c.montant_ttc || 0,
           statut: c.statut,
         })));
       }
 
       // Bons Livraison
-      const livraisons = await livraisonsRes.json();
       if (Array.isArray(livraisons)) {
         allTransactions.push(...livraisons.map((l: any) => ({
           id: l.id,
@@ -132,40 +129,38 @@ export function TransactionsList() {
           numero: l.numero,
           client: l.client,
           fournisseur: l.fournisseur,
-          date: l.dateLivraison || l.date,
-          montantHt: l.montantHt || 0,
-          montantTva: l.montantTva || 0,
-          montantTtc: l.montantTtc || 0,
+          date: l.date_livraison || l.date,
+          montantHt: l.montant_ht || 0,
+          montantTva: l.montant_tva || 0,
+          montantTtc: l.montant_ttc || 0,
           statut: l.statut,
         })));
       }
 
       // Dépenses
-      const depenses = await depensesRes.json();
       if (Array.isArray(depenses)) {
         allTransactions.push(...depenses.map((d: any) => ({
           id: d.id,
           type: 'depense' as const,
           numero: d.reference || d.numero || `DEP-${d.id}`,
-          date: d.dateDepense || d.date,
-          montantHt: d.montantHt || 0,
-          montantTva: d.montantTva || 0,
-          montantTtc: d.montantTtc || 0,
+          date: d.date_depense || d.date,
+          montantHt: d.montant_ht || 0,
+          montantTva: d.montant_tva || 0,
+          montantTtc: d.montant_ttc || 0,
           statut: d.statut,
         })));
       }
 
       // Ventes Passagers
-      const ventes = await ventesRes.json();
       if (Array.isArray(ventes)) {
         allTransactions.push(...ventes.map((v: any) => ({
           id: v.id,
           type: 'vente' as const,
           numero: v.numero,
           date: v.date,
-          montantHt: v.montantHt || 0,
-          montantTva: v.montantTva || 0,
-          montantTtc: v.montantTtc || 0,
+          montantHt: v.montant_ht || 0,
+          montantTva: v.montant_tva || 0,
+          montantTtc: v.montant_ttc || 0,
           statut: 'payée',
         })));
       }

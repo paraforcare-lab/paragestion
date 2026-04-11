@@ -70,8 +70,8 @@ export function BonsLivraisonList() {
   const fetchBons = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/bons-livraison');
-      const data = await res.json();
+      const { data, error } = await supabase.from('bons_livraison').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setBons(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch bons de livraison', error);

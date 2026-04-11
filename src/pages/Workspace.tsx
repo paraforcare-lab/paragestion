@@ -75,52 +75,35 @@ export function Workspace() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [statsRes, facturesRes, devisRes, bcRes, vpRes, depensesRes, tasksRes, logsRes] = await Promise.all([
-          fetch(`/api/dashboard-data?range=${selectedRange}`),
-          fetch('/api/factures'),
-          fetch('/api/devis'),
-          fetch('/api/bons-commande'),
-          fetch('/api/ventes-passagers'),
-          fetch('/api/depenses'),
-          fetch('/api/tasks'),
-          fetch('/api/logs-activites'),
-          fetch('/api/parametres')
+        const [{ data: statsFactures }, { data: factures }, { data: devis }, { data: bc }, { data: vp }, { data: depenses }] = await Promise.all([
+          supabase.from('factures').select('*'),
+          supabase.from('factures').select('*'),
+          supabase.from('devis').select('*'),
+          supabase.from('bons_commande').select('*'),
+          supabase.from('ventes_passagers').select('*'),
+          supabase.from('depenses').select('*')
         ]);
 
-        if (!statsRes.ok) throw new Error(`Stats fetch failed: ${statsRes.status}`);
-        
-        const statsData = await statsRes.json();
-        const factures = facturesRes.ok ? await facturesRes.json() : [];
-        const devis = devisRes.ok ? await devisRes.json() : [];
-        const bc = bcRes.ok ? await bcRes.json() : [];
-        const vp = vpRes.ok ? await vpRes.json() : [];
-        const depenses = depensesRes.ok ? await depensesRes.json() : [];
-        const logs = logsRes.ok ? await logsRes.json() : [];
-        
-        let tasksData = [];
-        if (tasksRes.ok) {
-          tasksData = await tasksRes.json();
-        }
+        const totalRevenue = (factures || []).reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
 
         setStats({
-          invoiced: statsData.totalRevenue || 0,
-          pending: factures.filter((f: any) => f.statut === 'en_attente' || f.statut === 'reste_a_payer').length,
-          clients: statsData.clientsCount || 0,
-          products: statsData.produitsCount || 0,
+          invoiced: totalRevenue,
+          pending: (factures || []).filter((f: any) => f.statut === 'en_attente' || f.statut === 'reste_a_payer').length,
+          clients: 0,
+          products: 0,
           monthlyGrowth: 15.2
         });
 
-        setChartData(statsData.monthlyData || []);
-        setLowStockProduits(statsData.lowStockProduits || []);
-        setTasks(tasksData || []);
+        setChartData([]);
+        setLowStockProduits([]);
+        setTasks([]);
 
         const combined = [
-          ...factures.map((f: any) => ({ ...f, type: 'Facture', date: f.dateEmission || f.created_at, label: f.numero })),
-          ...devis.map((d: any) => ({ ...d, type: 'Devis', date: d.dateEmission || d.created_at, label: d.numero })),
-          ...bc.map((b: any) => ({ ...b, type: 'Commande', date: b.dateCommande || b.created_at, label: b.numero })),
-          ...vp.map((v: any) => ({ ...v, type: 'Vente Passager', date: v.date || v.created_at, label: v.numero })),
-          ...depenses.map((e: any) => ({ ...e, type: 'Dépense', date: e.dateDepense || e.created_at, label: e.numero || `DEP-${e.id}` })),
-          ...logs.map((l: any) => ({ ...l, type: 'Activité', date: l.created_at, label: l.action, isLog: true }))
+          ...(factures || []).map((f: any) => ({ ...f, type: 'Facture', date: f.date_emission || f.created_at, label: f.numero })),
+          ...(devis || []).map((d: any) => ({ ...d, type: 'Devis', date: d.date_emission || d.created_at, label: d.numero })),
+          ...(bc || []).map((b: any) => ({ ...b, type: 'Commande', date: b.date_commande || b.created_at, label: b.numero })),
+          ...(vp || []).map((v: any) => ({ ...v, type: 'Vente Passager', date: v.date || v.created_at, label: v.numero })),
+          ...(depenses || []).map((e: any) => ({ ...e, type: 'Dépense', date: e.date_depense || e.created_at, label: e.numero || `DEP-${e.id}` }))
         ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
          .slice(0, 10);
 
@@ -151,20 +134,17 @@ export function Workspace() {
     if (!newTask.trim()) return;
     
     try {
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTask,
-          completed: false,
-          priority: 'medium'
-        })
-      });
+      const payload = {
+        title: newTask,
+        completed: false,
+        priority: 'medium'
+      };
       
-      if (!response.ok) throw new Error('Failed to add task');
+      const { error } = await supabase.from('tasks').insert([payload]);
+      if (error) throw error;
       
-      const task = await response.json();
-      setTasks([task, ...tasks]);
+      const { data: tasksData } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+      setTasks(tasksData || []);
       setNewTask('');
       toast.success('Tâche ajoutée');
     } catch (error) {
@@ -178,16 +158,10 @@ export function Workspace() {
     if (!task) return;
 
     try {
-      const response = await fetch(`/api/tasks/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ completed: !task.completed })
-      });
+      const { error } = await supabase.from('tasks').update({ completed: !task.completed }).eq('id', id);
+      if (error) throw error;
 
-      if (!response.ok) throw new Error('Failed to toggle task');
-      
-      const updatedTask = await response.json();
-      setTasks(tasks.map(t => t.id === id ? updatedTask : t));
+      setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
     } catch (error) {
       console.error('Error toggling task:', error);
       toast.error('Erreur lors de la mise à jour de la tâche');
@@ -196,11 +170,8 @@ export function Workspace() {
 
   const deleteTask = async (id: string | number) => {
     try {
-      const response = await fetch(`/api/tasks/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) throw new Error('Failed to delete task');
+      const { error } = await supabase.from('tasks').delete().eq('id', id);
+      if (error) throw error;
 
       setTasks(tasks.filter(t => t.id !== id));
       toast.info('Tâche supprimée');

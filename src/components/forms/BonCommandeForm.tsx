@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -77,29 +78,15 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fournisseursRes, produitsRes, parametresRes] = await Promise.all([
-          fetch('/api/fournisseurs'),
-          fetch('/api/produits'),
-          fetch('/api/parametres'),
+        const [{ data: fournisseursData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
+          supabase.from('fournisseurs').select('*').order('nom'),
+          supabase.from('produits').select('*').order('nom'),
+          supabase.from('parametres').select('*').limit(1)
         ]);
         
-        let fournisseursData = await fournisseursRes.json();
-        const produitsData = await produitsRes.json();
-        const parametresData = await parametresRes.json();
-        
-        // Handle API returning error object instead of array
-        if (!Array.isArray(fournisseursData)) {
-          console.warn('Fournisseurs API returned error, using empty array:', fournisseursData);
-          fournisseursData = [];
-        }
-        if (!Array.isArray(produitsData)) {
-          console.warn('Produits API returned error, using empty array');
-          setProduits([]);
-        }
-        
-        setFournisseurs(fournisseursData);
-        setProduits(produitsData);
-        setParametres(parametresData);
+        setFournisseurs(fournisseursData || []);
+        setProduits(produitsData || []);
+        setParametres(parametresData?.[0] || null);
 
         if (initialData) {
           form.reset({
@@ -117,8 +104,8 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
               montantTtc: Number(l.montantTtc || 0)
             })) || []
           });
-        } else if (parametresData) {
-          form.setValue('notes', parametresData.piedPageDefaut || '');
+        } else if (parametresData?.[0]) {
+          form.setValue('notes', parametresData[0].pied_page_defaut || '');
         }
       } catch (error) {
         toast.error('Erreur lors du chargement des données');

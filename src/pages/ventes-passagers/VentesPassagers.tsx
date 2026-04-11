@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface VentePassager {
   id: string;
@@ -55,9 +56,8 @@ export default function VentesPassagers() {
 
   const fetchVentes = async () => {
     try {
-      const res = await fetch('/api/ventes-passagers');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
+      const { data, error } = await supabase.from('ventes_passagers').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setVentes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching sales:', error);
@@ -70,9 +70,8 @@ export default function VentesPassagers() {
 
   const fetchProduits = async () => {
     try {
-      const res = await fetch('/api/produits');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
+      const { data, error } = await supabase.from('produits').select('*').gt('stock_actuel', 0).order('nom');
+      if (error) throw error;
       setProduits(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -143,38 +142,33 @@ export default function VentesPassagers() {
     const totalCogs = panier.reduce((sum, item) => sum + (Number(item.prixAchatHt || 0) * item.quantite), 0);
 
     try {
-      const res = await fetch('/api/ventes-passagers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          montantHt: totalHt,
-          montantTva: totalTva,
-          montantTtc: totalTtc,
-          cogs: totalCogs,
-          lignes: panier
-        })
-      });
+      const payload = {
+        montant_ht: totalHt,
+        montant_tva: totalTva,
+        montant_ttc: totalTtc,
+        cogs: totalCogs,
+        date: new Date().toISOString(),
+        lignes: panier
+      };
 
-      if (res.ok) {
-        toast.success('Vente enregistrée avec succès');
-        setIsDialogOpen(false);
-        setPanier([]);
-        fetchVentes();
-      } else {
-        toast.error('Erreur lors de l\'enregistrement');
-      }
+      const { error } = await supabase.from('ventes_passagers').insert([payload]);
+      if (error) throw error;
+      
+      toast.success('Vente enregistrée avec succès');
+      setIsDialogOpen(false);
+      setPanier([]);
+      fetchVentes();
     } catch (error) {
-      toast.error('Erreur réseau');
+      toast.error('Erreur lors de l\'enregistrement');
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/ventes-passagers/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('Vente supprimée');
-        fetchVentes();
-      }
+      const { error } = await supabase.from('ventes_passagers').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Vente supprimée');
+      fetchVentes();
     } catch (error) {
       toast.error('Erreur lors de la suppression');
     }

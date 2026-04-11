@@ -23,6 +23,7 @@ import {
 import { toast } from 'sonner';
 import { ProduitForm } from '@/components/forms/ProduitForm';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { supabase } from '@/lib/supabase';
 
 interface Produit {
   id: number;
@@ -51,9 +52,9 @@ export function ProduitsList() {
   const fetchProduits = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/produits');
-      const data = await res.json();
-      setProduits(data);
+      const { data, error } = await supabase.from('produits').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      setProduits(data || []);
     } catch (error) {
       console.error('Failed to fetch produits', error);
     } finally {
@@ -64,8 +65,8 @@ export function ProduitsList() {
   const handleDelete = async () => {
     if (!produitToDelete) return;
     try {
-      const res = await fetch(`/api/produits/${produitToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('produits').delete().eq('id', produitToDelete);
+      if (error) throw error;
       toast.success('Produit supprimé');
       fetchProduits();
     } catch (error) {

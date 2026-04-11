@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -77,18 +78,15 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [clientsRes, produitsRes, parametresRes] = await Promise.all([
-          fetch('/api/clients'),
-          fetch('/api/produits'),
-          fetch('/api/parametres'),
+        const [{ data: clientsData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
+          supabase.from('clients').select('*').order('nom'),
+          supabase.from('produits').select('*').order('nom'),
+          supabase.from('parametres').select('*').limit(1)
         ]);
-        const clientsData = await clientsRes.json();
-        const produitsData = await produitsRes.json();
-        const parametresData = await parametresRes.json();
         
-        setClients(clientsData);
-        setProduits(produitsData);
-        setParametres(parametresData);
+        setClients(clientsData || []);
+        setProduits(produitsData || []);
+        setParametres(parametresData?.[0] || null);
 
         if (initialData) {
           form.reset({
@@ -106,8 +104,8 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
               montantTtc: Number(l.montantTtc || 0)
             })) || []
           });
-        } else if (parametresData) {
-          form.setValue('notes', parametresData.piedPageDefaut || '');
+        } else if (parametresData?.[0]) {
+          form.setValue('notes', parametresData[0].pied_page_defaut || '');
         }
       } catch (error) {
         toast.error('Erreur lors du chargement des données');

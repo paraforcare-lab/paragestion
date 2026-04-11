@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const produitSchema = z.object({
   reference: z.string().optional(),
@@ -66,22 +67,29 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
 
       const payload = {
         ...data,
-        prixVenteTtc,
-        prixAchatTtc,
+        prix_vente_ht: data.prixVenteHt,
+        prix_vente_ttc: prixVenteTtc,
+        prix_achat_ht: data.prixAchatHt,
+        prix_achat_ttc: prixAchatTtc,
+        taux_tva: data.tauxTva,
+        stock_actuel: data.stockActuel,
+        stock_min: data.stockMin,
       };
+      
+      delete (payload as any).prixVenteHt;
+      delete (payload as any).prixVenteTtc;
+      delete (payload as any).prixAchatHt;
+      delete (payload as any).prixAchatTtc;
+      delete (payload as any).tauxTva;
+      delete (payload as any).stockActuel;
+      delete (payload as any).stockMin;
 
-      const url = initialData?.id ? `/api/produits/${initialData.id}` : '/api/produits';
-      const method = initialData?.id ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.details || errorData.error || 'Erreur lors de la sauvegarde');
+      if (initialData?.id) {
+        const { error } = await supabase.from('produits').update(payload).eq('id', initialData.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('produits').insert([payload]);
+        if (error) throw error;
       }
 
       toast.success('Produit enregistré avec succès');
