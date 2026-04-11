@@ -67,12 +67,24 @@ export function BonsCommandeList() {
     documentTitle: selectedBon ? `Bon_Commande_${selectedBon.numero}` : 'Bon_Commande',
   });
 
+  const mapBonCommande = (b: any) => ({
+    ...b,
+    numero: b.numero,
+    fournisseurId: b.fournisseur_id,
+    dateCommande: b.date_commande,
+    dateLivraisonPrevue: b.date_livraison_prevue,
+    montantHt: b.montant_ht,
+    montantTva: b.montant_tva,
+    montantTtc: b.montant_ttc,
+    statut: b.statut,
+  });
+
   const fetchBons = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('bons_commande').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setBons(Array.isArray(data) ? data : []);
+      setBons(Array.isArray(data) ? (data || []).map(mapBonCommande) : []);
     } catch (error) {
       console.error('Failed to fetch bons de commande', error);
       toast.error('Erreur lors du chargement');

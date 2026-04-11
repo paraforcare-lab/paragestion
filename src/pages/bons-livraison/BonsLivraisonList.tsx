@@ -67,12 +67,22 @@ export function BonsLivraisonList() {
     documentTitle: selectedBon ? `Bon_Livraison_${selectedBon.numero}` : 'Bon_Livraison',
   });
 
+  const mapBonLivraison = (b: any) => ({
+    ...b,
+    numero: b.numero,
+    fournisseurId: b.fournisseur_id,
+    date: b.date,
+    dateLivraison: b.date_livraison,
+    montantTtc: b.montant_ttc,
+    statut: b.statut,
+  });
+
   const fetchBons = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('bons_livraison').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setBons(Array.isArray(data) ? data : []);
+      setBons(Array.isArray(data) ? (data || []).map(mapBonLivraison) : []);
     } catch (error) {
       console.error('Failed to fetch bons de livraison', error);
       toast.error('Erreur lors du chargement');

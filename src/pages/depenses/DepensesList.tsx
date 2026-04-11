@@ -46,12 +46,25 @@ export function DepensesList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [depenseToDelete, setDepenseToDelete] = useState<number | null>(null);
 
+  const mapDepense = (d: any) => ({
+    ...d,
+    reference: d.reference,
+    categorie: d.categorie,
+    description: d.description,
+    montantHt: d.montant_ht,
+    montantTva: d.montant_tva,
+    montantTtc: d.montant_ttc,
+    dateDepense: d.date_depense,
+    modePaiement: d.mode_paiement,
+    fournisseurId: d.fournisseur_id,
+  });
+
   const fetchDepenses = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('depenses').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setDepenses(Array.isArray(data) ? data : []);
+      setDepenses(Array.isArray(data) ? (data || []).map(mapDepense) : []);
     } catch (error) {
       console.error('Failed to fetch depenses', error);
       setDepenses([]);

@@ -48,12 +48,22 @@ export function AvoirsList() {
     onAfterPrint: () => setPrintingAvoir(null),
   });
 
+  const mapAvoir = (a: any) => ({
+    ...a,
+    numero: a.numero,
+    factureId: a.facture_id,
+    clientId: a.client_id,
+    dateEmission: a.date_emission,
+    montantTtc: a.montant_ttc,
+    statut: a.statut,
+  });
+
   const fetchAvoirs = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('avoirs').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setAvoirs(Array.isArray(data) ? data : []);
+      setAvoirs(Array.isArray(data) ? (data || []).map(mapAvoir) : []);
     } catch (error) {
       console.error('Failed to fetch avoirs', error);
     } finally {

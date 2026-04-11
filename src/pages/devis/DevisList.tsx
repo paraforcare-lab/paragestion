@@ -67,12 +67,24 @@ export function DevisList() {
     onAfterPrint: () => setPrintingDevis(null),
   });
 
+  const mapDevis = (d: any) => ({
+    ...d,
+    numero: d.numero,
+    clientId: d.client_id,
+    dateEmission: d.date_emission,
+    dateValidite: d.date_validite,
+    montantHt: d.montant_ht,
+    montantTva: d.montant_tva,
+    montantTtc: d.montant_ttc,
+    statut: d.statut,
+  });
+
   const fetchDevis = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('devis').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setDevisList(Array.isArray(data) ? data : []);
+      setDevisList(Array.isArray(data) ? (data || []).map(mapDevis) : []);
     } catch (error) {
       console.error('Failed to fetch devis', error);
       toast.error('Erreur lors du chargement');

@@ -82,12 +82,27 @@ export function FacturesList() {
     onAfterPrint: () => setPrintingFacture(null),
   });
 
+  const mapFacture = (f: any) => ({
+    ...f,
+    numero: f.numero,
+    clientId: f.client_id,
+    client: f.client,
+    dateEmission: f.date_emission,
+    dateEcheance: f.date_echeance,
+    montantHt: f.montant_ht,
+    montantTva: f.montant_tva,
+    montantTtc: f.montant_ttc,
+    statut: f.statut,
+    resteAPayer: f.reste_a_payer,
+    modePaiement: f.mode_paiement,
+  });
+
   const fetchFactures = async () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('factures').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setFactures(Array.isArray(data) ? data : []);
+      setFactures(Array.isArray(data) ? (data || []).map(mapFacture) : []);
     } catch (error) {
       console.error('Failed to fetch factures', error);
       toast.error('Erreur lors du chargement des factures');
