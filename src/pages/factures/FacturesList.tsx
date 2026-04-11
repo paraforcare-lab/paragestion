@@ -100,9 +100,24 @@ export function FacturesList() {
   const fetchFactures = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('factures').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('factures').select('*, client:clients(*)').order('created_at', { ascending: false });
       if (error) throw error;
-      setFactures(Array.isArray(data) ? (data || []).map(mapFacture) : []);
+      
+      const mapped = (data || []).map((f: any) => ({
+        ...f,
+        clientId: f.client_id,
+        client: f.client,
+        dateEmission: f.date_emission,
+        dateEcheance: f.date_echeance,
+        montantHt: f.montant_ht,
+        montantTva: f.montant_tva,
+        montantTtc: f.montant_ttc,
+        statut: f.statut,
+        resteAPayer: f.reste_a_payer,
+        modePaiement: f.mode_paiement,
+      }));
+      
+      setFactures(mapped);
     } catch (error) {
       console.error('Failed to fetch factures', error);
       toast.error('Erreur lors du chargement des factures');
@@ -175,15 +190,28 @@ export function FacturesList() {
 
   const handleEdit = async (facture: Facture) => {
     try {
-      const { data, error } = await supabase.from('factures').select('*').eq('id', facture.id).single();
+      const { data, error } = await supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single();
       if (error) throw error;
-      data.dateEmission = data.date_emission?.split('T')[0];
-      if (data.date_echeance) data.date_echeance = data.date_echeance.split('T')[0];
-      data.clientId = data.client_id?.toString();
       
-      setEditingFacture(data);
+      // Map to camelCase for form
+      const mappedData = {
+        ...data,
+        client: data.client,
+        clientId: data.client_id,
+        dateEmission: data.date_emission?.split('T')[0],
+        dateEcheance: data.date_echeance?.split('T')[0],
+        montantHt: data.montant_ht,
+        montantTva: data.montant_tva,
+        montantTtc: data.montant_ttc,
+        statut: data.statut,
+        resteAPayer: data.reste_a_payer,
+        modePaiement: data.mode_paiement,
+      };
+      
+      setEditingFacture(mappedData);
       setShowForm(true);
     } catch (error) {
+      console.error('Error loading facture:', error);
       toast.error('Erreur lors du chargement de la facture');
     }
   };
