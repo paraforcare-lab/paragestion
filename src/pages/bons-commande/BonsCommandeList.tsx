@@ -150,11 +150,11 @@ export function BonsCommandeList() {
 
   const handleEdit = async (bon: BonCommande) => {
     try {
-      const res = await fetch(`/api/bons-commande/${bon.id}`);
-      const data = await res.json();
-      data.dateEmission = (data.dateCommande || data.date).split('T')[0];
-      if (data.dateLivraisonPrevue) data.dateLivraisonPrevue = data.dateLivraisonPrevue.split('T')[0];
-      data.fournisseurId = data.fournisseurId?.toString();
+      const { data, error } = await supabase.from('bons_commande').select('*').eq('id', bon.id).single();
+      if (error) throw error;
+      data.dateEmission = data.date_commande?.split('T')[0];
+      if (data.date_livraison_prevue) data.date_livraison_prevue = data.date_livraison_prevue.split('T')[0];
+      data.fournisseurId = data.fournisseur_id?.toString();
       
       setEditingBon(data);
       setIsDialogOpen(true);
@@ -166,9 +166,22 @@ export function BonsCommandeList() {
   const handleDownload = async (bon: BonCommande) => {
     try {
       toast.info('Préparation du PDF...');
-      const res = await fetch(`/api/bons-commande/${bon.id}`);
-      const data = await res.json();
-      setSelectedBon(data);
+      const { data, error } = await supabase.from('bons_commande').select('*, fournisseur:fournisseurs(*)').eq('id', bon.id).single();
+      if (error) throw error;
+      
+      const mappedBon = {
+        ...data,
+        numero: data.numero,
+        fournisseurId: data.fournisseur_id,
+        fournisseur: data.fournisseur,
+        dateCommande: data.date_commande,
+        dateLivraisonPrevue: data.date_livraison_prevue,
+        montantHt: data.montant_ht,
+        montantTva: data.montant_tva,
+        montantTtc: data.montant_ttc,
+        statut: data.statut,
+      };
+      setSelectedBon(mappedBon);
       setTimeout(() => handlePrint(), 100);
     } catch (error) {
       toast.error('Erreur lors du téléchargement');

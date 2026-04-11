@@ -130,12 +130,22 @@ export function BonsLivraisonList() {
     fetchEntreprise();
   }, [user]);
 
+  const mapBon = (b: any) => ({
+    ...b,
+    numero: b.numero,
+    fournisseurId: b.fournisseur_id,
+    date: b.date,
+    dateLivraison: b.date_livraison,
+    montantTtc: b.montant_ttc,
+    statut: b.statut,
+  });
+
   const handleDelete = async () => {
     if (!bonToDelete) return;
     
     try {
-      const res = await fetch(`/api/bons-livraison/${bonToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('bons_livraison').delete().eq('id', bonToDelete);
+      if (error) throw error;
       toast.success('Bon de livraison supprimé');
       fetchBons();
     } catch (error) {
@@ -148,16 +158,12 @@ export function BonsLivraisonList() {
 
   const handleEdit = async (bon: BonLivraison) => {
     try {
-      const res = await fetch(`/api/bons-livraison/${bon.id}`);
-      const data = await res.json();
+      const { data, error } = await supabase.from('bons_livraison').select('*').eq('id', bon.id).single();
+      if (error) throw error;
       
-      if (!res.ok || data.error) {
-        throw new Error(data.error || 'Erreur lors du chargement');
-      }
-      
-      const dateStr = data.dateLivraison || data.date;
+      const dateStr = data.date_livraison || data.date;
       data.dateEmission = dateStr ? dateStr.split('T')[0] : '';
-      data.fournisseurId = data.fournisseurId?.toString();
+      data.fournisseurId = data.fournisseur_id?.toString();
       
       setEditingBon(data);
       setIsDialogOpen(true);
@@ -169,17 +175,25 @@ export function BonsLivraisonList() {
   const handleDownload = async (bon: any) => {
     try {
       toast.info('Préparation du PDF...');
-      const res = await fetch(`/api/bons-livraison/${bon.id}`);
-      const data = await res.json();
+const { data, error } = await supabase.from('bons_livraison').select('*, fournisseur:fournisseurs(*)').eq('id', bon.id).single();
+      if (error) throw error;
       
-      if (!res.ok || data.error) {
-        throw new Error(data.error || data.message || 'Erreur lors du chargement');
-      }
-      
-      // Set data first, then wait for render, then print
-      setSelectedBon(null); // Clear previous
+      const mappedBon = {
+        ...data,
+        numero: data.numero,
+        fournisseurId: data.fournisseur_id,
+        fournisseur: data.fournisseur,
+        date: data.date,
+        dateLivraison: data.date_livraison,
+        montantHt: data.montant_ht,
+        montantTva: data.montant_tva,
+        montantTtc: data.montant_ttc,
+        statut: data.statut,
+      };
+       
+      setSelectedBon(null);
       setTimeout(() => {
-        setSelectedBon(data);
+        setSelectedBon(mappedBon);
         setTimeout(() => {
           handlePrint();
         }, 300);
@@ -192,13 +206,8 @@ export function BonsLivraisonList() {
 
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(`/api/bons-livraison/${id}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: newStatus }),
-      });
-
-      if (!res.ok) throw new Error('Failed to update status');
+      const { error } = await supabase.from('bons_livraison').update({ statut: newStatus }).eq('id', id);
+      if (error) throw error;
 
       toast.success('Statut mis à jour');
       fetchBons();

@@ -185,11 +185,11 @@ export function DevisList() {
 
   const handleEdit = async (devis: Devis) => {
     try {
-      const res = await fetch(`/api/devis/${devis.id}`);
-      const data = await res.json();
-      data.dateEmission = (data.dateEmission || data.date).split('T')[0];
-      if (data.dateValidite) data.dateValidite = data.dateValidite.split('T')[0];
-      data.clientId = data.clientId?.toString();
+      const { data, error } = await supabase.from('devis').select('*').eq('id', devis.id).single();
+      if (error) throw error;
+      data.dateEmission = data.date_emission?.split('T')[0];
+      if (data.date_validite) data.date_validite = data.date_validite.split('T')[0];
+      data.clientId = data.client_id?.toString();
       
       setEditingDevis(data);
       setIsDialogOpen(true);
@@ -201,9 +201,22 @@ export function DevisList() {
   const handleDownload = async (devis: Devis) => {
     try {
       toast.info('Préparation du PDF...');
-      const res = await fetch(`/api/devis/${devis.id}`);
-      const data = await res.json();
-      setPrintingDevis(data);
+      const { data, error } = await supabase.from('devis').select('*, client:clients(*)').eq('id', devis.id).single();
+      if (error) throw error;
+      
+      const mappedDevis = {
+        ...data,
+        numero: data.numero,
+        clientId: data.client_id,
+        client: data.client,
+        dateEmission: data.date_emission,
+        dateValidite: data.date_validite,
+        montantHt: data.montant_ht,
+        montantTva: data.montant_tva,
+        montantTtc: data.montant_ttc,
+        statut: data.statut,
+      };
+      setPrintingDevis(mappedDevis);
     } catch (error) {
       toast.error('Erreur lors du chargement des détails du devis');
     }
@@ -211,12 +224,8 @@ export function DevisList() {
 
   const handleStatusChange = async (id: number, newStatut: string) => {
     try {
-      const res = await fetch(`/api/devis/${id}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: newStatut })
-      });
-      if (!res.ok) throw new Error('Failed to update');
+      const { error } = await supabase.from('devis').update({ statut: newStatut }).eq('id', id);
+      if (error) throw error;
       toast.success('Statut mis à jour');
       fetchDevis();
     } catch (error) {

@@ -202,9 +202,24 @@ export function FacturesList() {
   const handleDownload = async (facture: Facture) => {
     try {
       toast.info('Préparation du PDF...');
-      const { data, error } = await supabase.from('factures').select('*').eq('id', facture.id).single();
+      const { data, error } = await supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single();
       if (error) throw error;
-      setPrintingFacture(data);
+      
+      const mappedFacture = {
+        ...data,
+        numero: data.numero,
+        clientId: data.client_id,
+        client: data.client,
+        dateEmission: data.date_emission,
+        dateEcheance: data.date_echeance,
+        montantHt: data.montant_ht,
+        montantTva: data.montant_tva,
+        montantTtc: data.montant_ttc,
+        statut: data.statut,
+        resteAPayer: data.reste_a_payer,
+        modePaiement: data.mode_paiement,
+      };
+      setPrintingFacture(mappedFacture);
     } catch (error) {
       toast.error('Erreur lors du chargement des détails de la facture');
     }
