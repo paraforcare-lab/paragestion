@@ -70,8 +70,8 @@ export function DevisList() {
   const fetchDevis = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/devis');
-      const data = await res.json();
+      const { data, error } = await supabase.from('devis').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setDevisList(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch devis', error);
@@ -128,8 +128,26 @@ export function DevisList() {
 
   const handleConvertToFacture = async (id: number) => {
     try {
-      const res = await fetch(`/api/devis/${id}/convert`, { method: 'POST' });
-      if (!res.ok) throw new Error('Conversion failed');
+      const { data: devis, error: fetchError } = await supabase.from('devis').select('*').eq('id', id).single();
+      if (fetchError || !devis) throw new Error('Devis not found');
+      
+      const payload = {
+        client_id: devis.client_id,
+        date_emission: new Date().toISOString(),
+        date_echeance: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        montant_ht: devis.montant_ht,
+        montant_tva: devis.montant_tva,
+        montant_ttc: devis.montant_ttc,
+        statut: 'en_attente',
+        reste_a_payer: devis.montant_ttc,
+        devis_id: id,
+      };
+      
+      const { error } = await supabase.from('factures').insert([payload]);
+      if (error) throw error;
+      
+      await supabase.from('devis').update({ statut: 'converti' }).eq('id', id);
+      
       toast.success('Devis converti en facture avec succès !');
       fetchDevis();
     } catch (error) {
@@ -141,8 +159,8 @@ export function DevisList() {
     if (!devisToDelete) return;
     
     try {
-      const res = await fetch(`/api/devis/${devisToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('devis').delete().eq('id', devisToDelete);
+      if (error) throw error;
       toast.success('Devis supprimé');
       fetchDevis();
     } catch (error) {

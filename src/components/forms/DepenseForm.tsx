@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const depenseSchema = z.object({
   categorie: z.string().min(1, 'La catégorie est requise'),
@@ -62,20 +63,13 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fournisseursRes, parametresRes] = await Promise.all([
-          fetch('/api/fournisseurs'),
-          fetch('/api/parametres'),
+        const [{ data: fournisseursData }, { data: parametresData }] = await Promise.all([
+          supabase.from('fournisseurs').select('*').order('nom'),
+          supabase.from('parametres').select('*').limit(1)
         ]);
-        let fournisseursData = await fournisseursRes.json();
-        const parametresData = await parametresRes.json();
-        
-        if (!Array.isArray(fournisseursData)) {
-          console.warn('Fournisseurs API error:', fournisseursData);
-          fournisseursData = [];
-        }
         
         setFournisseurs(fournisseursData || []);
-        setParametres(parametresData);
+        setParametres(parametresData?.[0] || null);
         
         if (initialData) {
           form.reset({
@@ -85,8 +79,8 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
             montantHt: Number(initialData.montantHt || 0),
             tva: Number(initialData.tva || 20)
           });
-        } else if (parametresData) {
-          form.setValue('notes', parametresData.piedPageDefaut || '');
+        } else if (parametresData?.[0]) {
+          form.setValue('notes', parametresData[0].pied_page_defaut || '');
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -105,26 +99,27 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
 
       const payload = {
         ...data,
-        montantHt: Number(data.montantHt),
-        montantTva: Number(montantTva),
-        montantTtc: Number(montantTtc),
-        dateDepense: new Date(data.dateDepense).toISOString(),
-        fournisseurId: (data.fournisseurId && data.fournisseurId !== 'none') ? Number(data.fournisseurId) : null,
+        montant_ht: Number(data.montantHt),
+        montant_tva: Number(montantTva),
+        montant_ttc: Number(montantTtc),
+        date_depense: new Date(data.dateDepense).toISOString(),
+        fournisseur_id: (data.fournisseurId && data.fournisseurId !== 'none') ? Number(data.fournisseurId) : null,
       };
       
-      // Remove tva from payload since it's not in the model
+      delete (payload as any).montantHt;
+      delete (payload as any).montantTva;
+      delete (payload as any).montantTtc;
+      delete (payload as any).dateDepense;
+      delete (payload as any).fournisseurId;
       delete (payload as any).tva;
 
-      const url = initialData ? `/api/depenses/${initialData.id}` : '/api/depenses';
-      const method = initialData ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error('Failed to save depense');
+      if (initialData?.id) {
+        const { error } = await supabase.from('depenses').update(payload).eq('id', initialData.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('depenses').insert([payload]);
+        if (error) throw error;
+      }
 
       toast.success(initialData ? 'Dépense modifiée' : 'Dépense ajoutée');
       onSuccess();

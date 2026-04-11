@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { ClientForm } from '@/components/forms/ClientForm';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface Client {
   id: number;
@@ -48,11 +49,9 @@ export function ClientsList() {
   const fetchClients = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/clients');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setClients(data);
-      }
+      const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      setClients(data || []);
     } catch (error) {
       console.error('Failed to fetch clients', error);
       toast.error('Erreur lors du chargement des clients');
@@ -64,8 +63,8 @@ export function ClientsList() {
   const handleDelete = async () => {
     if (!clientToDelete) return;
     try {
-      const res = await fetch(`/api/clients/${clientToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('clients').delete().eq('id', clientToDelete);
+      if (error) throw error;
       toast.success('Client supprimé avec succès');
       fetchClients();
     } catch (error) {

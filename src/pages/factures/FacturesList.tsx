@@ -85,9 +85,8 @@ export function FacturesList() {
   const fetchFactures = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/factures');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
+      const { data, error } = await supabase.from('factures').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setFactures(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch factures', error);
@@ -147,8 +146,8 @@ export function FacturesList() {
     if (!factureToDelete) return;
     
     try {
-      const res = await fetch(`/api/factures/${factureToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('factures').delete().eq('id', factureToDelete);
+      if (error) throw error;
       toast.success('Facture supprimée avec succès');
       fetchFactures();
     } catch (error) {
@@ -161,11 +160,11 @@ export function FacturesList() {
 
   const handleEdit = async (facture: Facture) => {
     try {
-      const res = await fetch(`/api/factures/${facture.id}`);
-      const data = await res.json();
-      data.dateEmission = data.dateEmission?.split('T')[0];
-      if (data.dateEcheance) data.dateEcheance = data.dateEcheance.split('T')[0];
-      data.clientId = data.clientId?.toString();
+      const { data, error } = await supabase.from('factures').select('*').eq('id', facture.id).single();
+      if (error) throw error;
+      data.dateEmission = data.date_emission?.split('T')[0];
+      if (data.date_echeance) data.date_echeance = data.date_echeance.split('T')[0];
+      data.clientId = data.client_id?.toString();
       
       setEditingFacture(data);
       setShowForm(true);
@@ -176,12 +175,8 @@ export function FacturesList() {
 
   const handleMarkAsPaid = async (id: number) => {
     try {
-      const res = await fetch(`/api/factures/${id}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: 'payée' })
-      });
-      if (!res.ok) throw new Error('Failed to update');
+      const { error } = await supabase.from('factures').update({ statut: 'payée', reste_a_payer: 0 }).eq('id', id);
+      if (error) throw error;
       toast.success('Facture marquée comme payée');
       fetchFactures();
     } catch (error) {
@@ -192,8 +187,8 @@ export function FacturesList() {
   const handleDownload = async (facture: Facture) => {
     try {
       toast.info('Préparation du PDF...');
-      const res = await fetch(`/api/factures/${facture.id}`);
-      const data = await res.json();
+      const { data, error } = await supabase.from('factures').select('*').eq('id', facture.id).single();
+      if (error) throw error;
       setPrintingFacture(data);
     } catch (error) {
       toast.error('Erreur lors du chargement des détails de la facture');
@@ -202,12 +197,12 @@ export function FacturesList() {
 
   const handleStatusChange = async (id: number, newStatut: string) => {
     try {
-      const res = await fetch(`/api/factures/${id}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: newStatut })
-      });
-      if (!res.ok) throw new Error('Failed to update');
+      const updateData: any = { statut: newStatut };
+      if (newStatut === 'payée') {
+        updateData.reste_a_payer = 0;
+      }
+      const { error } = await supabase.from('factures').update(updateData).eq('id', id);
+      if (error) throw error;
       toast.success('Statut mis à jour');
       fetchFactures();
     } catch (error) {

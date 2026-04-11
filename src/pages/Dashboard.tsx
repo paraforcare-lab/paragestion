@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/lib/supabase';
 
 interface Stats {
   clientsCount: number;
@@ -127,9 +128,103 @@ export function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('/api/dashboard-data');
-        const data = await res.json();
-        setStats(data);
+        const [{ data: factures }, { data: ventesPassagers }, { data: depenses }, { data: produits }, { data: clients }, { data: recentFactures }] = await Promise.all([
+          supabase.from('factures').select('*').in('statut', ['payée', 'reste_a_payer', 'annulée']),
+          supabase.from('ventes_passagers').select('*'),
+          supabase.from('depenses').select('*'),
+          supabase.from('produits').select('*'),
+          supabase.from('clients').select('*'),
+          supabase.from('factures').select('*, client:clients(*)').order('date_emission', { ascending: false }).limit(5)
+        ]);
+
+        const tvaFactures = (factures || []).reduce((sum, f) => {
+          const val = Number(f.montant_tva || 0);
+          return sum + (f.statut === 'annulée' ? -val : val);
+        }, 0);
+        const tvaVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_tva || 0), 0);
+        const totalTvaCollectee = tvaFactures + tvaVP;
+
+        const tvaDepenses = (depenses || []).reduce((sum, d) => sum + Number(d.montant_tva || 0), 0);
+        const totalTvaDeductible = tvaDepenses;
+        const tvaNet = totalTvaCollectee - totalTvaDeductible;
+
+        const ventesHT = (factures || []).reduce((sum, f) => {
+          const val = Number(f.montant_ht || 0);
+          return sum + (f.statut === 'annulée' ? -val : val);
+        }, 0) + (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ht || 0), 0);
+
+        const cogsFactures = (factures || []).reduce((sum, f) => {
+          const val = Number(f.cogs || 0);
+          return sum + (f.statut === 'annulée' ? -val : val);
+        }, 0);
+        const cogsVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.cogs || 0), 0);
+        const totalCOGS = cogsFactures + cogsVP;
+
+        const totalDepensesHT = (depenses || []).reduce((sum, d) => sum + Number(d.montant_ht || 0), 0);
+        const profit = ventesHT - totalCOGS - totalDepensesHT;
+
+        const totalRevenue = (factures || []).reduce((sum, f) => {
+          const val = Number(f.montant_ttc || 0);
+          return sum + (f.statut === 'annulée' ? -val : val);
+        }, 0) + (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0);
+
+        const unpaidRevenue = (factures || []).filter(f => f.statut === 'reste_a_payer').reduce((sum, f) => sum + Number(f.reste_a_payer || 0), 0);
+
+        const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+        const monthlyData = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const month = d.getMonth();
+          const year = d.getFullYear();
+
+          const monthFactures = (factures || []).filter(f => {
+            const fDate = new Date(f.date_emission);
+            return fDate.getMonth() === month && fDate.getFullYear() === year;
+          });
+
+          const monthVP = (ventesPassagers || []).filter(vp => {
+            const vpDate = new Date(vp.date);
+            return vpDate.getMonth() === month && vpDate.getFullYear() === year;
+          });
+
+          const monthDepenses = (depenses || []).filter(d => {
+            const dDate = new Date(d.date_depense);
+            return dDate.getMonth() === month && dDate.getFullYear() === year;
+          });
+
+          monthlyData.push({
+            name: monthNames[month],
+            revenue: monthFactures.reduce((sum, f) => {
+              const val = Number(f.montant_ttc || 0);
+              return sum + (f.statut === 'annulée' ? -val : val);
+            }, 0) + monthVP.reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0),
+            expenses: monthDepenses.reduce((sum, d) => sum + Number(d.montant_ttc || 0), 0)
+          });
+        }
+
+        const lowStockProduits = (produits || [])
+          .filter(p => Number(p.stock_actuel) <= Number(p.stock_min))
+          .slice(0, 5);
+
+        setStats({
+          clientsCount: clients?.length || 0,
+          facturesCount: (factures || []).filter(f => f.statut === 'payée' || f.statut === 'reste_a_payer').length,
+          produitsCount: produits?.length || 0,
+          totalRevenue,
+          unpaidRevenue,
+          totalDepenses: (depenses || []).reduce((sum, d) => sum + Number(d.montant_ttc), 0),
+          profit,
+          totalTvaCollectee,
+          totalTvaDeductible,
+          tvaNet,
+          ventesHT,
+          totalCOGS,
+          stockValueHT: 0,
+          monthlyData,
+          lowStockProduits,
+          recentFactures: recentFactures || []
+        });
       } catch (error) {
         console.error('Failed to fetch stats', error);
       } finally {

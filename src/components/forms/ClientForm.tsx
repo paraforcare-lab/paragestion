@@ -22,6 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Building2, User, Mail, Phone, MapPin, CreditCard, Save, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const clientSchema = z.object({
   nom: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
@@ -96,18 +97,13 @@ export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
   async function onSubmit(data: ClientFormValues) {
     try {
       const isEditing = initialData?.id;
-      const url = isEditing ? `/api/clients/${initialData.id}` : '/api/clients';
-      const method = isEditing ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Erreur lors de la sauvegarde');
+      if (isEditing) {
+        const { error } = await supabase.from('clients').update(data).eq('id', initialData.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('clients').insert([data]);
+        if (error) throw error;
       }
 
       toast.success(isEditing ? 'Client modifié avec succès' : 'Client créé avec succès');

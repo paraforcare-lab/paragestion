@@ -24,6 +24,7 @@ import {
 import { DepenseForm } from '@/components/forms/DepenseForm';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { supabase } from '@/lib/supabase';
 
 interface Depense {
   id: number;
@@ -48,8 +49,8 @@ export function DepensesList() {
   const fetchDepenses = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/depenses');
-      const data = await res.json();
+      const { data, error } = await supabase.from('depenses').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setDepenses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch depenses', error);
@@ -67,8 +68,8 @@ export function DepensesList() {
     if (!depenseToDelete) return;
     
     try {
-      const res = await fetch(`/api/depenses/${depenseToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('depenses').delete().eq('id', depenseToDelete);
+      if (error) throw error;
       toast.success('Dépense supprimée');
       fetchDepenses();
     } catch (error) {

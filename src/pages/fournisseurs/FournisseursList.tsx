@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { FournisseurForm } from '@/components/forms/FournisseurForm';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface Fournisseur {
   id: number;
@@ -49,9 +50,8 @@ export function FournisseursList() {
   const fetchFournisseurs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/fournisseurs');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const data = await res.json();
+      const { data, error } = await supabase.from('fournisseurs').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
       setFournisseurs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to fetch fournisseurs', error);
@@ -65,8 +65,8 @@ export function FournisseursList() {
   const handleDelete = async () => {
     if (!fournisseurToDelete) return;
     try {
-      const res = await fetch(`/api/fournisseurs/${fournisseurToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('fournisseurs').delete().eq('id', fournisseurToDelete);
+      if (error) throw error;
       toast.success('Fournisseur supprimé avec succès');
       fetchFournisseurs();
     } catch (error) {

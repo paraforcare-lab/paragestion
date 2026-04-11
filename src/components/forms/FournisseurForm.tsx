@@ -22,6 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Building2, User, Mail, Phone, MapPin, CreditCard, Save, Loader2, Truck } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const fournisseurSchema = z.object({
   nom: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
@@ -95,18 +96,13 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
   async function onSubmit(data: FournisseurFormValues) {
     try {
       const isEditing = initialData?.id;
-      const url = isEditing ? `/api/fournisseurs/${initialData.id}` : '/api/fournisseurs';
-      const method = isEditing ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Erreur lors de la sauvegarde');
+      if (isEditing) {
+        const { error } = await supabase.from('fournisseurs').update(data).eq('id', initialData.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('fournisseurs').insert([data]);
+        if (error) throw error;
       }
 
       toast.success(isEditing ? 'Fournisseur modifié avec succès' : 'Fournisseur créé avec succès');
