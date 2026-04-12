@@ -153,49 +153,26 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
   const onSubmit = async (data: FactureFormValues) => {
     setIsLoading(true);
     try {
-      // Prepare data for API
       const payload = {
-        clientId: data.clientId === 'none' ? null : parseInt(data.clientId),
-        dateEmission: new Date(data.dateEmission).toISOString(),
-        dateEcheance: data.dateEcheance ? new Date(data.dateEcheance).toISOString() : null,
+        client_id: data.clientId === 'none' ? null : parseInt(data.clientId),
+        date_emission: new Date(data.dateEmission).toISOString(),
+        date_echeance: data.dateEcheance ? new Date(data.dateEcheance).toISOString() : null,
         statut: data.statut,
-        modePaiement: data.modePaiement,
+        mode_paiement: data.modePaiement,
         notes: data.notes,
-        conditionsPaiement: data.conditionsPaiement,
-        montantHt: totals.ht,
-        montantTva: totals.tva,
-        montantTtc: totals.ttc,
-        resteAPayer: data.resteAPayer !== undefined ? data.resteAPayer : totals.ttc,
-        lignes: data.lignes.map((ligne, index) => {
-          const montantHt = ligne.quantite * ligne.prixUnitaireHt;
-          const montantTva = montantHt * (ligne.tva / 100);
-          const montantTtc = montantHt + montantTva;
-          return {
-            produit_id: (ligne.produitId && ligne.produitId !== 'none') ? parseInt(ligne.produitId) : null,
-            reference: ligne.reference,
-            description: ligne.designation,
-            quantite: ligne.quantite,
-            prix_unitaire: ligne.prixUnitaireHt,
-            tva: ligne.tva,
-            montant_ht: montantHt,
-            montant_ttc: montantTtc,
-            ordre: index,
-          };
-        }),
+        conditions_paiement: data.conditionsPaiement,
+        montant_ht: totals.ht,
+        montant_tva: totals.tva,
+        montant_ttc: totals.ttc,
+        reste_a_payer: data.resteAPayer !== undefined ? data.resteAPayer : totals.ttc,
       };
 
-      const url = initialData ? `/api/factures/${initialData.id}` : '/api/factures';
-      const method = initialData ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Erreur lors de l\'enregistrement');
+      if (initialData?.id) {
+        const { error } = await supabase.from('factures').update(payload).eq('id', initialData.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('factures').insert([payload]);
+        if (error) throw error;
       }
 
       toast.success(initialData ? 'Facture modifiée' : 'Facture créée');
