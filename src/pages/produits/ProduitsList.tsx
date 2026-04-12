@@ -85,13 +85,7 @@ export function ProduitsList() {
     try {
       const productId = Number(produitToDelete);
       
-      // Delete related records from all tables
-      await supabase.from('facture_lignes').delete().eq('produit_id', productId);
-      await supabase.from('bon_livraison_lignes').delete().eq('produit_id', productId);
-      await supabase.from('bon_commande_lignes').delete().eq('produit_id', productId);
-      await supabase.from('devis_lignes').delete().eq('produit_id', productId);
-      
-      // Then delete the product
+      // Delete the product (cascade will handle related records)
       const { error } = await supabase.from('produits').delete().eq('id', productId);
       if (error) throw error;
       
