@@ -143,6 +143,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 <th className="py-4 px-5 text-left rounded-tl-2xl">Désignation</th>
                 <th className="py-4 px-4 text-center">Qté</th>
                 <th className="py-4 px-4 text-right">Prix HT</th>
+                <th className="py-4 px-4 text-right">Prix TTC</th>
                 <th className="py-4 px-4 text-right">TVA</th>
                 <th className="py-4 px-4 text-right rounded-tr-2xl">Total HT</th>
               </tr>
@@ -168,7 +169,10 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                     </span>
                   </td>
                   <td className="py-4 px-4 text-right">
-                    <p className="font-semibold text-gray-700">{formatCurrency(ligne.prixUnitaireHt)}</p>
+                    <p className="font-semibold text-gray-700">{formatCurrency(ligne.prix_unitaire_ht)}</p>
+                  </td>
+                  <td className="py-4 px-4 text-right">
+                    <p className="font-semibold text-gray-700">{formatCurrency(ligne.montant_ttc / ligne.quantite)}</p>
                   </td>
                   <td className="py-4 px-4 text-right">
                     <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary">
@@ -176,13 +180,13 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                     </span>
                   </td>
                   <td className="py-4 px-4 text-right">
-                    <p className="font-bold text-gray-800">{formatCurrency(ligne.montantHt)}</p>
+                    <p className="font-bold text-gray-800">{formatCurrency(ligne.montant_ht)}</p>
                   </td>
                 </tr>
               ))}
               {(!facture.lignes || facture.lignes.length === 0) && (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-400">
+                  <td colSpan={6} className="py-12 text-center text-gray-400">
                     Aucun article
                   </td>
                 </tr>
@@ -204,17 +208,17 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
               <div className="divide-y divide-gray-100">
                 <div className="flex justify-between items-center py-3 px-4">
                   <span className="text-gray-600">Total HT</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(facture.montantHt)}</span>
+                  <span className="font-semibold text-gray-800">{formatCurrency(facture.montant_ht)}</span>
                 </div>
                 <div className="flex justify-between items-center py-3 px-4">
                   <span className="text-gray-600">TVA (20%)</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(facture.montantTva)}</span>
+                  <span className="font-semibold text-gray-800">{formatCurrency(facture.montant_tva)}</span>
                 </div>
-                {facture.modePaiement === 'Espèces' && (
+                {facture.mode_paiement === 'Espèces' && (
                   <div className="flex justify-between items-center py-3 px-4">
                     <span className="text-gray-600">Droit de Timbre</span>
                     <span className="font-semibold text-gray-800">
-                      {formatCurrency((Number(facture.montantHt) + Number(facture.montantTva)) * 0.0025)}
+                      {formatCurrency((Number(facture.montant_ht) + Number(facture.montant_tva)) * 0.0025)}
                     </span>
                   </div>
                 )}
@@ -223,7 +227,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                   style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
                 >
                   <span>Total TTC</span>
-                  <span>{formatCurrency(facture.montantTtc)}</span>
+                  <span>{formatCurrency(facture.montant_ttc)}</span>
                 </div>
               </div>
             </div>

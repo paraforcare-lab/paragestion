@@ -269,22 +269,28 @@ export function FacturesList() {
   const handleDownload = async (facture: Facture) => {
     try {
       toast.info('Préparation du PDF...');
-      const { data, error } = await supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single();
+      
+      // Fetch facture with client
+      const { data: factureData, error } = await supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single();
       if (error) throw error;
       
+      // Fetch lignes
+      const { data: lignesData } = await supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre');
+      
       const mappedFacture = {
-        ...data,
-        numero: data.numero,
-        clientId: data.client_id,
-        client: data.client,
-        dateEmission: data.date_emission,
-        dateEcheance: data.date_echeance,
-        montantHt: data.montant_ht,
-        montantTva: data.montant_tva,
-        montantTtc: data.montant_ttc,
-        statut: data.statut,
-        resteAPayer: data.reste_a_payer,
-        modePaiement: data.mode_paiement,
+        ...factureData,
+        numero: factureData.numero,
+        clientId: factureData.client_id,
+        client: factureData.client,
+        dateEmission: factureData.date_emission,
+        dateEcheance: factureData.date_echeance,
+        montantHt: factureData.montant_ht,
+        montantTva: factureData.montant_tva,
+        montantTtc: factureData.montant_ttc,
+        statut: factureData.statut,
+        resteAPayer: factureData.reste_a_payer,
+        modePaiement: factureData.mode_paiement,
+        lignes: lignesData || [],
       };
       setPrintingFacture(mappedFacture);
     } catch (error) {

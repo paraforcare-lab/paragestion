@@ -153,33 +153,65 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
   const onSubmit = async (data: FactureFormValues) => {
     setIsLoading(true);
     try {
+      // Generate invoice number: FAC-2026-0001
+      const year = new Date().getFullYear();
+      const randomNum = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+      const invoiceNum = `FAC-${year}-${randomNum}`;
+
       const payload = {
-        client_id: data.clientId === 'none' ? null : parseInt(data.clientId),
+        client_id: data.clientId === 'none' ? null : Number(data.clientId),
         date_emission: new Date(data.dateEmission).toISOString(),
         date_echeance: data.dateEcheance ? new Date(data.dateEcheance).toISOString() : null,
-        statut: data.statut,
-        mode_paiement: data.modePaiement,
-        notes: data.notes,
-        conditions_paiement: data.conditionsPaiement,
-        montant_ht: totals.ht,
-        montant_tva: totals.tva,
-        montant_ttc: totals.ttc,
-        reste_a_payer: data.resteAPayer !== undefined ? data.resteAPayer : totals.ttc,
+        numero: invoiceNum,
+        statut: data.statut || 'brouillon',
+        mode_paiement: data.modePaiement || 'Virement',
+        notes: data.notes || '',
+        conditions_paiement: data.conditionsPaiement || '',
+        montant_ht: Number(totals.ht) || 0,
+        montant_tva: Number(totals.tva) || 0,
+        montant_ttc: Number(totals.ttc) || 0,
+        reste_a_payer: Number(data.resteAPayer) || Number(totals.ttc) || 0,
       };
 
-      if (initialData?.id) {
-        const { error } = await supabase.from('factures').update(payload).eq('id', initialData.id);
+      let factureId = initialData?.id;
+
+      if (!factureId) {
+        // Create new facture
+        const { data: newFacture, error } = await supabase.from('factures').insert([payload]).select().single();
         if (error) throw error;
+        factureId = newFacture.id;
       } else {
-        const { error } = await supabase.from('factures').insert([payload]);
+        // Update existing facture
+        const { error } = await supabase.from('factures').update(payload).eq('id', factureId);
         if (error) throw error;
+        
+        // Delete old lignes
+        await supabase.from('facture_lignes').delete().eq('facture_id', factureId);
+      }
+
+      // Insert lignes
+      const lignesPayload = (data.lignes || []).map((ligne: any, index: number) => ({
+        facture_id: Number(factureId),
+        produit_id: ligne.produitId ? Number(ligne.produitId) : null,
+        designation: ligne.designation || 'Article sans désignation',
+        quantite: Number(ligne.quantite) || 1,
+        prix_unitaire_ht: Number(ligne.prixUnitaireHt) || 0,
+        tva: Number(ligne.tva) || 20,
+        montant_ht: Number(ligne.prixUnitaireHt || 0) * Number(ligne.quantite || 1) || 0,
+        montant_ttc: (Number(ligne.prixUnitaireHt || 0) * Number(ligne.quantite || 1)) * (1 + Number(ligne.tva || 20) / 100) || 0,
+        ordre: index,
+      }));
+
+      if (lignesPayload.length > 0) {
+        const { error: lignesError } = await supabase.from('facture_lignes').insert(lignesPayload);
+        if (lignesError) throw lignesError;
       }
 
       toast.success(initialData ? 'Facture modifiée' : 'Facture créée');
       onSuccess();
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : 'Une erreur est survenue');
+    } catch (error: any) {
+      console.error('Facture save error:', error);
+      toast.error(error.message || 'Une erreur est survenue');
     } finally {
       setIsLoading(false);
     }
@@ -190,9 +222,9 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     if (produit) {
       form.setValue(`lignes.${index}.produitId`, produit.id.toString());
       form.setValue(`lignes.${index}.reference`, produit.reference || '');
-      form.setValue(`lignes.${index}.designation`, produit.nom || '');
-      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt));
-      form.setValue(`lignes.${index}.tva`, Number(produit.tauxTva || 20));
+      form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
+      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt || produit.prix_vente_ht || 0));
+      form.setValue(`lignes.${index}.tva`, Number(produit.tauxTva || produit.tva || 20));
     }
   };
 
