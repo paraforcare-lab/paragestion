@@ -62,34 +62,41 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
 
   async function onSubmit(data: ProduitFormValues) {
     try {
-      const prixVenteTtc = data.prixVenteHt * (1 + data.tauxTva / 100);
-      const prixAchatTtc = data.prixAchatHt * (1 + data.tauxTva / 100);
+      const prixVenteHT = Number(data.prixVenteHt) || 0;
+      const prixAchatHT = Number(data.prixAchatHt) || 0;
+      const tauxTVA = Number(data.tauxTva) || 20;
+      const prixVenteTTC = prixVenteHT * (1 + tauxTVA / 100);
+      const prixAchatTTC = prixAchatHT * (1 + tauxTVA / 100);
+      const stockActuel = Number(data.stockActuel) || 0;
+      const stockMin = Number(data.stockMin) || 5;
 
       const payload = {
-        ...data,
-        prix_vente_ht: data.prixVenteHt,
-        prix_vente_ttc: prixVenteTtc,
-        prix_achat_ht: data.prixAchatHt,
-        prix_achat_ttc: prixAchatTtc,
-        taux_tva: data.tauxTva,
-        stock_actuel: data.stockActuel,
-        stock_min: data.stockMin,
+        reference: data.reference?.trim() || null,
+        nom: data.nom?.trim() || null,
+        designation: data.nom?.trim() || null,
+        marque: data.marque?.trim() || null,
+        barcode: data.barcode?.trim() || null,
+        description: data.description?.trim() || null,
+        prix_vente_ht: prixVenteHT,
+        prix_vente_ttc: prixVenteTTC,
+        prix_achat_ht: prixAchatHT,
+        prix_achat_ttc: prixAchatTTC,
+        taux_tva: tauxTVA,
+        stock_actuel: stockActuel,
+        stock_min: stockMin,
+        unite: data.unite?.trim() || 'unité',
       };
-      
-      delete (payload as any).prixVenteHt;
-      delete (payload as any).prixVenteTtc;
-      delete (payload as any).prixAchatHt;
-      delete (payload as any).prixAchatTtc;
-      delete (payload as any).tauxTva;
-      delete (payload as any).stockActuel;
-      delete (payload as any).stockMin;
 
+      let result;
       if (initialData?.id) {
-        const { error } = await supabase.from('produits').update(payload).eq('id', initialData.id);
-        if (error) throw error;
+        result = await supabase.from('produits').update(payload).eq('id', initialData.id).select();
       } else {
-        const { error } = await supabase.from('produits').insert([payload]);
-        if (error) throw error;
+        result = await supabase.from('produits').insert([payload]).select();
+      }
+
+      if (result.error) {
+        console.error('Supabase error:', result.error);
+        throw new Error(result.error.message);
       }
 
       toast.success('Produit enregistré avec succès');

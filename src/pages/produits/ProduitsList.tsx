@@ -49,12 +49,30 @@ export function ProduitsList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [produitToDelete, setProduitToDelete] = useState<number | null>(null);
 
+  const mapProduit = (p: any) => ({
+    ...p,
+    id: p.id,
+    reference: p.reference || '',
+    nom: p.designation || p.nom || '',
+    designation: p.designation || p.nom || '',
+    marque: p.marque || '',
+    barcode: p.barcode || '',
+    prixVenteHt: Number(p.prix_vente_ht || 0),
+    prixAchatHt: Number(p.prix_achat_ht || 0),
+    prixVenteTtc: Number(p.prix_vente_ttc || 0),
+    prixAchatTtc: Number(p.prix_achat_ttc || 0),
+    tauxTva: Number(p.taux_tva || 20),
+    stockActuel: Number(p.stock_actuel || 0),
+    stockMin: Number(p.stock_min || 0),
+    unite: p.unite || '',
+  });
+
   const fetchProduits = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('produits').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('produits').select('*').order('nom');
       if (error) throw error;
-      setProduits(data || []);
+      setProduits((data || []).map(mapProduit));
     } catch (error) {
       console.error('Failed to fetch produits', error);
     } finally {
@@ -65,12 +83,23 @@ export function ProduitsList() {
   const handleDelete = async () => {
     if (!produitToDelete) return;
     try {
-      const { error } = await supabase.from('produits').delete().eq('id', produitToDelete);
+      const productId = Number(produitToDelete);
+      
+      // Delete related records from all tables
+      await supabase.from('facture_lignes').delete().eq('produit_id', productId);
+      await supabase.from('bon_livraison_lignes').delete().eq('produit_id', productId);
+      await supabase.from('bon_commande_lignes').delete().eq('produit_id', productId);
+      await supabase.from('devis_lignes').delete().eq('produit_id', productId);
+      
+      // Then delete the product
+      const { error } = await supabase.from('produits').delete().eq('id', productId);
       if (error) throw error;
+      
       toast.success('Produit supprimé');
       fetchProduits();
-    } catch (error) {
-      toast.error('Erreur lors de la suppression');
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast.error(error.message || 'Erreur lors de la suppression');
     } finally {
       setDeleteConfirmOpen(false);
       setProduitToDelete(null);
@@ -87,7 +116,7 @@ export function ProduitsList() {
   }, []);
 
   const filteredProduits = produits.filter((produit) =>
-    produit.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    produit.designation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     produit.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     produit.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     produit.marque?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -198,7 +227,7 @@ export function ProduitsList() {
                   <TableCell className="font-mono text-xs text-slate-500">{produit.reference}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium text-slate-900">{produit.nom || '-'}</span>
+                      <span className="font-medium text-slate-900">{produit.designation || '-'}</span>
                       {produit.marque && (
                         <span className="text-xs text-slate-500 italic">{produit.marque}</span>
                       )}

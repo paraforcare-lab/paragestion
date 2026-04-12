@@ -190,22 +190,61 @@ export function FacturesList() {
 
   const handleEdit = async (facture: Facture) => {
     try {
-      const { data, error } = await supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single();
-      if (error) throw error;
+      // First fetch all needed data in parallel
+      const [factureResult, clientResult, lignesResult] = await Promise.all([
+        supabase.from('factures').select('*').eq('id', facture.id).single(),
+        supabase.from('clients').select('*').eq('id', facture.client_id).single(),
+        supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre')
+      ]);
+      
+      const { data: factureData, error: fError } = factureResult;
+      if (fError) throw fError;
+      
+      const { data: clientData } = clientResult;
+      const { data: lignesData } = lignesResult;
+      
+      // Fetch all products at once for the lines
+      const productIds = (lignesData || []).map((l: any) => l.produit_id).filter(Boolean);
+      let produitsMap: any = {};
+      if (productIds.length > 0) {
+        const { data: produitsData } = await supabase.from('produits').select('*').in('id', productIds);
+        (produitsData || []).forEach((p: any) => {
+          produitsMap[p.id] = p;
+        });
+      }
+      
+      // Map lignes with product details
+      const mappedLignes = (lignesData || []).map((l: any) => {
+        const produit = produitsMap[l.produit_id];
+        return {
+          id: l.id,
+          produitId: String(l.produit_id || ''),
+          reference: l.reference || produit?.reference || '',
+          designation: l.description || produit?.nom || '',
+          quantite: l.quantite || 1,
+          prixUnitaireHt: Number(l.prix_unitaire || produit?.prix_vente_ht || 0),
+          tva: Number(l.tva || produit?.taux_tva || 20),
+          montantHt: Number(l.montant_ht || 0),
+          montantTtc: Number(l.montant_ttc || 0),
+        };
+      });
       
       // Map to camelCase for form
       const mappedData = {
-        ...data,
-        client: data.client,
-        clientId: data.client_id,
-        dateEmission: data.date_emission?.split('T')[0],
-        dateEcheance: data.date_echeance?.split('T')[0],
-        montantHt: data.montant_ht,
-        montantTva: data.montant_tva,
-        montantTtc: data.montant_ttc,
-        statut: data.statut,
-        resteAPayer: data.reste_a_payer,
-        modePaiement: data.mode_paiement,
+        ...factureData,
+        client: clientData,
+        clientId: String(factureData?.client_id || ''),
+        dateEmission: factureData?.date_emission?.split('T')[0] || new Date().toISOString().split('T')[0],
+        dateEcheance: factureData?.date_echeance?.split('T')[0] || '',
+        montantHt: Number(factureData?.montant_ht || 0),
+        montantTva: Number(factureData?.montant_tva || 0),
+        montantTtc: Number(factureData?.montant_ttc || 0),
+        statut: factureData?.statut || 'brouillon',
+        resteAPayer: Number(factureData?.reste_a_payer || 0),
+        modePaiement: factureData?.mode_paiement || 'Virement',
+        notes: factureData?.notes || '',
+        conditionsPaiement: factureData?.conditions_paiement || '',
+        lignes: mappedLignes,
       };
       
       setEditingFacture(mappedData);

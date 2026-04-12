@@ -320,10 +320,10 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
                         <SelectTrigger className="h-9 bg-white border-slate-200">
                           <SelectValue placeholder="Choisir..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[400px] overflow-y-auto">
                           {produits.map((p) => (
                             <SelectItem key={p.id} value={p.id.toString()}>
-                              {p.nom || '-'}
+                              {p.nom || p.reference || '-'}
                             </SelectItem>
                           ))}
                         </SelectContent>
