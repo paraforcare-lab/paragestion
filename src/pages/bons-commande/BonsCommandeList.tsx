@@ -284,6 +284,7 @@ export function BonsCommandeList() {
   const totalBons = bons.length;
   const bonsConfirmes = bons.filter(b => ['confirmé', 'livré'].includes(b.statut)).length;
   const bonsEnAttente = bons.filter(b => ['brouillon', 'envoyé'].includes(b.statut)).length;
+  const totalMontant = filteredBons.reduce((sum, b) => sum + (b.montantTtc || b.montant_ttc || 0), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -328,6 +329,11 @@ export function BonsCommandeList() {
           <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-amber-50/50 to-transparent">
             <p className="text-2xl font-black text-amber-600">{bonsEnAttente}</p>
             <p className="text-xs text-muted-foreground font-medium">En attente</p>
+          </div>
+          <div className="h-10 w-px bg-border" />
+          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary/10 to-transparent">
+            <p className="text-2xl font-black text-primary">{formatCurrency(totalMontant)}</p>
+            <p className="text-xs text-muted-foreground font-medium">Montant Total</p>
           </div>
         </div>
 
