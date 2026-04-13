@@ -193,7 +193,7 @@ export function FacturesList() {
       // First fetch all needed data in parallel
       const [factureResult, clientResult, lignesResult] = await Promise.all([
         supabase.from('factures').select('*').eq('id', facture.id).single(),
-        supabase.from('clients').select('*').eq('id', facture.client_id).single(),
+        supabase.from('clients').select('*').eq('id', facture.clientId).single(),
         supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre')
       ]);
       
@@ -266,6 +266,77 @@ export function FacturesList() {
     }
   };
 
+  const handleAnnuler = async (facture: Facture) => {
+    try {
+      const { data: factureData, error: fetchError } = await supabase
+        .from('factures')
+        .select('*, client:clients(*)')
+        .eq('id', facture.id)
+        .single();
+      
+      if (fetchError || !factureData) throw new Error('Facture non trouvée');
+
+      const { data: lignesData } = await supabase
+        .from('facture_lignes')
+        .select('*')
+        .eq('facture_id', facture.id)
+        .order('ordre');
+
+      const year = new Date().getFullYear();
+      const { count } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
+      const randomNum = String((count || 0) + 1).padStart(4, '0');
+      const numeroAvoir = `AV-${year}-${randomNum}`;
+
+      const { data: avoirData, error: avoirError } = await supabase
+        .from('avoirs')
+        .insert([{
+          numero: numeroAvoir,
+          facture_id: factureData.id,
+          client_id: factureData.client_id,
+          date_emission: new Date().toISOString(),
+          montant_ht: factureData.montant_ht,
+          montant_tva: factureData.montant_tva,
+          montant_ttc: factureData.montant_ttc,
+          statut: 'émis',
+          notes: `Avoir pour annulation de la facture ${factureData.numero}`,
+        }])
+        .select()
+        .single();
+
+      if (avoirError) throw avoirError;
+
+      if (lignesData && lignesData.length > 0) {
+        const lignesPayload = lignesData.map((l: any, index: number) => ({
+          avoir_id: avoirData.id,
+          produit_id: l.produit_id,
+          designation: l.description || l.designation || '',
+          quantite: l.quantite,
+          prix_unitaire_ht: l.prix_unitaire_ht || l.prix_unitaire || 0,
+          tva: l.tva,
+          montant_ht: l.montant_ht,
+          montant_ttc: l.montant_ttc,
+          ordre: index,
+        }));
+
+        const { error: lignesError } = await supabase.from('avoir_lignes').insert(lignesPayload);
+        if (lignesError) throw lignesError;
+      }
+
+      const { error: updateError } = await supabase
+        .from('factures')
+        .update({ statut: 'annulée' })
+        .eq('id', facture.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Facture annulée. Avoir ${numeroAvoir} créé avec succès !`);
+      fetchFactures();
+    } catch (error: any) {
+      console.error('Error cancelling facture:', error);
+      toast.error(error.message || 'Erreur lors de l\'annulation de la facture');
+    }
+  };
+
   const handleDownload = async (facture: Facture) => {
     try {
       toast.info('Préparation du PDF...');
@@ -300,6 +371,16 @@ export function FacturesList() {
 
   const handleStatusChange = async (id: number, newStatut: string) => {
     try {
+      const { data: facture } = await supabase.from('factures').select('statut').eq('id', id).single();
+      
+      if (facture?.statut === 'annulée' && newStatut !== 'annulée') {
+        const { data: avoir } = await supabase.from('avoirs').select('id').eq('facture_id', id).single();
+        if (avoir) {
+          await supabase.from('avoir_lignes').delete().eq('avoir_id', avoir.id);
+          await supabase.from('avoirs').delete().eq('id', avoir.id);
+        }
+      }
+
       const updateData: any = { statut: newStatut };
       if (newStatut === 'payée') {
         updateData.reste_a_payer = 0;
@@ -608,8 +689,8 @@ export function FacturesList() {
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                onClick={() => handleStatusChange(facture.id, 'annulée')}
-                                title="Annuler la facture"
+                                onClick={() => handleAnnuler(facture)}
+                                title="Annuler la facture (créer un avoir)"
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>

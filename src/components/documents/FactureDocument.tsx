@@ -16,11 +16,13 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
     const primaryColor = '#0d9488'; // Medical teal
     const accentColor = '#14b8a6';
 
+    const montantTtcTotal = facture.montant_ttc ?? facture.montantTtc ?? 0;
+    
     return (
       <div 
         ref={ref} 
-        className="p-8 bg-white text-gray-800 font-sans" 
-        style={{ width: '210mm', minHeight: '297mm', margin: '0 auto' }}
+        className="p-8 bg-white text-gray-800 font-sans"
+        style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', pageBreakAfter: 'always' }}
       >
         {/* Premium Header with Gradient Effect */}
         <div className="relative mb-8">
@@ -143,50 +145,55 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 <th className="py-4 px-5 text-left rounded-tl-2xl">Désignation</th>
                 <th className="py-4 px-4 text-center">Qté</th>
                 <th className="py-4 px-4 text-right">Prix HT</th>
-                <th className="py-4 px-4 text-right">Prix TTC</th>
                 <th className="py-4 px-4 text-right">TVA</th>
                 <th className="py-4 px-4 text-right rounded-tr-2xl">Total HT</th>
               </tr>
             </thead>
             <tbody className="bg-white">
-              {facture.lignes?.map((ligne: any, index: number) => (
-                <tr 
-                  key={index} 
-                  className={`
-                    border-b border-gray-100 last:border-0
-                    ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
-                  `}
-                >
-                  <td className="py-4 px-5">
-                    <p className="font-semibold text-gray-800">{ligne.designation}</p>
-                    {ligne.reference && (
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">Réf: {ligne.reference}</p>
-                    )}
-                  </td>
-                  <td className="py-4 px-4 text-center">
-                    <span className="inline-block px-2.5 py-1 rounded-full bg-gray-100 text-sm font-bold text-gray-700">
-                      {ligne.quantite}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <p className="font-semibold text-gray-700">{formatCurrency(ligne.prix_unitaire_ht)}</p>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <p className="font-semibold text-gray-700">{formatCurrency(ligne.montant_ttc / ligne.quantite)}</p>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary">
-                      {ligne.tva}%
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <p className="font-bold text-gray-800">{formatCurrency(ligne.montant_ht)}</p>
-                  </td>
-                </tr>
-              ))}
+              {facture.lignes?.map((ligne: any, index: number) => {
+                const prixHt = ligne.prix_unitaire_ht ?? ligne.prixUnitaireHt ?? 0;
+                const montantHt = ligne.montant_ht ?? ligne.montantHt ?? (prixHt * (ligne.quantite || 1));
+                const montantTtc = ligne.montant_ttc ?? ligne.montantTtc ?? 0;
+                const qte = ligne.quantite || 1;
+                const prixTtc = montantTtc / qte;
+                const tva = ligne.tva ?? 0;
+                
+                return (
+                  <tr 
+                    key={index} 
+                    className={`
+                      border-b border-gray-100 last:border-0
+                      ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                    `}
+                  >
+                    <td className="py-4 px-5">
+                      <p className="font-semibold text-gray-800">{ligne.designation || '-'}</p>
+                      {ligne.reference && (
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">Réf: {ligne.reference}</p>
+                      )}
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="inline-block px-2.5 py-1 rounded-full bg-gray-100 text-sm font-bold text-gray-700">
+                        {qte}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <p className="font-semibold text-gray-700">{formatCurrency(prixHt)}</p>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary">
+                        {tva}%
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <p className="font-bold text-gray-800">{formatCurrency(montantHt)}</p>
+                    </td>
+                  </tr>
+                );
+              })}
               {(!facture.lignes || facture.lignes.length === 0) && (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-gray-400">
+                  <td colSpan={5} className="py-12 text-center text-gray-400">
                     Aucun article
                   </td>
                 </tr>
@@ -208,17 +215,21 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
               <div className="divide-y divide-gray-100">
                 <div className="flex justify-between items-center py-3 px-4">
                   <span className="text-gray-600">Total HT</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(facture.montant_ht)}</span>
+                  <span className="font-semibold text-gray-800">
+                    {formatCurrency(facture.montant_ht ?? facture.montantHt ?? 0)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-3 px-4">
-                  <span className="text-gray-600">TVA (20%)</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(facture.montant_tva)}</span>
+                  <span className="text-gray-600">TVA</span>
+                  <span className="font-semibold text-gray-800">
+                    {formatCurrency(facture.montant_tva ?? facture.montantTva ?? 0)}
+                  </span>
                 </div>
                 {facture.mode_paiement === 'Espèces' && (
                   <div className="flex justify-between items-center py-3 px-4">
                     <span className="text-gray-600">Droit de Timbre</span>
                     <span className="font-semibold text-gray-800">
-                      {formatCurrency((Number(facture.montant_ht) + Number(facture.montant_tva)) * 0.0025)}
+                      {formatCurrency(((Number(facture.montant_ht ?? 0)) + (Number(facture.montant_tva ?? 0))) * 0.0025)}
                     </span>
                   </div>
                 )}
@@ -227,13 +238,22 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                   style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
                 >
                   <span>Total TTC</span>
-                  <span>{formatCurrency(facture.montant_ttc)}</span>
+                  <span>{formatCurrency(facture.montant_ttc ?? facture.montantTtc ?? 0)}</span>
                 </div>
               </div>
             </div>
 
             {/* Remaining Amount Warning */}
-            {Number(facture.resteAPayer) > 0 && (
+            {facture.isAvoir && (
+              <div className="mt-4 p-4 rounded-xl bg-orange-50 border border-orange-200">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  <p className="text-sm font-bold text-orange-700">Avoir</p>
+                </div>
+                <p className="text-xs text-orange-600">Cet avoir annule la facture {facture.numeroFactureOriginale}</p>
+              </div>
+            )}
+            {Number(facture.resteAPayer ?? 0) > 0 && !facture.isAvoir && (
               <div className="mt-4 p-4 rounded-xl bg-red-50 border border-red-200">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -251,14 +271,14 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
             <span className="font-semibold">Arrêté {facture.isAvoir ? "l'avoir" : "la présente facture"} à la somme de :</span>
             <br />
             <span className="font-bold text-gray-800 italic text-base">
-              {numberToFrenchWords(Math.abs(Number(facture.montantTtc)))} Dirhams
+              {numberToFrenchWords(Math.abs(Number(facture.montantTtc ?? facture.montant_ttc ?? 0)))} Dirhams
             </span>
           </p>
         </div>
 
-        {/* Bank Details */}
+        {/* Bank Details - Always on 2nd page */}
         {entreprise?.banque && (
-          <div className="mb-8 p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-200">
+          <div className="mb-8 p-5 rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-200" style={{ breakBefore: 'page', pageBreakBefore: 'always' }}>
             <div className="flex items-center gap-2 mb-4">
               <div 
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
