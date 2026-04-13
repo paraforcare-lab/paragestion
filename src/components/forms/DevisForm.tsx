@@ -80,7 +80,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       try {
         const [{ data: clientsData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
           supabase.from('clients').select('*').order('nom'),
-          supabase.from('produits').select('*').order('nom'),
+          supabase.from('produits').select('*').order('designation'),
           supabase.from('parametres').select('*').limit(1)
         ]);
         
@@ -112,7 +112,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       }
     };
     fetchData();
-  }, []);
+  }, [initialData]);
 
   const watchLignes = form.watch('lignes');
 
@@ -133,50 +133,67 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
   const onSubmit = async (data: DevisFormValues) => {
     setIsLoading(true);
     try {
-      // Prepare data for API
+      // Generate numero if not exists
+      if (!initialData?.numero) {
+        const year = new Date().getFullYear();
+        const randomNum = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+        var devisNum = `DEV-${year}-${randomNum}`;
+      }
+
       const payload = {
-        clientId: data.clientId === 'none' ? null : parseInt(data.clientId),
-        dateEmission: new Date(data.dateEmission).toISOString(),
-        dateValidite: new Date(data.dateValidite).toISOString(),
-        statut: data.statut,
-        modePaiement: data.modePaiement,
-        notes: data.notes,
-        montantHt: Number(totals.ht),
-        montantTva: Number(totals.tva),
-        montantTtc: Number(totals.ttc),
-        lignes: data.lignes.map((ligne, index) => {
-          const mht = Number(ligne.quantite || 0) * Number(ligne.prixUnitaireHt || 0);
-          const mtva = mht * (Number(ligne.tva || 0) / 100);
-          const mttc = mht + mtva;
-          return {
-            produit_id: (ligne.produitId && ligne.produitId !== 'none') ? parseInt(ligne.produitId) : null,
-            reference: ligne.reference,
-            designation: ligne.designation,
-            quantite: Number(ligne.quantite || 0),
-            prix_unitaire: Number(ligne.prixUnitaireHt || 0),
-            tva: Number(ligne.tva || 0),
-            montant_ht: mht,
-            montant_ttc: mttc,
-            ordre: index,
-          };
-        }),
+        client_id: data.clientId === 'none' ? null : Number(data.clientId),
+        date_emission: new Date(data.dateEmission).toISOString(),
+        date_validite: new Date(data.dateValidite).toISOString(),
+        numero: devisNum || initialData?.numero,
+        statut: data.statut || 'en_attente',
+        notes: data.notes || '',
+        montant_ht: Number(totals.ht) || 0,
+        montant_tva: Number(totals.tva) || 0,
+        montant_ttc: Number(totals.ttc) || 0,
       };
 
-      const url = initialData ? `/api/devis/${initialData.id}` : '/api/devis';
-      const method = initialData ? 'PUT' : 'POST';
+      let devisId = initialData?.id;
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      if (!devisId) {
+        // Create new devis
+        const { data: newDevis, error } = await supabase.from('devis').insert([payload]).select().single();
+        if (error) throw error;
+        devisId = newDevis.id;
+      } else {
+        // Update existing devis
+        const { error } = await supabase.from('devis').update(payload).eq('id', devisId);
+        if (error) throw error;
+        
+        // Delete old lignes
+        await supabase.from('devis_lignes').delete().eq('devis_id', devisId);
+      }
+
+      // Insert lignes
+      const lignesPayload = (data.lignes || []).map((ligne: any, index: number) => {
+        const montantHt = (Number(ligne.quantite) || 0) * (Number(ligne.prixUnitaireHt) || 0);
+        const montantTtc = montantHt * (1 + (Number(ligne.tva) || 20) / 100);
+        return {
+          devis_id: Number(devisId),
+          produit_id: ligne.produitId && ligne.produitId !== 'none' ? Number(ligne.produitId) : null,
+          designation: ligne.designation || '',
+          quantite: Number(ligne.quantite) || 1,
+          prix_unitaire_ht: Number(ligne.prixUnitaireHt) || 0,
+          tva: Number(ligne.tva) || 20,
+          montant_ht: montantHt,
+          montant_ttc: montantTtc,
+          ordre: index,
+        };
       });
 
-      if (!response.ok) throw new Error('Erreur lors de l\'enregistrement');
+      if (lignesPayload.length > 0) {
+        const { error: lignesError } = await supabase.from('devis_lignes').insert(lignesPayload);
+        if (lignesError) throw lignesError;
+      }
 
       toast.success(initialData ? 'Devis modifié' : 'Devis créé');
       onSuccess();
-    } catch (error) {
-      toast.error('Une erreur est survenue');
+    } catch (error: any) {
+      toast.error(error.message || 'Une erreur est survenue');
     } finally {
       setIsLoading(false);
     }
@@ -186,10 +203,9 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
     const produit = produits.find((p) => p.id.toString() === produitId);
     if (produit) {
       form.setValue(`lignes.${index}.produitId`, produit.id.toString());
-      form.setValue(`lignes.${index}.reference`, produit.reference || '');
-      form.setValue(`lignes.${index}.designation`, produit.nom || '');
-      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt));
-      form.setValue(`lignes.${index}.tva`, Number(produit.tva));
+      form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
+      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt || produit.prix_vente_ht || 0));
+      form.setValue(`lignes.${index}.tva`, Number(produit.tauxTva || produit.tva || 20));
     }
   };
 
@@ -319,7 +335,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
                         <SelectContent>
                           {produits.map((p) => (
                             <SelectItem key={p.id} value={p.id.toString()}>
-                              {p.nom || '-'}
+                              {p.designation || '-'}
                             </SelectItem>
                           ))}
                         </SelectContent>

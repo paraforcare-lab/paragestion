@@ -69,20 +69,23 @@ export function DevisList() {
 
   const mapDevis = (d: any) => ({
     ...d,
+    id: d.id,
     numero: d.numero,
     clientId: d.client_id,
+    client: d.client,
     dateEmission: d.date_emission,
     dateValidite: d.date_validite,
     montantHt: d.montant_ht,
     montantTva: d.montant_tva,
     montantTtc: d.montant_ttc,
     statut: d.statut,
+    lignes: d.lignes || [],
   });
 
   const fetchDevis = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('devis').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('devis').select('*, client:clients(*)').order('created_at', { ascending: false });
       if (error) throw error;
       setDevisList(Array.isArray(data) ? (data || []).map(mapDevis) : []);
     } catch (error) {
@@ -142,6 +145,13 @@ export function DevisList() {
     try {
       const { data: devis, error: fetchError } = await supabase.from('devis').select('*').eq('id', id).single();
       if (fetchError || !devis) throw new Error('Devis not found');
+
+      const { data: devisLignes } = await supabase.from('devis_lignes').select('*').eq('devis_id', id);
+
+      let year = new Date().getFullYear();
+      const { count } = await supabase.from('factures').select('*', { count: 'exact', head: true });
+      const randomNum = String((count || 0) + 1).padStart(4, '0');
+      const numero = `FAC-${year}-${randomNum}`;
       
       const payload = {
         client_id: devis.client_id,
@@ -153,16 +163,33 @@ export function DevisList() {
         statut: 'en_attente',
         reste_a_payer: devis.montant_ttc,
         devis_id: id,
+        numero: numero,
       };
       
-      const { error } = await supabase.from('factures').insert([payload]);
-      if (error) throw error;
+      const { data: newFacture, error: insertError } = await supabase.from('factures').insert([payload]).select().single();
+      if (insertError) throw insertError;
+
+      if (devisLignes && devisLignes.length > 0) {
+        const lignesPayload = devisLignes.map((l: any, index: number) => ({
+          facture_id: newFacture.id,
+          produit_id: l.produit_id,
+          description: l.description,
+          quantite: l.quantite,
+          prix_unitaire_ht: l.prix_unitaire_ht,
+          tva: l.tva,
+          montant_ht: l.montant_ht,
+          montant_ttc: l.montant_ttc,
+          ordre: index,
+        }));
+        await supabase.from('facture_lignes').insert(lignesPayload);
+      }
       
       await supabase.from('devis').update({ statut: 'converti' }).eq('id', id);
       
       toast.success('Devis converti en facture avec succès !');
       fetchDevis();
     } catch (error) {
+      console.error('Conversion error:', error);
       toast.error('Erreur lors de la conversion');
     }
   };
@@ -187,11 +214,27 @@ export function DevisList() {
     try {
       const { data, error } = await supabase.from('devis').select('*').eq('id', devis.id).single();
       if (error) throw error;
-      data.dateEmission = data.date_emission?.split('T')[0];
-      if (data.date_validite) data.date_validite = data.date_validite.split('T')[0];
-      data.clientId = data.client_id?.toString();
       
-      setEditingDevis(data);
+      // Fetch lignes
+      const { data: lignesData } = await supabase.from('devis_lignes').select('*').eq('devis_id', devis.id).order('ordre');
+      
+      const mappedData = {
+        ...data,
+        clientId: data.client_id?.toString() || '',
+        dateEmission: data.date_emission?.split('T')[0] || '',
+        dateValidite: data.date_validite?.split('T')[0] || '',
+        lignes: (lignesData || []).map((l: any) => ({
+          produitId: l.produit_id?.toString() || '',
+          designation: l.designation || '',
+          prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
+          quantite: Number(l.quantite || 1),
+          tva: Number(l.tva || 20),
+          montantHt: Number(l.montant_ht || 0),
+          montantTtc: Number(l.montant_ttc || 0),
+        })),
+      };
+      
+      setEditingDevis(mappedData);
       setIsDialogOpen(true);
     } catch (error) {
       toast.error('Erreur lors du chargement du devis');
