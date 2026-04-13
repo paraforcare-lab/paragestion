@@ -30,7 +30,7 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
           
           <div className="flex justify-between items-start pt-6">
             <div className="flex-1">
-              {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' ? (
+              {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' && entreprise.logoUrl?.startsWith('http') ? (
                 <img 
                   src={entreprise.logoUrl} 
                   alt="Logo" 

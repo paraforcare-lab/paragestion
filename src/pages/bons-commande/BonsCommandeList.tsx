@@ -41,11 +41,15 @@ import { useAuth } from '@/contexts/AuthContext';
 interface BonCommande {
   id: number;
   numero: string;
+  fournisseurId: number;
   fournisseur: { nom: string; nomSociete?: string };
   dateCommande: string;
   dateLivraisonPrevue?: string;
+  montantHt: number;
+  montantTva: number;
   montantTtc: number;
   statut: string;
+  lignes?: any[];
 }
 
 export function BonsCommandeList() {
@@ -69,20 +73,26 @@ export function BonsCommandeList() {
 
   const mapBonCommande = (b: any) => ({
     ...b,
-    numero: b.numero,
+    id: b.id,
+    numero: b.numero || '',
     fournisseurId: b.fournisseur_id,
+    fournisseur: b.fournisseur,
     dateCommande: b.date_commande,
     dateLivraisonPrevue: b.date_livraison_prevue,
-    montantHt: b.montant_ht,
-    montantTva: b.montant_tva,
-    montantTtc: b.montant_ttc,
-    statut: b.statut,
+    montantHt: Number(b.montant_ht || 0),
+    montantTva: Number(b.montant_tva || 0),
+    montantTtc: Number(b.montant_ttc || 0),
+    statut: b.statut || 'brouillon',
   });
 
   const fetchBons = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('bons_commande').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('bons_commande')
+        .select('*, fournisseur:fournisseurs(*)')
+        .order('created_at', { ascending: false });
+      
       if (error) throw error;
       setBons(Array.isArray(data) ? (data || []).map(mapBonCommande) : []);
     } catch (error) {
@@ -108,9 +118,9 @@ export function BonsCommandeList() {
       }
       
       if (data) {
-        if (data.logo_url === 'image.png' || !data.logo_url?.startsWith('http')) {
-          data.logo_url = '';
-        }
+        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png' || !data.logo_url.startsWith('http') 
+          ? '' 
+          : data.logo_url;
         setEntreprise({
           nomEntreprise: data.nom_societe || data.nom || '',
           adresse: data.adresse || '',
@@ -118,7 +128,7 @@ export function BonsCommandeList() {
           telephone: data.telephone || '',
           email: data.email || '',
           ice: data.ice || '',
-          logoUrl: data.logo_url || '',
+          logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54'
         });
       }
@@ -136,11 +146,12 @@ export function BonsCommandeList() {
     if (!bonToDelete) return;
     
     try {
-      const res = await fetch(`/api/bons-commande/${bonToDelete}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
+      const { error } = await supabase.from('bons_commande').delete().eq('id', bonToDelete);
+      if (error) throw error;
       toast.success('Bon de commande supprimé');
       fetchBons();
     } catch (error) {
+      console.error('Delete error:', error);
       toast.error('Erreur lors de la suppression');
     } finally {
       setDeleteConfirmOpen(false);
@@ -150,15 +161,40 @@ export function BonsCommandeList() {
 
   const handleEdit = async (bon: BonCommande) => {
     try {
-      const { data, error } = await supabase.from('bons_commande').select('*').eq('id', bon.id).single();
-      if (error) throw error;
-      data.dateEmission = data.date_commande?.split('T')[0];
-      if (data.date_livraison_prevue) data.date_livraison_prevue = data.date_livraison_prevue.split('T')[0];
-      data.fournisseurId = data.fournisseur_id?.toString();
+      const { data: bonData, error } = await supabase
+        .from('bons_commande')
+        .select('*, fournisseur:fournisseurs(*)')
+        .eq('id', bon.id)
+        .single();
       
-      setEditingBon(data);
+      if (error) throw error;
+
+      const { data: lignesData } = await supabase
+        .from('bon_commande_lignes')
+        .select('*')
+        .eq('bon_commande_id', bon.id)
+        .order('ordre');
+
+      const mappedData = {
+        ...bonData,
+        fournisseurId: bonData.fournisseur_id?.toString() || '',
+        dateCommande: bonData.date_commande?.split('T')[0] || '',
+        dateLivraisonPrevue: bonData.date_livraison_prevue?.split('T')[0] || '',
+        lignes: (lignesData || []).map((l: any) => ({
+          produitId: l.produit_id?.toString() || '',
+          designation: l.designation || '',
+          quantite: Number(l.quantite || 1),
+          prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
+          tva: Number(l.tva || 20),
+          montantHt: Number(l.montant_ht || 0),
+          montantTtc: Number(l.montant_ttc || 0),
+        })),
+      };
+      
+      setEditingBon(mappedData);
       setIsDialogOpen(true);
     } catch (error) {
+      console.error('Error loading bon:', error);
       toast.error('Erreur lors du chargement du bon de commande');
     }
   };
@@ -166,20 +202,44 @@ export function BonsCommandeList() {
   const handleDownload = async (bon: BonCommande) => {
     try {
       toast.info('Préparation du PDF...');
-      const { data, error } = await supabase.from('bons_commande').select('*, fournisseur:fournisseurs(*)').eq('id', bon.id).single();
+      
+      const { data: bonData, error } = await supabase
+        .from('bons_commande')
+        .select('*, fournisseur:fournisseurs(*)')
+        .eq('id', bon.id)
+        .single();
+      
       if (error) throw error;
       
+      const { data: lignesData } = await supabase
+        .from('bon_commande_lignes')
+        .select('*')
+        .eq('bon_commande_id', bon.id)
+        .order('ordre');
+      
       const mappedBon = {
-        ...data,
-        numero: data.numero,
-        fournisseurId: data.fournisseur_id,
-        fournisseur: data.fournisseur,
-        dateCommande: data.date_commande,
-        dateLivraisonPrevue: data.date_livraison_prevue,
-        montantHt: data.montant_ht,
-        montantTva: data.montant_tva,
-        montantTtc: data.montant_ttc,
-        statut: data.statut,
+        ...bonData,
+        numero: bonData.numero,
+        fournisseurId: bonData.fournisseur_id,
+        fournisseur: bonData.fournisseur,
+        dateCommande: bonData.date_commande,
+        dateLivraisonPrevue: bonData.date_livraison_prevue,
+        montantHt: bonData.montant_ht,
+        montantTva: bonData.montant_tva,
+        montantTtc: bonData.montant_ttc,
+        statut: bonData.statut,
+        lignes: (lignesData || []).map((l: any) => ({
+          designation: l.designation || '',
+          reference: l.reference || '',
+          quantite: l.quantite,
+          prixUnitaireHt: l.prix_unitaire_ht,
+          prix_unitaire_ht: l.prix_unitaire_ht,
+          tva: l.tva,
+          montantHt: l.montant_ht,
+          montant_ht: l.montant_ht,
+          montantTtc: l.montant_ttc,
+          montant_ttc: l.montant_ttc,
+        })),
       };
       setSelectedBon(mappedBon);
       setTimeout(() => handlePrint(), 100);
@@ -190,14 +250,12 @@ export function BonsCommandeList() {
 
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(`/api/bons-commande/${id}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: newStatus }),
-      });
-
-      if (!res.ok) throw new Error('Failed to update status');
-
+      const { error } = await supabase
+        .from('bons_commande')
+        .update({ statut: newStatus })
+        .eq('id', id);
+      
+      if (error) throw error;
       toast.success('Statut mis à jour');
       fetchBons();
     } catch (error) {

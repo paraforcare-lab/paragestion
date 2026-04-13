@@ -30,7 +30,7 @@ export const BonCommandeDocument = forwardRef<HTMLDivElement, BonCommandeDocumen
           
           <div className="flex justify-between items-start pt-6">
             <div className="flex-1">
-              {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' ? (
+              {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' && entreprise.logoUrl?.startsWith('http') ? (
                 <img 
                   src={entreprise.logoUrl} 
                   alt="Logo" 
@@ -135,38 +135,45 @@ export const BonCommandeDocument = forwardRef<HTMLDivElement, BonCommandeDocumen
               </tr>
             </thead>
             <tbody className="bg-white">
-              {bon.lignes?.map((ligne: any, index: number) => (
-                <tr 
-                  key={index} 
-                  className={`
-                    border-b border-gray-100 last:border-0
-                    ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
-                  `}
-                >
-                  <td className="py-4 px-5">
-                    <p className="font-semibold text-gray-800">{ligne.designation}</p>
-                    {ligne.reference && (
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">Réf: {ligne.reference}</p>
-                    )}
-                  </td>
-                  <td className="py-4 px-4 text-center">
-                    <span className="inline-block px-2.5 py-1 rounded-full bg-gray-100 text-sm font-bold text-gray-700">
-                      {ligne.quantite}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <p className="font-semibold text-gray-700">{formatCurrency(ligne.prixUnitaireHt)}</p>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary">
-                      {ligne.tva}%
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-right">
-                    <p className="font-bold text-gray-800">{formatCurrency(ligne.montantHt)}</p>
-                  </td>
-                </tr>
-              ))}
+              {bon.lignes?.map((ligne: any, index: number) => {
+                const prixHt = ligne.prix_unitaire_ht ?? ligne.prixUnitaireHt ?? 0;
+                const montantHt = ligne.montant_ht ?? ligne.montantHt ?? 0;
+                const qte = ligne.quantite || 1;
+                const tva = ligne.tva ?? 0;
+                
+                return (
+                  <tr 
+                    key={index} 
+                    className={`
+                      border-b border-gray-100 last:border-0
+                      ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}
+                    `}
+                  >
+                    <td className="py-4 px-5">
+                      <p className="font-semibold text-gray-800">{ligne.designation || '-'}</p>
+                      {ligne.reference && (
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">Réf: {ligne.reference}</p>
+                      )}
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="inline-block px-2.5 py-1 rounded-full bg-gray-100 text-sm font-bold text-gray-700">
+                        {qte}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <p className="font-semibold text-gray-700">{formatCurrency(prixHt)}</p>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-primary/10 text-primary">
+                        {tva}%
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-right">
+                      <p className="font-bold text-gray-800">{formatCurrency(montantHt)}</p>
+                    </td>
+                  </tr>
+                );
+              })}
               {(!bon.lignes || bon.lignes.length === 0) && (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-gray-400">
@@ -190,18 +197,22 @@ export const BonCommandeDocument = forwardRef<HTMLDivElement, BonCommandeDocumen
               <div className="divide-y divide-gray-100">
                 <div className="flex justify-between items-center py-3 px-4">
                   <span className="text-gray-600">Total HT</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(bon.montantHt || 0)}</span>
+                  <span className="font-semibold text-gray-800">
+                    {formatCurrency(bon.montant_ht ?? bon.montantHt ?? 0)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-3 px-4">
-                  <span className="text-gray-600">TVA (20%)</span>
-                  <span className="font-semibold text-gray-800">{formatCurrency(bon.montantTva || 0)}</span>
+                  <span className="text-gray-600">TVA</span>
+                  <span className="font-semibold text-gray-800">
+                    {formatCurrency(bon.montant_tva ?? bon.montantTva ?? 0)}
+                  </span>
                 </div>
                 <div 
                   className="flex justify-between items-center py-4 px-4 text-white font-bold text-lg"
                   style={{ background: `linear-gradient(135deg, ${primaryColor}, ${accentColor})` }}
                 >
                   <span>Total TTC</span>
-                  <span>{formatCurrency(bon.montantTtc || 0)}</span>
+                  <span>{formatCurrency(bon.montant_ttc ?? bon.montantTtc ?? 0)}</span>
                 </div>
               </div>
             </div>

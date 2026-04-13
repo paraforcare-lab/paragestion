@@ -111,9 +111,9 @@ export function DevisList() {
       }
       
       if (data) {
-        if (data.logo_url === 'image.png' || !data.logo_url?.startsWith('http')) {
-          data.logo_url = '';
-        }
+        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png' || !data.logo_url.startsWith('http') 
+          ? '' 
+          : data.logo_url;
         setEntreprise({
           nomEntreprise: data.nom_societe || data.nom || '',
           adresse: data.adresse || '',
@@ -121,7 +121,7 @@ export function DevisList() {
           telephone: data.telephone || '',
           email: data.email || '',
           ice: data.ice || '',
-          logoUrl: data.logo_url || '',
+          logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54'
         });
       }

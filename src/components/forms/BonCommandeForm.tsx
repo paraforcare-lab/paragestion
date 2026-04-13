@@ -28,10 +28,10 @@ const ligneSchema = z.object({
 });
 
 const bcSchema = z.object({
-  fournisseurId: z.string().min(1, 'Le fournisseur est requis'),
+  fournisseurId: z.string().optional(),
   dateEmission: z.string().min(1, 'La date d\'émission est requise'),
   dateLivraisonPrevue: z.string().optional(),
-  statut: z.string().min(1, 'Le statut est requis'),
+  statut: z.string().optional(),
   modePaiement: z.string().optional(),
   notes: z.string().optional(),
   lignes: z.array(ligneSchema).min(1, 'Au moins une ligne est requise'),
@@ -52,12 +52,12 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
 
   const form = useForm<BCFormValues>({
     resolver: zodResolver(bcSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       fournisseurId: '',
       dateEmission: new Date().toISOString().split('T')[0],
       dateLivraisonPrevue: '',
-      statut: 'en_attente',
-      modePaiement: 'virement',
+      statut: 'brouillon',
+      modePaiement: 'Virement',
       notes: '',
       lignes: [
         {
@@ -80,7 +80,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
       try {
         const [{ data: fournisseursData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
           supabase.from('fournisseurs').select('*').order('nom'),
-          supabase.from('produits').select('*').order('nom'),
+          supabase.from('produits').select('*').order('designation'),
           supabase.from('parametres').select('*').limit(1)
         ]);
         
@@ -88,15 +88,15 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
         setProduits(produitsData || []);
         setParametres(parametresData?.[0] || null);
 
-        if (initialData) {
+        if (initialData?.id) {
           form.reset({
             ...initialData,
-            fournisseurId: initialData.fournisseurId?.toString(),
+            fournisseurId: initialData.fournisseurId?.toString() || '',
             dateEmission: initialData.dateCommande ? new Date(initialData.dateCommande).toISOString().split('T')[0] : '',
             dateLivraisonPrevue: initialData.dateLivraisonPrevue ? new Date(initialData.dateLivraisonPrevue).toISOString().split('T')[0] : '',
             lignes: initialData.lignes?.map((l: any) => ({
               ...l,
-              produitId: l.produitId?.toString(),
+              produitId: l.produitId?.toString() || '',
               prixUnitaireHt: Number(l.prixUnitaireHt || 0),
               quantite: Number(l.quantite || 0),
               tva: Number(l.tva || 0),
@@ -104,15 +104,31 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
               montantTtc: Number(l.montantTtc || 0)
             })) || []
           });
-        } else if (parametresData?.[0]) {
-          form.setValue('notes', parametresData[0].pied_page_defaut || '');
+        } else {
+          form.reset({
+            fournisseurId: '',
+            dateEmission: new Date().toISOString().split('T')[0],
+            dateLivraisonPrevue: '',
+            statut: 'brouillon',
+            modePaiement: 'Virement',
+            notes: parametresData?.[0]?.pied_page_defaut || '',
+            lignes: [
+              {
+                designation: '',
+                quantite: 1,
+                prixUnitaireHt: 0,
+                tva: 20,
+              },
+            ],
+          });
         }
       } catch (error) {
+        console.error('Error fetching data:', error);
         toast.error('Erreur lors du chargement des données');
       }
     };
     fetchData();
-  }, []);
+  }, [initialData?.id]);
 
   const watchLignes = form.watch('lignes');
 
@@ -132,51 +148,83 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   const onSubmit = async (data: BCFormValues) => {
     setIsLoading(true);
     try {
-      const payload = {
-        fournisseurId: data.fournisseurId === 'none' ? null : parseInt(data.fournisseurId),
-        dateCommande: new Date(data.dateEmission).toISOString(),
-        dateLivraisonPrevue: data.dateLivraisonPrevue ? new Date(data.dateLivraisonPrevue).toISOString() : null,
-        statut: data.statut,
-        montantHt: Number(totals.ht),
-        montantTva: Number(totals.tva),
-        montantTtc: Number(totals.ttc),
-        lignes: data.lignes.map((ligne, index) => {
-          const mht = Number(ligne.quantite || 0) * Number(ligne.prixUnitaireHt || 0);
-          const mtva = mht * (Number(ligne.tva || 0) / 100);
-          const mttc = mht + mtva;
-          return {
-            produit_id: (ligne.produitId && ligne.produitId !== 'none') ? parseInt(ligne.produitId) : null,
-            reference: ligne.reference,
-            designation: ligne.designation,
-            quantite: Number(ligne.quantite || 0),
-            prix_unitaire: Number(ligne.prixUnitaireHt || 0),
-            tva: Number(ligne.tva || 0),
-            montant_ht: mht,
-            montant_ttc: mttc,
-            ordre: index,
-          };
-        }),
+      let bonId = initialData?.id;
+      let numero;
+
+      if (!bonId) {
+        const year = new Date().getFullYear();
+        const { count } = await supabase.from('bons_commande').select('*', { count: 'exact', head: true });
+        const randomNum = String((count || 0) + 1).padStart(4, '0');
+        numero = `BC-${year}-${randomNum}`;
+      }
+
+      const fournisseurId = data.fournisseurId && data.fournisseurId !== 'none' && data.fournisseurId !== '' 
+        ? parseInt(data.fournisseurId) 
+        : null;
+
+      const payload: any = {
+        date_commande: new Date(data.dateEmission).toISOString(),
+        date_livraison_prevue: data.dateLivraisonPrevue ? new Date(data.dateLivraisonPrevue).toISOString() : null,
+        statut: data.statut || 'brouillon',
+        montant_ht: Number(totals.ht),
+        montant_tva: Number(totals.tva),
+        montant_ttc: Number(totals.ttc),
+        numero: numero || initialData?.numero,
       };
 
-      const url = initialData ? `/api/bons-commande/${initialData.id}` : '/api/bons-commande';
-      const method = initialData ? 'PUT' : 'POST';
+      if (fournisseurId) {
+        payload.fournisseur_id = fournisseurId;
+      }
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      if (!bonId) {
+        const { data: newBon, error } = await supabase.from('bons_commande').insert([payload]).select().single();
+        if (error) {
+          console.error('Insert error:', error);
+          throw error;
+        }
+        bonId = newBon.id;
+      } else {
+        const { error } = await supabase.from('bons_commande').update(payload).eq('id', bonId);
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
+        await supabase.from('bon_commande_lignes').delete().eq('bon_commande_id', bonId);
+      }
+
+      const lignesPayload = data.lignes.map((ligne, index) => {
+        const mht = Number(ligne.quantite || 0) * Number(ligne.prixUnitaireHt || 0);
+        const mtva = mht * (Number(ligne.tva || 0) / 100);
+        const mttc = mht + mtva;
+        const produitId = ligne.produitId && ligne.produitId !== 'none' && ligne.produitId !== '' 
+          ? parseInt(ligne.produitId) 
+          : null;
+        return {
+          bon_commande_id: bonId,
+          produit_id: produitId,
+          designation: ligne.designation || '',
+          quantite: Number(ligne.quantite || 0),
+          prix_unitaire_ht: Number(ligne.prixUnitaireHt || 0),
+          tva: Number(ligne.tva || 20),
+          montant_ht: mht,
+          montant_ttc: mttc,
+          ordre: index,
+        };
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || errorData.details || 'Erreur lors de l\'enregistrement');
+      if (lignesPayload.length > 0) {
+        const { error: lignesError } = await supabase.from('bon_commande_lignes').insert(lignesPayload);
+        if (lignesError) {
+          console.error('Lignes insert error:', lignesError);
+          throw lignesError;
+        }
       }
 
       toast.success(initialData ? 'Bon de commande modifié' : 'Bon de commande créé');
       onSuccess();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting form:', error);
-      toast.error(error instanceof Error ? error.message : 'Une erreur est survenue');
+      toast.error(error?.message || error?.details || 'Une erreur est survenue');
     } finally {
       setIsLoading(false);
     }
@@ -187,9 +235,9 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
     if (produit) {
       form.setValue(`lignes.${index}.produitId`, produit.id.toString());
       form.setValue(`lignes.${index}.reference`, produit.reference || '');
-      form.setValue(`lignes.${index}.designation`, produit.nom || '');
-      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixAchatHt || 0));
-      form.setValue(`lignes.${index}.tva`, Number(produit.tauxTva || 20));
+      form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
+      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prix_achat_ht || produit.prixAchatHt || 0));
+      form.setValue(`lignes.${index}.tva`, Number(produit.taux_tva || produit.tva || 20));
     }
   };
 
@@ -300,7 +348,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
                         <SelectContent>
                           {produits.map((p) => (
                             <SelectItem key={p.id} value={p.id.toString()}>
-                              {p.nom || '-'}
+                              {p.designation || p.nom || '-'}
                             </SelectItem>
                           ))}
                         </SelectContent>

@@ -36,7 +36,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
             {/* Company Info */}
             <div className="flex-1">
               {/* Logo */}
-              {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' ? (
+              {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' && entreprise.logoUrl?.startsWith('http') ? (
                 <img 
                   src={entreprise.logoUrl} 
                   alt="Logo" 
