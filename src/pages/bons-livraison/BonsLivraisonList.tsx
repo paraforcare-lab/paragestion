@@ -16,6 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  
   SelectValue,
 } from '@/components/ui/select';
 import { format } from 'date-fns';
@@ -41,11 +42,15 @@ import { useAuth } from '@/contexts/AuthContext';
 interface BonLivraison {
   id: number;
   numero: string;
+  fournisseurId: number;
   fournisseur: { nom: string; nomSociete?: string };
   date: string;
   dateLivraison?: string;
+  montantHt: number;
+  montantTva: number;
+  montantTtc: number;
   statut: string;
-  montantTtc?: number;
+  lignes?: any[];
 }
 
 export function BonsLivraisonList() {
@@ -69,18 +74,26 @@ export function BonsLivraisonList() {
 
   const mapBonLivraison = (b: any) => ({
     ...b,
-    numero: b.numero,
+    id: b.id,
+    numero: b.numero || '',
     fournisseurId: b.fournisseur_id,
-    date: b.date,
+    fournisseur: b.fournisseur,
+    date: b.date_livraison || b.date,
     dateLivraison: b.date_livraison,
-    montantTtc: b.montant_ttc,
-    statut: b.statut,
+    montantHt: Number(b.montant_ht || 0),
+    montantTva: Number(b.montant_tva || 0),
+    montantTtc: Number(b.montant_ttc || 0),
+    statut: b.statut || 'en_attente',
   });
 
   const fetchBons = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('bons_livraison').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('bons_livraison')
+        .select('*, fournisseur:fournisseurs(*)')
+        .order('created_at', { ascending: false });
+      
       if (error) throw error;
       setBons(Array.isArray(data) ? (data || []).map(mapBonLivraison) : []);
     } catch (error) {
@@ -130,16 +143,6 @@ export function BonsLivraisonList() {
     fetchEntreprise();
   }, [user]);
 
-  const mapBon = (b: any) => ({
-    ...b,
-    numero: b.numero,
-    fournisseurId: b.fournisseur_id,
-    date: b.date,
-    dateLivraison: b.date_livraison,
-    montantTtc: b.montant_ttc,
-    statut: b.statut,
-  });
-
   const handleDelete = async () => {
     if (!bonToDelete) return;
     
@@ -149,6 +152,7 @@ export function BonsLivraisonList() {
       toast.success('Bon de livraison supprimé');
       fetchBons();
     } catch (error) {
+      console.error('Delete error:', error);
       toast.error('Erreur lors de la suppression');
     } finally {
       setDeleteConfirmOpen(false);
@@ -158,46 +162,89 @@ export function BonsLivraisonList() {
 
   const handleEdit = async (bon: BonLivraison) => {
     try {
-      const { data, error } = await supabase.from('bons_livraison').select('*').eq('id', bon.id).single();
+      const { data: bonData, error } = await supabase
+        .from('bons_livraison')
+        .select('*, fournisseur:fournisseurs(*)')
+        .eq('id', bon.id)
+        .single();
+      
       if (error) throw error;
+
+      const { data: lignesData } = await supabase
+        .from('bon_livraison_lignes')
+        .select('*')
+        .eq('bon_livraison_id', bon.id)
+        .order('ordre');
+
+      const mappedData = {
+        ...bonData,
+        fournisseurId: bonData.fournisseur_id?.toString() || '',
+        dateCommande: bonData.date?.split('T')[0] || '',
+        dateLivraisonPrevue: bonData.date_livraison?.split('T')[0] || '',
+        lignes: (lignesData || []).map((l: any) => ({
+          produitId: l.produit_id?.toString() || '',
+          designation: l.designation || '',
+          quantite: Number(l.quantite || 1),
+          prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
+          tva: Number(l.tva || 20),
+          montantHt: Number(l.montant_ht || 0),
+          montantTtc: Number(l.montant_ttc || 0),
+        })),
+      };
       
-      const dateStr = data.date_livraison || data.date;
-      data.dateEmission = dateStr ? dateStr.split('T')[0] : '';
-      data.fournisseurId = data.fournisseur_id?.toString();
-      
-      setEditingBon(data);
+      setEditingBon(mappedData);
       setIsDialogOpen(true);
-    } catch (error: any) {
-      toast.error(error.message || 'Erreur lors du chargement du bon de livraison');
+    } catch (error) {
+      console.error('Error loading bon:', error);
+      toast.error('Erreur lors du chargement du bon de livraison');
     }
   };
 
-  const handleDownload = async (bon: any) => {
+  const handleDownload = async (bon: BonLivraison) => {
     try {
       toast.info('Préparation du PDF...');
-const { data, error } = await supabase.from('bons_livraison').select('*, fournisseur:fournisseurs(*)').eq('id', bon.id).single();
+      
+      const { data: bonData, error } = await supabase
+        .from('bons_livraison')
+        .select('*, fournisseur:fournisseurs(*)')
+        .eq('id', bon.id)
+        .single();
+      
       if (error) throw error;
       
+      const { data: lignesData } = await supabase
+        .from('bon_livraison_lignes')
+        .select('*')
+        .eq('bon_livraison_id', bon.id)
+        .order('ordre');
+      
       const mappedBon = {
-        ...data,
-        numero: data.numero,
-        fournisseurId: data.fournisseur_id,
-        fournisseur: data.fournisseur,
-        date: data.date,
-        dateLivraison: data.date_livraison,
-        montantHt: data.montant_ht,
-        montantTva: data.montant_tva,
-        montantTtc: data.montant_ttc,
-        statut: data.statut,
+        ...bonData,
+        numero: bonData.numero,
+        fournisseurId: bonData.fournisseur_id,
+        fournisseur: bonData.fournisseur,
+        date: bonData.date_livraison || bonData.date,
+        dateLivraison: bonData.date_livraison,
+        montantHt: bonData.montant_ht,
+        montantTva: bonData.montant_tva,
+        montantTtc: bonData.montant_ttc,
+        statut: bonData.statut,
+        lignes: (lignesData || []).map((l: any) => ({
+          designation: l.designation || '',
+          reference: l.reference || '',
+          quantite: l.quantite,
+          prix_unitaire_ht: l.prix_unitaire_ht,
+          prixUnitaireHt: l.prix_unitaire_ht,
+          tva: l.tva,
+          montant_ht: l.montant_ht,
+          montantHt: l.montant_ht,
+          montant_ttc: l.montant_ttc,
+          montantTtc: l.montant_ttc,
+        })),
       };
-       
-      setSelectedBon(null);
-      setTimeout(() => {
-        setSelectedBon(mappedBon);
-        setTimeout(() => {
-          handlePrint();
-        }, 300);
-      }, 100);
+        
+      setSelectedBon(mappedBon);
+      setTimeout(() => handlePrint(), 100);
     } catch (error: any) {
       console.error('Download error:', error);
       toast.error(error.message || 'Erreur lors du téléchargement');
@@ -216,11 +263,14 @@ const { data, error } = await supabase.from('bons_livraison').select('*, fournis
     }
   };
 
-  const filteredBons = bons.filter((bon) =>
-    bon.numero?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bon.fournisseur?.nomSociete?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bon.fournisseur?.nom?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredBons = bons.filter((bon) => {
+    const search = searchQuery.toLowerCase();
+    return (
+      bon.numero?.toLowerCase().includes(search) ||
+      bon.fournisseur?.nomSociete?.toLowerCase().includes(search) ||
+      bon.fournisseur?.nom?.toLowerCase().includes(search)
+    );
+  });
 
   const statusOptions = [
     { value: 'en_attente', label: 'En attente', icon: Clock, color: 'text-amber-600', bgColor: 'bg-amber-100 text-amber-700' },
@@ -235,7 +285,7 @@ const { data, error } = await supabase.from('bons_livraison').select('*, fournis
   const totalBons = bons.length;
   const bonsLivres = bons.filter(b => ['livré', 'livrée'].includes(b.statut)).length;
   const bonsEnAttente = bons.filter(b => b.statut === 'en_attente').length;
-  const totalMontant = bons.reduce((sum, b) => sum + (b.montantTtc || 0), 0);
+  const totalMontant = filteredBons.reduce((sum, b) => sum + (b.montantTtc || 0), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -414,7 +464,7 @@ const { data, error } = await supabase.from('bons_livraison').select('*, fournis
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="font-bold text-foreground">{formatCurrency(bon.montantTtc || 0)}</span>
+                      <span className="font-bold text-foreground">{formatCurrency(bon.montantTtc || bon.montant_ttc || 0)}</span>
                     </TableCell>
                     <TableCell className="text-center">
                       <Select
