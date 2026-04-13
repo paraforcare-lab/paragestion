@@ -39,10 +39,23 @@ interface Produit {
 
 export default function VentesPassagers() {
   const [ventes, setVentes] = useState<VentePassager[]>([]);
-  const [produits, setProduits] = useState<Produit[]>([]);
+  const [produits, setProduits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const mapProduit = (p: any) => ({
+    ...p,
+    id: p.id,
+    reference: p.reference || '',
+    designation: p.designation || p.nom || '',
+    marque: p.marque || '',
+    prixVenteHt: Number(p.prix_vente_ht || p.prixVenteHt || 0),
+    prixVenteTtc: Number(p.prix_vente_ttc || 0),
+    prixAchatHt: Number(p.prix_achat_ht || p.prixAchatHt || 0),
+    tauxTva: Number(p.taux_tva || p.tva || 20),
+    stockActuel: Number(p.stock_actuel || p.stockActuel || 0),
+  });
 
   // New Vente State
   const [selectedProduitId, setSelectedProduitId] = useState('');
@@ -58,7 +71,18 @@ export default function VentesPassagers() {
     try {
       const { data, error } = await supabase.from('ventes_passagers').select('*').order('created_at', { ascending: false });
       if (error) throw error;
-      setVentes(Array.isArray(data) ? data : []);
+      
+      const mappedData = (data || []).map((v: any) => ({
+        ...v,
+        id: v.id,
+        numero: v.numero || '',
+        date: v.date || v.created_at,
+        montantHt: Number(v.montant_ht || v.montantHt || 0),
+        montantTva: Number(v.montant_tva || v.montantTva || 0),
+        montantTtc: Number(v.montant_ttc || v.montantTtc || 0),
+      }));
+      
+      setVentes(mappedData);
     } catch (error) {
       console.error('Error fetching sales:', error);
       toast.error('Erreur lors du chargement des ventes');
@@ -70,9 +94,14 @@ export default function VentesPassagers() {
 
   const fetchProduits = async () => {
     try {
-      const { data, error } = await supabase.from('produits').select('*').gt('stock_actuel', 0).order('nom');
-      if (error) throw error;
-      setProduits(Array.isArray(data) ? data : []);
+      const { data, error } = await supabase.from('produits').select('*').order('designation');
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
+      console.log('Products raw:', data);
+      setProduits(Array.isArray(data) ? data.map(mapProduit) : []);
+      console.log('Products mapped:', data?.map(mapProduit));
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Erreur lors du chargement des produits');
@@ -86,39 +115,53 @@ export default function VentesPassagers() {
       return;
     }
 
-    const produit = produits.find(p => p.id?.toString() === selectedProduitId || p.id === parseInt(selectedProduitId));
-    if (!produit) return;
+    const selectedId = Number(selectedProduitId);
+    const produit = produits.find(p => Number(p.id) === selectedId);
+    
+    if (!produit) {
+      console.error('Product not found:', { selectedProduitId, produits });
+      toast.error('Produit non trouvé');
+      return;
+    }
 
-    const stock = produit.stockActuel ?? produit.stock_actuel ?? 0;
-    if (stock < quantite) {
+    const stock = Number(produit.stockActuel ?? 0);
+    if (stock <= 0) {
       toast.error('Stock insuffisant');
       return;
     }
 
-    const existingIndex = panier.findIndex(item => item.produitId === produit.id);
+    const existingIndex = panier.findIndex(item => Number(item.produitId) === selectedId);
     if (existingIndex >= 0) {
+      const existing = panier[existingIndex];
+      const newQte = existing.quantite + quantite;
+      const newMht = existing.prixUnitaireHt * newQte;
+      const newMtva = newMht * (existing.tva / 100);
+      const newMttc = newMht + newMtva;
+      
       setPanier(panier.map((item, idx) => 
         idx === existingIndex 
-          ? { ...item, quantite: item.quantite + quantite } 
+          ? { ...item, quantite: newQte, montantHt: newMht, montantTva: newMtva, montantTtc: newMttc }
           : item
       ));
     } else {
-      const puHt = Number(produit.prixVenteHt ?? produit.prix_vente_ht ?? 0);
-      const tvaRate = Number(produit.tauxTva ?? produit.tva ?? 20);
+      const puHt = Number(produit.prixVenteHt ?? 0);
+      const tvaRate = Number(produit.tauxTva ?? 20);
       const mht = puHt * quantite;
       const mtva = mht * (tvaRate / 100);
       const mttc = mht + mtva;
 
+      console.log('Adding to panier:', { produit, puHt, tvaRate, mht, mtva, mttc });
+
       setPanier([...panier, {
         produitId: produit.id,
-        designation: produit.nom ?? produit.designation ?? 'Produit',
+        designation: produit.designation || 'Produit',
         quantite,
         prixUnitaireHt: puHt,
         tva: tvaRate,
         montantHt: mht,
         montantTva: mtva,
         montantTtc: mttc,
-        prixAchatHt: produit.prixAchatHt ?? produit.prix_achat_ht ?? 0
+        prixAchatHt: Number(produit.prixAchatHt ?? 0)
       }]);
     }
     setSelectedProduitId('');
@@ -142,24 +185,74 @@ export default function VentesPassagers() {
     const totalCogs = panier.reduce((sum, item) => sum + (Number(item.prixAchatHt || 0) * item.quantite), 0);
 
     try {
-      const payload = {
-        montant_ht: totalHt,
-        montant_tva: totalTva,
-        montant_ttc: totalTtc,
-        cogs: totalCogs,
-        date: new Date().toISOString(),
-        lignes: panier
-      };
+      const year = new Date().getFullYear();
+      const { count } = await supabase.from('ventes_passagers').select('*', { count: 'exact', head: true });
+      const randomNum = String((count || 0) + 1).padStart(4, '0');
+      const numero = `VP-${year}-${randomNum}`;
 
-      const { error } = await supabase.from('ventes_passagers').insert([payload]);
-      if (error) throw error;
+      const { data: venteData, error: venteError } = await supabase
+        .from('ventes_passagers')
+        .insert([{
+          numero: numero,
+          montant_ht: totalHt,
+          montant_tva: totalTva,
+          montant_ttc: totalTtc,
+          cogs: totalCogs,
+          date: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+      
+      if (venteError) throw venteError;
+
+      const lignesPayload = panier.map((item, index) => ({
+        vp_id: venteData.id,
+        produit_id: item.produitId,
+        designation: item.designation,
+        quantite: item.quantite,
+        prix_unitaire_ht: item.prixUnitaireHt,
+        tva: item.tva,
+        montant_ht: item.montantHt,
+        montant_ttc: item.montantTtc,
+        montant_tva: item.montantTva,
+        ordre: index,
+      }));
+
+      if (lignesPayload.length > 0) {
+        const { error: lignesError } = await supabase.from('ventes_passagers_lignes').insert(lignesPayload);
+        if (lignesError) throw lignesError;
+      }
+
+      for (const item of panier) {
+        try {
+          const { error: rpcError } = await supabase.rpc('decrement_stock', { 
+            product_id: item.produitId, 
+            amount: item.quantite 
+          });
+          if (rpcError) {
+            const produit = produits.find(p => p.id === item.produitId);
+            if (produit) {
+              const newStock = (produit.stock_actuel || produit.stockActuel || 0) - item.quantite;
+              await supabase.from('produits').update({ stock_actuel: newStock }).eq('id', item.produitId);
+            }
+          }
+        } catch (e) {
+          const produit = produits.find(p => p.id === item.produitId);
+          if (produit) {
+            const newStock = (produit.stock_actuel || produit.stockActuel || 0) - item.quantite;
+            await supabase.from('produits').update({ stock_actuel: newStock }).eq('id', item.produitId);
+          }
+        }
+      }
       
       toast.success('Vente enregistrée avec succès');
       setIsDialogOpen(false);
       setPanier([]);
       fetchVentes();
-    } catch (error) {
-      toast.error('Erreur lors de l\'enregistrement');
+      fetchProduits();
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast.error(error.message || 'Erreur lors de l\'enregistrement');
     }
   };
 
@@ -174,9 +267,14 @@ export default function VentesPassagers() {
     }
   };
 
-  const filteredVentes = ventes.filter(v => 
-    v.numero?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVentes = ventes.filter(v => {
+    const searchLower = searchTerm.toLowerCase().trim();
+    if (!searchLower) return true;
+    
+    const matchesNumero = (v.numero || '').toLowerCase().includes(searchLower);
+    const matchesDate = v.date && new Date(v.date).toLocaleDateString('fr-FR').includes(searchLower);
+    return matchesNumero || matchesDate;
+  });
 
   const totalVentes = ventes.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
   const todayVentes = ventes.filter(v => {
@@ -243,16 +341,25 @@ export default function VentesPassagers() {
                       <SelectValue placeholder="Sélectionner un produit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {produits.filter(p => (p.stockActuel ?? p.stock_actuel ?? 0) > 0).map(p => (
-                        <SelectItem key={p.id} value={p.id?.toString() || ''}>
-                          <div className="flex items-center justify-between w-full">
-                            <span>{p.nom || p.designation || 'Produit'}</span>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              Stock: {(p.stockActuel ?? p.stock_actuel ?? 0)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {produits.length === 0 ? (
+                        <div className="p-2 text-sm text-muted-foreground">Aucun produit disponible</div>
+                      ) : (
+                        produits.map(p => {
+                          const stock = Number(p.stockActuel ?? 0);
+                          const prix = Number(p.prixVenteHt ?? 0);
+                          const disabled = stock <= 0;
+                          return (
+                            <SelectItem key={p.id} value={p.id?.toString() || ''} disabled={disabled}>
+                              <div className="flex items-center justify-between w-full gap-4">
+                                <span className={disabled ? 'text-muted-foreground' : ''}>{p.designation || 'Produit'}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatCurrency(prix)} HT {disabled ? '| Stock: 0' : `| Stock: ${stock}`}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -369,10 +476,10 @@ export default function VentesPassagers() {
 
       {/* Search */}
       <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
         <Input
-          type="search"
-          placeholder="Rechercher une vente..."
+          type="text"
+          placeholder="Rechercher par numéro ou date..."
           className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
