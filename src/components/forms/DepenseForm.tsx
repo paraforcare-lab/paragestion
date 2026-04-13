@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 
 const depenseSchema = z.object({
+  reference: z.string().optional(),
   categorie: z.string().min(1, 'La catégorie est requise'),
   description: z.string().min(1, 'La description est requise'),
   montantHt: z.coerce.number().min(0, 'Le montant doit être positif'),
@@ -48,13 +49,14 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
 
   const form = useForm<DepenseFormValues>({
     resolver: zodResolver(depenseSchema) as any,
-    defaultValues: initialData || {
+    defaultValues: {
+      reference: '',
       categorie: 'fournitures',
       description: '',
       montantHt: 0,
       tva: 20,
       dateDepense: new Date().toISOString().split('T')[0],
-      modePaiement: 'virement',
+      modePaiement: 'Virement',
       fournisseurId: '',
       notes: '',
     },
@@ -71,16 +73,27 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
         setFournisseurs(fournisseursData || []);
         setParametres(parametresData?.[0] || null);
         
-        if (initialData) {
+        if (initialData?.id) {
           form.reset({
             ...initialData,
-            fournisseurId: initialData.fournisseurId?.toString(),
-            dateDepense: initialData.dateDepense ? new Date(initialData.dateDepense).toISOString().split('T')[0] : '',
+            reference: initialData.reference || initialData.ref || '',
+            fournisseurId: initialData.fournisseurId?.toString() || 'none',
+            dateDepense: initialData.dateDepense || new Date().toISOString().split('T')[0],
             montantHt: Number(initialData.montantHt || 0),
-            tva: Number(initialData.tva || 20)
+            tva: Number(initialData.tva || 20),
           });
-        } else if (parametresData?.[0]) {
-          form.setValue('notes', parametresData[0].pied_page_defaut || '');
+        } else {
+          form.reset({
+            reference: '',
+            categorie: 'fournitures',
+            description: '',
+            montantHt: 0,
+            tva: 20,
+            dateDepense: new Date().toISOString().split('T')[0],
+            modePaiement: 'Virement',
+            fournisseurId: '',
+            notes: parametresData?.[0]?.pied_page_defaut || '',
+          });
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -88,7 +101,7 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
       }
     };
     fetchData();
-  }, []);
+  }, [initialData?.id]);
 
   const onSubmit = async (data: DepenseFormValues) => {
     try {
@@ -97,34 +110,45 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
       const montantTva = montantHt * (tva / 100);
       const montantTtc = montantHt + montantTva;
 
-      const payload = {
-        ...data,
-        montant_ht: Number(data.montantHt),
+      let reference = data.reference?.trim();
+      if (!reference && !initialData?.id) {
+        const year = new Date().getFullYear();
+        const { count } = await supabase.from('depenses').select('*', { count: 'exact', head: true });
+        const num = String((count || 0) + 1).padStart(4, '0');
+        reference = `DEP-${year}-${num}`;
+      }
+
+      const payload: any = {
+        reference: reference,
+        categorie: data.categorie,
+        description: data.description,
+        montant_ht: Number(montantHt),
         montant_tva: Number(montantTva),
         montant_ttc: Number(montantTtc),
+        tva: Number(tva),
         date_depense: new Date(data.dateDepense).toISOString(),
-        fournisseur_id: (data.fournisseurId && data.fournisseurId !== 'none') ? Number(data.fournisseurId) : null,
+        mode_paiement: data.modePaiement,
+        notes: data.notes || '',
       };
-      
-      delete (payload as any).montantHt;
-      delete (payload as any).montantTva;
-      delete (payload as any).montantTtc;
-      delete (payload as any).dateDepense;
-      delete (payload as any).fournisseurId;
-      delete (payload as any).tva;
+
+      if (data.fournisseurId && data.fournisseurId !== 'none') {
+        payload.fournisseur_id = Number(data.fournisseurId);
+      }
 
       if (initialData?.id) {
         const { error } = await supabase.from('depenses').update(payload).eq('id', initialData.id);
         if (error) throw error;
+        toast.success('Dépense modifiée');
       } else {
         const { error } = await supabase.from('depenses').insert([payload]);
         if (error) throw error;
+        toast.success('Dépense ajoutée');
       }
 
-      toast.success(initialData ? 'Dépense modifiée' : 'Dépense ajoutée');
       onSuccess();
-    } catch (error) {
-      toast.error('Erreur lors de l\'enregistrement');
+    } catch (error: any) {
+      console.error('Error submitting form:', error);
+      toast.error(error?.message || 'Erreur lors de l\'enregistrement');
     }
   };
 
@@ -165,6 +189,19 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
                   <FormLabel className="text-slate-700 font-semibold">Date de la dépense *</FormLabel>
                   <FormControl>
                     <Input type="date" className="bg-white border-slate-300" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="reference"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-slate-700 font-semibold">Référence</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Auto-généré si vide" className="bg-white border-slate-300 font-mono" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -237,12 +274,12 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
                       <SelectValue placeholder="Sélectionner un mode" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="espèces">Espèces</SelectItem>
-                    <SelectItem value="chèque">Chèque</SelectItem>
-                    <SelectItem value="virement">Virement</SelectItem>
-                    <SelectItem value="carte">Carte bancaire</SelectItem>
-                    <SelectItem value="autre">Autre</SelectItem>
+                    <SelectContent>
+                    <SelectItem value="Espèces">Espèces</SelectItem>
+                    <SelectItem value="Chèque">Chèque</SelectItem>
+                    <SelectItem value="Virement">Virement</SelectItem>
+                    <SelectItem value="Carte">Carte bancaire</SelectItem>
+                    <SelectItem value="Autre">Autre</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
