@@ -21,7 +21,8 @@ import {
   CreditCard,
   Bell,
   Sparkles,
-  ChevronRight
+  ChevronRight,
+  Receipt
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -67,53 +68,116 @@ export function Workspace() {
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any[]>([]);
   const [lowStockProduits, setLowStockProduits] = useState<any[]>([]);
-  const [selectedRange, setSelectedRange] = useState('6m');
+const [selectedRange, setSelectedRange] = useState('6m');
   const [isLoading, setIsLoading] = useState(true);
   const [entreprise, setEntreprise] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        const [{ data: statsFactures }, { data: factures }, { data: devis }, { data: bc }, { data: vp }, { data: depenses }] = await Promise.all([
-          supabase.from('factures').select('*'),
-          supabase.from('factures').select('*'),
-          supabase.from('devis').select('*'),
-          supabase.from('bons_commande').select('*'),
-          supabase.from('ventes_passagers').select('*'),
-          supabase.from('depenses').select('*')
-        ]);
+const fetchData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Filter by user_id explicitly
+      const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, devisRes, bcRes] = await Promise.all([
+        supabase.from('factures').select('*').eq('user_id', user.id),
+        supabase.from('ventes_passagers').select('*').eq('user_id', user.id),
+        supabase.from('depenses').select('*').eq('user_id', user.id),
+        supabase.from('produits').select('*').eq('user_id', user.id),
+        supabase.from('clients').select('*').eq('user_id', user.id),
+        supabase.from('fournisseurs').select('*').eq('user_id', user.id),
+        supabase.from('devis').select('*').eq('user_id', user.id),
+        supabase.from('bons_commande').select('*').eq('user_id', user.id)
+      ]);
 
-        const totalRevenue = (factures || []).reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
+        const factures = (factRes.data || []);
+        const vp = (vpRes.data || []);
+        const depenses = (depRes.data || []);
+        const produits = (prodRes.data || []);
+        const clients = (cliRes.data || []);
+        const fournisseurs = (fourRes.data || []);
+        const devis = (devisRes.data || []);
+        const bc = (bcRes.data || []);
+
+        console.log('User:', user.id);
+        console.log('Factures:', factures.length, factures);
+        console.log('VP:', vp.length);
+        console.log('Depenses:', depenses.length);
+        
+        const allInvoices = [...factures, ...vp];
+        const validInvoices = allInvoices.filter((f: any) => f.statut !== 'annulée');
+        const totalRevenue = validInvoices.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
+        
+const totalExpenses = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_ttc || 0), 0);
+        
+        const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+        
+        // Determine number of months based on selectedRange
+        const monthsToShow = selectedRange === '1m' ? 1 : selectedRange === '1y' ? 12 : 6;
+        const chartDataCalc: any[] = [];
+        
+        for (let i = monthsToShow - 1; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const month = d.getMonth();
+          const year = d.getFullYear();
+          const monthRevenue = [
+            ...factures.filter((f: any) => new Date(f.date_emission).getMonth() === month && new Date(f.date_emission).getFullYear() === year),
+            ...vp.filter((v: any) => new Date(v.date).getMonth() === month && new Date(v.date).getFullYear() === year)
+          ].reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0);
+          const monthExpense = depenses.filter((d: any) => new Date(d.date_depense).getMonth() === month && new Date(d.date_depense).getFullYear() === year).reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0);
+          chartDataCalc.push({
+            name: monthNames[month],
+            revenue: monthRevenue,
+            expenses: monthExpense
+          });
+        }
+
+        // Calculate stats for selected period only
+        const periodRevenue = chartDataCalc.reduce((sum, m) => sum + m.revenue, 0);
+        const periodExpenses = chartDataCalc.reduce((sum, m) => sum + m.expenses, 0);
+        
+        const revenueGrowth = chartDataCalc.length >= 2 
+          ? ((chartDataCalc[chartDataCalc.length - 1].revenue - chartDataCalc[chartDataCalc.length - 2].revenue) / (chartDataCalc[chartDataCalc.length - 2].revenue || 1)) * 100 
+          : 0;
 
         setStats({
-          invoiced: totalRevenue,
-          pending: (factures || []).filter((f: any) => f.statut === 'en_attente' || f.statut === 'reste_a_payer').length,
-          clients: 0,
-          products: 0,
-          monthlyGrowth: 15.2
+          invoiced: periodRevenue,
+          pending: factures.filter((f: any) => f.statut === 'en_attente' || f.statut === 'reste_a_payer').length,
+          clients: clients.length,
+          products: produits.length,
+          monthlyGrowth: revenueGrowth
         });
 
-        setChartData([]);
-        setLowStockProduits([]);
+        setChartData(chartDataCalc);
+        setLowStockProduits((produits || []).filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min))).slice(0, 5);
         setTasks([]);
-
+        
+        console.log('Fetching data - user:', user?.id);
+        console.log('Factures:', factures?.length);
+        console.log('VP:', vp?.length);
+        console.log('Depenses:', depenses?.length);
+        
         const combined = [
-          ...(factures || []).map((f: any) => ({ ...f, type: 'Facture', date: f.date_emission || f.created_at, label: f.numero })),
-          ...(devis || []).map((d: any) => ({ ...d, type: 'Devis', date: d.date_emission || d.created_at, label: d.numero })),
-          ...(bc || []).map((b: any) => ({ ...b, type: 'Commande', date: b.date_commande || b.created_at, label: b.numero })),
-          ...(vp || []).map((v: any) => ({ ...v, type: 'Vente Passager', date: v.date || v.created_at, label: v.numero })),
-          ...(depenses || []).map((e: any) => ({ ...e, type: 'Dépense', date: e.date_depense || e.created_at, label: e.numero || `DEP-${e.id}` }))
-        ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-         .slice(0, 10);
+          ...(factures || []).filter(f => f.date_emission || f.created_at).map((f: any) => ({ ...f, type: 'Facture', date: f.date_emission || f.created_at, label: f.numero })),
+          ...(devis || []).filter(d => d.date_emission || d.created_at).map((d: any) => ({ ...d, type: 'Devis', date: d.date_emission || d.created_at, label: d.numero })),
+          ...(bc || []).filter(b => b.date_commande || b.created_at).map((b: any) => ({ ...b, type: 'Commande', date: b.date_commande || b.created_at, label: b.numero })),
+          ...(vp || []).filter(v => v.date || v.created_at).map((v: any) => ({ ...v, type: 'Vente Passager', date: v.date || v.created_at, label: v.numero })),
+          ...(depenses || []).filter(e => e.date_depense || e.created_at).map((e: any) => ({ ...e, type: 'Dépense', date: e.date_depense || e.created_at, label: e.reference || e.numero || `DEP-${e.id}` }))
+        ].sort((a, b) => {
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateB - dateA;
+        }).slice(0, 4);
 
+        console.log('Combined (last 4):', combined);
         setRecentActivity(combined);
 
         if (user?.id) {
           const { data: params } = await supabase
             .from('parametres')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('user_id', String(user.id))
             .single();
           
           if (params) {
@@ -125,10 +189,42 @@ export function Workspace() {
       } finally {
         setIsLoading(false);
       }
-    };
+  };
 
+  useEffect(() => {
+    if (!user?.id) return;
     fetchData();
-  }, [selectedRange, user]);
+  }, [user, selectedRange]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const channel = supabase
+      .channel('workspace-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedRange]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const channel = supabase
+      .channel('workspace-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', filter: `user_id=eq.${user.id}` }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const addTask = async () => {
     if (!newTask.trim()) return;
@@ -227,7 +323,7 @@ export function Workspace() {
               { label: 'Facturé', value: stats.invoiced, icon: TrendingUp, color: 'blue', suffix: 'DH' },
               { label: 'Clients', value: stats.clients, icon: Users, color: 'green', suffix: '' },
               { label: 'Produits', value: stats.products, icon: Package, color: 'orange', suffix: '' },
-              { label: 'Croissance', value: stats.monthlyGrowth, icon: Sparkles, color: 'purple', suffix: '%' },
+              { label: 'Croissance', value: stats.monthlyGrowth > 0 ? `+${parseFloat(stats.monthlyGrowth.toFixed(1))}` : parseFloat(stats.monthlyGrowth.toFixed(1)), icon: Sparkles, color: stats.monthlyGrowth >= 0 ? 'green' : 'red', suffix: '%' },
             ].map((stat, i) => (
               <Card key={i} className="border-none shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
@@ -259,9 +355,9 @@ export function Workspace() {
               </div>
               <Tabs value={selectedRange} onValueChange={setSelectedRange}>
                 <TabsList className="bg-gray-100">
-                  <TabsTrigger value="1m">1m</TabsTrigger>
-                  <TabsTrigger value="6m">6m</TabsTrigger>
-                  <TabsTrigger value="1y">1y</TabsTrigger>
+                  <TabsTrigger value="1m">1 mois</TabsTrigger>
+                  <TabsTrigger value="6m">6 mois</TabsTrigger>
+                  <TabsTrigger value="1y">1 an</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -288,59 +384,19 @@ export function Workspace() {
             </CardContent>
           </Card>
 
-          {/* Recent Activity Table-like list */}
-          <Card className="border-none shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Dernières Transactions</CardTitle>
-              <Button variant="ghost" size="sm" className="text-[#267E54]" onClick={() => window.location.href = '/transactions'}>Voir tout</Button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivity.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-colors group">
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center",
-                        item.type === 'Facture' ? "bg-blue-50 text-blue-600" : 
-                        item.type === 'Devis' ? "bg-purple-50 text-purple-600" :
-                        item.type === 'Commande' ? "bg-orange-50 text-orange-600" :
-                        item.type === 'Vente Passager' ? "bg-green-50 text-green-600" :
-                        item.type === 'Dépense' ? "bg-red-50 text-red-600" :
-                        "bg-gray-50 text-gray-600"
-                      )}>
-                        {item.type === 'Facture' ? <FileText className="h-5 w-5" /> :
-                         item.type === 'Devis' ? <TrendingUp className="h-5 w-5" /> :
-                         item.type === 'Commande' ? <ShoppingCart className="h-5 w-5" /> :
-                         item.type === 'Vente Passager' ? <Sparkles className="h-5 w-5" /> :
-                         item.type === 'Dépense' ? <CreditCard className="h-5 w-5" /> :
-                         <Clock className="h-5 w-5" />}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {item.isLog ? item.action : (item.label || `N° ${item.id}`)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.isLog ? item.details : (item.client?.nom || item.client?.nomSociete || item.fournisseur?.nomSociete || item.type)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">{format(new Date(item.date), 'd MMM yyyy HH:mm', { locale: fr })}</p>
-                        {!item.isLog && <Badge variant="secondary" className="mt-1 font-normal capitalize">{item.statut?.replace('_', ' ')}</Badge>}
-                      </div>
-                      {!item.isLog && (
-                        <p className="font-bold text-gray-900 min-w-[100px] text-right">
-                          {formatCurrency(item.montantTtc || item.montant_ttc || 0)}
-                        </p>
-                      )}
-                      <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100">
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          {/* Transactions Link Card */}
+          <Card className="border-none shadow-lg overflow-hidden bg-gradient-to-br from-[#267E54] to-[#1e6643] text-white cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.location.href = '/transactions'}>
+            <CardContent className="p-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-white/20 flex items-center justify-center">
+                  <Receipt className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-lg font-bold">Transactions</p>
+                  <p className="text-white/70 text-sm">Voir toutes vos opérations</p>
+                </div>
               </div>
+              <ChevronRight className="h-8 w-8" />
             </CardContent>
           </Card>
         </div>
@@ -464,11 +520,11 @@ export function Workspace() {
                   lowStockProduits.map((produit: any) => (
                     <div key={produit.id} className="flex items-center justify-between p-3 rounded-lg bg-red-50/50 border border-red-100">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">{produit.nom}</p>
+                        <p className="text-sm font-semibold truncate">{produit.nom || produit.designation}</p>
                         <p className="text-xs text-muted-foreground">Réf: {produit.reference}</p>
                       </div>
                       <Badge variant="destructive" className="shrink-0">
-                        {produit.stockActuel} {produit.unite}
+                        {produit.stock_actuel} {produit.unite}
                       </Badge>
                     </div>
                   ))

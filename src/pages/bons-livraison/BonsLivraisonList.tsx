@@ -86,11 +86,13 @@ export function BonsLivraisonList() {
   });
 
   const fetchBons = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('bons_livraison')
         .select('*, fournisseur:fournisseurs(*)')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -103,18 +105,23 @@ export function BonsLivraisonList() {
     }
   };
 
-  const fetchEntreprise = async () => {
+const fetchEntreprise = async () => {
     if (!user?.id) return;
     
     try {
       const { data, error } = await supabase
         .from('parametres')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', String(user.id))
         .single();
       
+      if (!data) {
+        setEntreprise(null);
+        return;
+      }
+      
       if (error && error.code !== 'PGRST116') {
-        console.warn('Error fetching parametres:', error);
+        console.warn('Error:', error);
       }
       
       if (data) {
@@ -252,7 +259,11 @@ export function BonsLivraisonList() {
 
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
-      const { error } = await supabase.from('bons_livraison').update({ statut: newStatus }).eq('id', id);
+      const { error } = await supabase
+        .from('bons_livraison')
+        .update({ statut: newStatus })
+        .eq('id', id)
+        .eq('user_id', user?.id);
       if (error) throw error;
 
       toast.success('Statut mis à jour');

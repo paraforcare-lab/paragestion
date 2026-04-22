@@ -17,6 +17,7 @@ import {
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -47,6 +48,7 @@ interface FactureFormProps {
 }
 
 export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
+  const { user } = useAuth();
   const [clients, setClients] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
@@ -81,11 +83,13 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) return;
+      
       try {
         const [{ data: clientsData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
-          supabase.from('clients').select('*').order('nom'),
-          supabase.from('produits').select('*').order('nom'),
-          supabase.from('parametres').select('*').limit(1)
+          supabase.from('clients').select('*').eq('user_id', user.id).order('nom'),
+          supabase.from('produits').select('*').eq('user_id', user.id).order('nom'),
+          supabase.from('parametres').select('*').eq('user_id', user.id).limit(1)
         ]);
         
         setClients(clientsData || []);
@@ -170,19 +174,19 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
         montant_ht: Number(totals.ht) || 0,
         montant_tva: Number(totals.tva) || 0,
         montant_ttc: Number(totals.ttc) || 0,
-        reste_a_payer: Number(data.resteAPayer) || Number(totals.ttc) || 0,
+        reste_a_payer: data.statut === 'payée' ? 0 : (Number(data.resteAPayer) || Number(totals.ttc) || 0),
       };
 
       let factureId = initialData?.id;
 
       if (!factureId) {
         // Create new facture
-        const { data: newFacture, error } = await supabase.from('factures').insert([payload]).select().single();
+        const { data: newFacture, error } = await supabase.from('factures').insert([{ ...payload, user_id: user?.id }]).select().single();
         if (error) throw error;
         factureId = newFacture.id;
       } else {
-        // Update existing facture
-        const { error } = await supabase.from('factures').update(payload).eq('id', factureId);
+        // Update existing facture - filter by user_id to prevent updating wrong records
+        const { error } = await supabase.from('factures').update(payload).eq('id', factureId).eq('user_id', user?.id);
         if (error) throw error;
         
         // Delete old lignes

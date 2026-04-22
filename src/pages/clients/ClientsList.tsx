@@ -24,6 +24,7 @@ import { ClientForm } from '@/components/forms/ClientForm';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Client {
   id: number;
@@ -38,6 +39,7 @@ interface Client {
 }
 
 export function ClientsList() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -47,23 +49,66 @@ export function ClientsList() {
   const [clientToDelete, setClientToDelete] = useState<number | null>(null);
 
   const fetchClients = async () => {
+    if (!user?.id) {
+      console.log('No user logged in');
+      setClients([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
+    console.log('=== FETCHING CLIENTS for user_id:', user.id);
+    
     try {
-      const { data, error } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      setClients(data || []);
-    } catch (error) {
-      console.error('Failed to fetch clients', error);
-      toast.error('Erreur lors du chargement des clients');
+      // Fetch ALL columns
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      console.log('Query result:', { data, error });
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        toast.error('Erreur: ' + error.message);
+        setClients([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('No clients for user_id:', user.id);
+        setClients([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('Found:', data.length, 'clients', data[0]);
+      setClients(data);
+    } catch (error: any) {
+      console.error('ERROR:', error);
+      setClients([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (user?.id) {
+      fetchClients();
+    }
+  }, [user?.id]);
+
   const handleDelete = async () => {
-    if (!clientToDelete) return;
+    if (!clientToDelete || !user?.id) return;
     try {
-      const { error } = await supabase.from('clients').delete().eq('id', clientToDelete);
+      // Only delete if belongs to this user
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientToDelete)
+        .eq('user_id', user.id);
+      
       if (error) throw error;
       toast.success('Client supprimé avec succès');
       fetchClients();
@@ -79,10 +124,6 @@ export function ClientsList() {
     setEditingClient(client);
     setIsDialogOpen(true);
   };
-
-  useEffect(() => {
-    fetchClients();
-  }, []);
 
   const filteredClients = clients.filter((client) =>
     client.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||

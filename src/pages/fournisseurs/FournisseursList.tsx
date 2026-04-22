@@ -24,6 +24,7 @@ import { FournisseurForm } from '@/components/forms/FournisseurForm';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Fournisseur {
   id: number;
@@ -39,6 +40,7 @@ interface Fournisseur {
 }
 
 export function FournisseursList() {
+  const { user } = useAuth();
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -47,15 +49,40 @@ export function FournisseursList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [fournisseurToDelete, setFournisseurToDelete] = useState<number | null>(null);
 
-  const fetchFournisseurs = async () => {
+const fetchFournisseurs = async () => {
+    if (!user?.id) {
+      setFournisseurs([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
+    console.log('=== Starting fetch for user:', user.id);
+    
+    const currentUserId = user.id;
+    
     try {
-      const { data, error } = await supabase.from('fournisseurs').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      setFournisseurs(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error('Failed to fetch fournisseurs', error);
-      toast.error('Erreur lors du chargement des fournisseurs');
+      // Fetch ALL columns
+      const result = await supabase
+        .from('fournisseurs')
+        .select('*')
+        .eq('user_id', currentUserId);
+      
+      console.log('Query result:', result);
+      
+      if (result.error) {
+        console.error('Query error:', result.error);
+        toast.error('Error: ' + result.error.message);
+        setFournisseurs([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      let data = result.data || [];
+      console.log('Fetched:', data.length, 'records', data[0]);
+      
+      setFournisseurs(data);
+    } catch (error: any) {
+      console.error('Catch error:', error);
       setFournisseurs([]);
     } finally {
       setIsLoading(false);
@@ -63,9 +90,15 @@ export function FournisseursList() {
   };
 
   const handleDelete = async () => {
-    if (!fournisseurToDelete) return;
+    if (!fournisseurToDelete || !user?.id) return;
     try {
-      const { error } = await supabase.from('fournisseurs').delete().eq('id', fournisseurToDelete);
+      // Only delete if belongs to this user
+      const { error } = await supabase
+        .from('fournisseurs')
+        .delete()
+        .eq('id', fournisseurToDelete)
+        .eq('user_id', user.id);
+      
       if (error) throw error;
       toast.success('Fournisseur supprimé avec succès');
       fetchFournisseurs();
@@ -83,8 +116,10 @@ export function FournisseursList() {
   };
 
   useEffect(() => {
-    fetchFournisseurs();
-  }, []);
+    if (user?.id) {
+      fetchFournisseurs();
+    }
+  }, [user?.id]);
 
   const filteredFournisseurs = fournisseurs.filter((fournisseur) => {
     const nom = fournisseur.nom || fournisseur.nomSociete || '';

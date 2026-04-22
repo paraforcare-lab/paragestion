@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const produitSchema = z.object({
   reference: z.string().optional(),
@@ -37,6 +38,7 @@ interface ProduitFormProps {
 }
 
 export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
+  const { user } = useAuth();
   const form = useForm<ProduitFormValues>({
     resolver: zodResolver(produitSchema) as any,
     defaultValues: {
@@ -91,7 +93,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
       if (initialData?.id) {
         result = await supabase.from('produits').update(payload).eq('id', initialData.id).select();
       } else {
-        result = await supabase.from('produits').insert([payload]).select();
+        result = await supabase.from('produits').insert([{ ...payload, user_id: user?.id }]).select();
       }
 
       if (result.error) {

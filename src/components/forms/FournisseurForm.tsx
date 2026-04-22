@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Building2, User, Mail, Phone, MapPin, CreditCard, Save, Loader2, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const fournisseurSchema = z.object({
   nom: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
@@ -43,6 +44,8 @@ interface FournisseurFormProps {
 }
 
 export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps) {
+  const { user } = useAuth();
+  
   const form = useForm<FournisseurFormValues>({
     resolver: zodResolver(fournisseurSchema),
     defaultValues: {
@@ -101,7 +104,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
         const { error } = await supabase.from('fournisseurs').update(data).eq('id', initialData.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('fournisseurs').insert([data]);
+        const { error } = await supabase.from('fournisseurs').insert([{ ...data, user_id: user?.id }]);
         if (error) throw error;
       }
 

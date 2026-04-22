@@ -19,6 +19,7 @@ import { useReactToPrint } from 'react-to-print';
 import { FactureDocument } from '@/components/documents/FactureDocument';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Avoir {
@@ -36,6 +37,7 @@ interface Avoir {
 }
 
 export function AvoirsList() {
+  const { user } = useAuth();
   const [avoirs, setAvoirs] = useState<Avoir[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -68,11 +70,13 @@ export function AvoirsList() {
   });
 
   const fetchAvoirs = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('avoirs')
         .select('*, facture:factures(*), client:clients(*)')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -86,19 +90,32 @@ export function AvoirsList() {
   };
 
   const fetchEntreprise = async () => {
+    if (!user?.id) return;
     try {
-      const { data, error } = await supabase.from('parametres').select('*').limit(1);
-      if (error) throw error;
-      setEntreprise(data?.[0] || null);
+      const { data, error } = await supabase
+        .from('parametres')
+        .select('*')
+        .eq('user_id', String(user.id))
+        .single();
+      
+      if (!data) {
+        setEntreprise(null);
+        return;
+      }
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      setEntreprise(data || null);
     } catch (error) {
       console.error('Failed to fetch entreprise settings', error);
     }
   };
 
   useEffect(() => {
-    fetchAvoirs();
-    fetchEntreprise();
-  }, []);
+    if (user?.id) {
+      fetchAvoirs();
+      fetchEntreprise();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (printingAvoir && printRef.current) {

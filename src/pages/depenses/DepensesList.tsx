@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Depense {
   id: number;
@@ -43,6 +44,7 @@ interface Depense {
 }
 
 export function DepensesList() {
+  const { user } = useAuth();
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -67,11 +69,13 @@ export function DepensesList() {
   });
 
   const fetchDepenses = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('depenses')
         .select('*, fournisseur:fournisseurs(*)')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -85,8 +89,10 @@ export function DepensesList() {
   };
 
   useEffect(() => {
-    fetchDepenses();
-  }, []);
+    if (user?.id) {
+      fetchDepenses();
+    }
+  }, [user?.id]);
 
   const handleDelete = async () => {
     if (!depenseToDelete) return;

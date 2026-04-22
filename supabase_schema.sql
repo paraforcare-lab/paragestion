@@ -13,9 +13,10 @@ $$ language 'plpgsql';
 -- Table: Produits
 CREATE TABLE IF NOT EXISTS produits (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     reference TEXT UNIQUE,
     designation TEXT NOT NULL,
-    nom TEXT, -- Added for compatibility
+    nom TEXT,
     description TEXT,
     categorie TEXT,
     marque TEXT,
@@ -23,9 +24,9 @@ CREATE TABLE IF NOT EXISTS produits (
     image_url TEXT,
     prix_achat_ht DECIMAL(15, 2) DEFAULT 0,
     prix_vente_ht DECIMAL(15, 2) DEFAULT 0,
-    tva DECIMAL(5, 2) DEFAULT 20,
-    prix_achat_ttc DECIMAL(15, 2) GENERATED ALWAYS AS (prix_achat_ht * (1 + tva / 100)) STORED,
-    prix_vente_ttc DECIMAL(15, 2) GENERATED ALWAYS AS (prix_vente_ht * (1 + tva / 100)) STORED,
+    taux_tva DECIMAL(5, 2) DEFAULT 20,
+    prix_achat_ttc DECIMAL(15, 2),
+    prix_vente_ttc DECIMAL(15, 2),
     stock_actuel DECIMAL(15, 2) DEFAULT 0,
     stock_min DECIMAL(15, 2) DEFAULT 5,
     unite TEXT DEFAULT 'unité',
@@ -34,30 +35,12 @@ CREATE TABLE IF NOT EXISTS produits (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure columns exist and constraints are correct
-DO $$ 
-BEGIN 
-  -- If 'nom' exists and is NOT NULL, make it nullable
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='produits' AND column_name='nom') THEN
-    ALTER TABLE produits ALTER COLUMN nom DROP NOT NULL;
-  END IF;
-  
-  -- Ensure 'designation' exists
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='produits' AND column_name='designation') THEN
-    ALTER TABLE produits ADD COLUMN designation TEXT;
-    -- Copy data from 'nom' if available
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='produits' AND column_name='nom') THEN
-      UPDATE produits SET designation = nom;
-    END IF;
-    UPDATE produits SET designation = 'Produit sans nom' WHERE designation IS NULL;
-    ALTER TABLE produits ALTER COLUMN designation SET NOT NULL;
-  END IF;
-END $$;
-
 -- Table: Clients
 CREATE TABLE IF NOT EXISTS clients (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     nom TEXT NOT NULL,
+    nom_societe TEXT,
     email TEXT,
     telephone TEXT,
     adresse TEXT,
@@ -76,7 +59,11 @@ CREATE TABLE IF NOT EXISTS clients (
 -- Table: Fournisseurs
 CREATE TABLE IF NOT EXISTS fournisseurs (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    code TEXT,
     nom TEXT NOT NULL,
+    nom_societe TEXT,
+    type TEXT DEFAULT 'entreprise',
     email TEXT,
     telephone TEXT,
     adresse TEXT,
@@ -90,11 +77,12 @@ CREATE TABLE IF NOT EXISTS fournisseurs (
 -- Table: Devis
 CREATE TABLE IF NOT EXISTS devis (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     numero TEXT UNIQUE NOT NULL,
     client_id BIGINT REFERENCES clients(id),
     date_emission DATE DEFAULT CURRENT_DATE,
     date_validite DATE,
-    statut TEXT DEFAULT 'brouillon', -- brouillon, envoyé, accepté, refusé, facturé
+    statut TEXT DEFAULT 'brouillon',
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
@@ -122,17 +110,19 @@ CREATE TABLE IF NOT EXISTS devis_lignes (
 -- Table: Factures
 CREATE TABLE IF NOT EXISTS factures (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     numero TEXT UNIQUE NOT NULL,
     client_id BIGINT REFERENCES clients(id),
     devis_id BIGINT REFERENCES devis(id),
     date_emission DATE DEFAULT CURRENT_DATE,
     date_echeance DATE,
-    statut TEXT DEFAULT 'brouillon', -- brouillon, en_attente, payée, partiellement_payée, annulée
+    statut TEXT DEFAULT 'brouillon',
     mode_paiement TEXT,
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
     reste_a_payer DECIMAL(15, 2) DEFAULT 0,
+    cogs DECIMAL(15, 2) DEFAULT 0,
     notes TEXT,
     conditions_paiement TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -145,23 +135,24 @@ CREATE TABLE IF NOT EXISTS facture_lignes (
     facture_id BIGINT REFERENCES factures(id) ON DELETE CASCADE,
     produit_id BIGINT REFERENCES produits(id),
     reference TEXT,
-    designation TEXT NOT NULL,
+    description TEXT NOT NULL,
     quantite DECIMAL(15, 2) NOT NULL,
-    prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
+    prix_unitaire DECIMAL(15, 2) NOT NULL,
     tva DECIMAL(5, 2) DEFAULT 20,
     montant_ht DECIMAL(15, 2),
     montant_ttc DECIMAL(15, 2),
     ordre INTEGER DEFAULT 0
 );
 
--- Table: Bons de Commande (Fournisseurs)
+-- Table: Bons de Commande
 CREATE TABLE IF NOT EXISTS bons_commande (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     numero TEXT UNIQUE NOT NULL,
     fournisseur_id BIGINT REFERENCES fournisseurs(id),
     date_commande DATE DEFAULT CURRENT_DATE,
     date_livraison_prevue DATE,
-    statut TEXT DEFAULT 'brouillon', -- brouillon, envoyé, livré, annulé
+    statut TEXT DEFAULT 'brouillon',
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
@@ -180,17 +171,20 @@ CREATE TABLE IF NOT EXISTS bon_commande_lignes (
     quantite DECIMAL(15, 2) NOT NULL,
     prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
     tva DECIMAL(5, 2) DEFAULT 20,
+    montant_ht DECIMAL(15, 2),
+    montant_ttc DECIMAL(15, 2),
     ordre INTEGER DEFAULT 0
 );
 
--- Table: Bons de Livraison (Fournisseurs)
+-- Table: Bons de Livraison
 CREATE TABLE IF NOT EXISTS bons_livraison (
     id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     numero TEXT UNIQUE NOT NULL,
     fournisseur_id BIGINT REFERENCES fournisseurs(id),
     bon_commande_id BIGINT REFERENCES bons_commande(id),
     date_livraison DATE DEFAULT CURRENT_DATE,
-    statut TEXT DEFAULT 'reçu', -- reçu, annulé
+    statut TEXT DEFAULT 'reçu',
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
@@ -210,6 +204,85 @@ CREATE TABLE IF NOT EXISTS bon_livraison_lignes (
     quantite DECIMAL(15, 2) NOT NULL,
     prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
     tva DECIMAL(5, 2) DEFAULT 20,
+    montant_ht DECIMAL(15, 2),
+    montant_ttc DECIMAL(15, 2),
+    ordre INTEGER DEFAULT 0
+);
+
+-- Table: Ventes Passagers
+CREATE TABLE IF NOT EXISTS ventes_passagers (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    numero TEXT UNIQUE NOT NULL,
+    date DATE DEFAULT CURRENT_DATE,
+    montant_ht DECIMAL(15, 2) DEFAULT 0,
+    montant_tva DECIMAL(15, 2) DEFAULT 0,
+    montant_ttc DECIMAL(15, 2) DEFAULT 0,
+    cogs DECIMAL(15, 2) DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table: Ventes Passagers Lignes
+CREATE TABLE IF NOT EXISTS ventes_passagers_lignes (
+    id BIGSERIAL PRIMARY KEY,
+    vp_id BIGINT REFERENCES ventes_passagers(id) ON DELETE CASCADE,
+    produit_id BIGINT REFERENCES produits(id),
+    designation TEXT NOT NULL,
+    quantite DECIMAL(15, 2) NOT NULL,
+    prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
+    tva DECIMAL(5, 2) DEFAULT 20,
+    montant_ht DECIMAL(15, 2),
+    montant_ttc DECIMAL(15, 2),
+    montant_tva DECIMAL(15, 2),
+    ordre INTEGER DEFAULT 0
+);
+
+-- Table: Depenses
+CREATE TABLE IF NOT EXISTS depenses (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reference TEXT,
+    categorie TEXT DEFAULT 'autre',
+    description TEXT,
+    montant_ht DECIMAL(15, 2) DEFAULT 0,
+    montant_tva DECIMAL(15, 2) DEFAULT 0,
+    montant_ttc DECIMAL(15, 2) DEFAULT 0,
+    date_depense DATE DEFAULT CURRENT_DATE,
+    mode_paiement TEXT DEFAULT 'virement',
+    fournisseur_id BIGINT REFERENCES fournisseurs(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table: Avoirs
+CREATE TABLE IF NOT EXISTS avoirs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    numero TEXT UNIQUE NOT NULL,
+    facture_id BIGINT REFERENCES factures(id),
+    client_id BIGINT REFERENCES clients(id),
+    date_emission DATE DEFAULT CURRENT_DATE,
+    montant_ht DECIMAL(15, 2) DEFAULT 0,
+    montant_tva DECIMAL(15, 2) DEFAULT 0,
+    montant_ttc DECIMAL(15, 2) DEFAULT 0,
+    statut TEXT DEFAULT 'en_attente',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table: Avoir Lignes
+CREATE TABLE IF NOT EXISTS avoir_lignes (
+    id BIGSERIAL PRIMARY KEY,
+    avoir_id BIGINT REFERENCES avoirs(id) ON DELETE CASCADE,
+    produit_id BIGINT REFERENCES produits(id),
+    designation TEXT NOT NULL,
+    quantite DECIMAL(15, 2) NOT NULL,
+    prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
+    tva DECIMAL(5, 2) DEFAULT 20,
+    montant_ht DECIMAL(15, 2),
+    montant_ttc DECIMAL(15, 2),
     ordre INTEGER DEFAULT 0
 );
 
@@ -217,7 +290,7 @@ CREATE TABLE IF NOT EXISTS bon_livraison_lignes (
 CREATE TABLE IF NOT EXISTS mouvements_stock (
     id BIGSERIAL PRIMARY KEY,
     produit_id BIGINT REFERENCES produits(id) ON DELETE CASCADE,
-    type TEXT NOT NULL, -- initial, achat, vente, ajustement, retour
+    type TEXT NOT NULL,
     quantite DECIMAL(15, 2) NOT NULL,
     date_mouvement TIMESTAMPTZ DEFAULT NOW(),
     reference_document TEXT,
@@ -236,37 +309,64 @@ CREATE TABLE IF NOT EXISTS logs_activites (
 -- Table: Paramètres
 CREATE TABLE IF NOT EXISTS parametres (
     id BIGSERIAL PRIMARY KEY,
-    nom_entreprise TEXT,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+    nom_societe TEXT,
+    nom TEXT,
     adresse TEXT,
+    ville TEXT,
+    code_postal TEXT,
     telephone TEXT,
     email TEXT,
+    site_web TEXT,
     ice TEXT,
     rc TEXT,
-    if_identifiant TEXT,
-    patente TEXT,
+    if_number TEXT,
+    tp_patente TEXT,
+    cnss TEXT,
+    capital_social TEXT,
+    forme_juridique TEXT,
     logo_url TEXT,
+    couleur_principale TEXT DEFAULT '#267E54',
+    banque TEXT,
+    rib TEXT,
+    swift TEXT,
     devise TEXT DEFAULT 'DH',
     conditions_paiement_defaut TEXT,
     pied_page_defaut TEXT,
+    activer_droit_timbre BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Triggers for updated_at
+-- Create indexes for user_id on all tables
 DO $$
 DECLARE
-    t text;
+    t TEXT;
+    col TEXT;
 BEGIN
     FOR t IN 
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'parametres')
+        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
+    LOOP
+        EXECUTE format('CREATE INDEX IF NOT EXISTS %I_user_id_idx ON %I (user_id)', t, t);
+    END LOOP;
+END $$;
+
+-- Triggers for updated_at
+DO $$
+DECLARE
+    t TEXT;
+BEGIN
+    FOR t IN 
+        SELECT table_name FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
     LOOP
         EXECUTE format('DROP TRIGGER IF EXISTS update_%I_updated_at ON %I', t, t);
         EXECUTE format('CREATE TRIGGER update_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()', t, t);
     END LOOP;
-END;
-$$;
+END $$;
 
 -- RPC Function to execute SQL (for development)
 DROP FUNCTION IF EXISTS execute_sql(text);
@@ -276,9 +376,9 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 BEGIN
-  EXECUTE sql;
-  RETURN json_build_object('status', 'success');
+    EXECUTE sql;
+    RETURN json_build_object('status', 'success');
 EXCEPTION WHEN OTHERS THEN
-  RETURN json_build_object('status', 'error', 'message', SQLERRM);
+    RETURN json_build_object('status', 'error', 'message', SQLERRM);
 END;
 $$;

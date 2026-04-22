@@ -98,9 +98,14 @@ export function FacturesList() {
   });
 
   const fetchFactures = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('factures').select('*, client:clients(*)').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('factures')
+        .select('*, client:clients(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       
       const mapped = (data || []).map((f: any) => ({
@@ -134,8 +139,15 @@ export function FacturesList() {
       const { data, error } = await supabase
         .from('parametres')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', String(user.id))
         .single();
+      
+      // Don't show error if no parametres
+      if (!data) {
+        console.log('No parametres found');
+        setEntreprise(null);
+        return;
+      }
       
       if (error && error.code !== 'PGRST116') {
         console.warn('Error fetching parametres:', error);
@@ -162,9 +174,11 @@ export function FacturesList() {
   };
 
   useEffect(() => {
-    fetchFactures();
-    fetchEntreprise();
-  }, [user]);
+    if (user?.id) {
+      fetchFactures();
+      fetchEntreprise();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (printingFacture && printRef.current) {
@@ -257,7 +271,11 @@ export function FacturesList() {
 
   const handleMarkAsPaid = async (id: number) => {
     try {
-      const { error } = await supabase.from('factures').update({ statut: 'payée', reste_a_payer: 0 }).eq('id', id);
+      const { error } = await supabase
+        .from('factures')
+        .update({ statut: 'payée', reste_a_payer: 0 })
+        .eq('id', id)
+        .eq('user_id', user?.id);
       if (error) throw error;
       toast.success('Facture marquée comme payée');
       fetchFactures();
@@ -290,6 +308,7 @@ export function FacturesList() {
       const { data: avoirData, error: avoirError } = await supabase
         .from('avoirs')
         .insert([{
+          user_id: user?.id,
           numero: numeroAvoir,
           facture_id: factureData.id,
           client_id: factureData.client_id,
@@ -325,7 +344,8 @@ export function FacturesList() {
       const { error: updateError } = await supabase
         .from('factures')
         .update({ statut: 'annulée' })
-        .eq('id', facture.id);
+        .eq('id', facture.id)
+        .eq('user_id', user?.id);
 
       if (updateError) throw updateError;
 
@@ -385,7 +405,11 @@ export function FacturesList() {
       if (newStatut === 'payée') {
         updateData.reste_a_payer = 0;
       }
-      const { error } = await supabase.from('factures').update(updateData).eq('id', id);
+      const { error } = await supabase
+        .from('factures')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', user?.id);
       if (error) throw error;
       toast.success('Statut mis à jour');
       fetchFactures();

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface VentePassager {
   id: string;
@@ -38,6 +39,7 @@ interface Produit {
 }
 
 export default function VentesPassagers() {
+  const { user } = useAuth();
   const [ventes, setVentes] = useState<VentePassager[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,13 +65,20 @@ export default function VentesPassagers() {
   const [panier, setPanier] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchVentes();
-    fetchProduits();
-  }, []);
+    if (user?.id) {
+      fetchVentes();
+      fetchProduits();
+    }
+  }, [user?.id]);
 
   const fetchVentes = async () => {
+    if (!user?.id) return;
     try {
-      const { data, error } = await supabase.from('ventes_passagers').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('ventes_passagers')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       
       const mappedData = (data || []).map((v: any) => ({
@@ -93,8 +102,13 @@ export default function VentesPassagers() {
   };
 
   const fetchProduits = async () => {
+    if (!user?.id) return;
     try {
-      const { data, error } = await supabase.from('produits').select('*').order('designation');
+      const { data, error } = await supabase
+        .from('produits')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('designation');
       if (error) {
         console.error('Error fetching products:', error);
         throw error;
@@ -185,14 +199,21 @@ export default function VentesPassagers() {
     const totalCogs = panier.reduce((sum, item) => sum + (Number(item.prixAchatHt || 0) * item.quantite), 0);
 
     try {
-      const year = new Date().getFullYear();
-      const { count } = await supabase.from('ventes_passagers').select('*', { count: 'exact', head: true });
-      const randomNum = String((count || 0) + 1).padStart(4, '0');
-      const numero = `VP-${year}-${randomNum}`;
+      // Use timestamp for unique numero
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = String(now.getHours()).padStart(2, '0');
+      const minute = String(now.getMinutes()).padStart(2, '0');
+      const second = String(now.getSeconds()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const numero = `VP-${year}${month}${day}${hour}${minute}${second}-${random}`;
 
       const { data: venteData, error: venteError } = await supabase
         .from('ventes_passagers')
         .insert([{
+          user_id: user?.id,
           numero: numero,
           montant_ht: totalHt,
           montant_tva: totalTva,

@@ -83,9 +83,14 @@ export function DevisList() {
   });
 
   const fetchDevis = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('devis').select('*, client:clients(*)').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('devis')
+        .select('*, client:clients(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       setDevisList(Array.isArray(data) ? (data || []).map(mapDevis) : []);
     } catch (error) {
@@ -100,11 +105,19 @@ export function DevisList() {
     if (!user?.id) return;
     
     try {
+      // parametres has user_id as TEXT, so use string comparison
       const { data, error } = await supabase
         .from('parametres')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', String(user.id))
         .single();
+      
+      // Don't show error if no parametres - just use defaults
+      if (!data) {
+        console.log('No parametres found for user');
+        setEntreprise(null);
+        return;
+      }
       
       if (error && error.code !== 'PGRST116') {
         console.warn('Error fetching parametres:', error);
@@ -118,12 +131,25 @@ export function DevisList() {
           nomEntreprise: data.nom_societe || data.nom || '',
           adresse: data.adresse || '',
           ville: data.ville || '',
+          codePostal: data.code_postale || '',
           telephone: data.telephone || '',
           email: data.email || '',
           ice: data.ice || '',
+          rc: data.rc || '',
+          ifNumber: data.if_number || '',
+          patentes: data.tp_patente || '',
+          cnss: data.cnss || '',
+          capitalSocial: data.capital_social || '',
+          formeJuridique: data.forme_juridique || '',
           logoUrl: cleanLogoUrl,
-          couleurPrincipale: data.couleur_principale || '#267E54'
+          couleurPrincipale: data.couleur_principale || '#267E54',
+banque: data.banque || '',
+          rib: data.rib || '',
+          swift: data.swift || '',
         });
+      } else {
+        // No parametres yet - use defaults
+        setEntreprise(null);
       }
     } catch (error) {
       console.warn('Failed to fetch entreprise:', error);
@@ -154,6 +180,7 @@ export function DevisList() {
       const numero = `FAC-${year}-${randomNum}`;
       
       const payload = {
+        user_id: user?.id,
         client_id: devis.client_id,
         date_emission: new Date().toISOString(),
         date_echeance: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -184,7 +211,7 @@ export function DevisList() {
         await supabase.from('facture_lignes').insert(lignesPayload);
       }
       
-      await supabase.from('devis').update({ statut: 'converti' }).eq('id', id);
+      await supabase.from('devis').update({ statut: 'converti' }).eq('id', id).eq('user_id', user?.id);
       
       toast.success('Devis converti en facture avec succès !');
       fetchDevis();
@@ -267,7 +294,11 @@ export function DevisList() {
 
   const handleStatusChange = async (id: number, newStatut: string) => {
     try {
-      const { error } = await supabase.from('devis').update({ statut: newStatut }).eq('id', id);
+      const { error } = await supabase
+        .from('devis')
+        .update({ statut: newStatut })
+        .eq('id', id)
+        .eq('user_id', user?.id);
       if (error) throw error;
       toast.success('Statut mis à jour');
       fetchDevis();

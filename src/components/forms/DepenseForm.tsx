@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const depenseSchema = z.object({
   reference: z.string().optional(),
@@ -44,6 +45,7 @@ interface DepenseFormProps {
 }
 
 export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
+  const { user } = useAuth();
   const [fournisseurs, setFournisseurs] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
 
@@ -64,10 +66,12 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) return;
+      
       try {
         const [{ data: fournisseursData }, { data: parametresData }] = await Promise.all([
-          supabase.from('fournisseurs').select('*').order('nom'),
-          supabase.from('parametres').select('*').limit(1)
+          supabase.from('fournisseurs').select('*').eq('user_id', user.id).order('nom'),
+          supabase.from('parametres').select('*').eq('user_id', user.id).limit(1)
         ]);
         
         setFournisseurs(fournisseursData || []);
@@ -140,7 +144,7 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
         if (error) throw error;
         toast.success('Dépense modifiée');
       } else {
-        const { error } = await supabase.from('depenses').insert([payload]);
+        const { error } = await supabase.from('depenses').insert([{ ...payload, user_id: user?.id }]);
         if (error) throw error;
         toast.success('Dépense ajoutée');
       }

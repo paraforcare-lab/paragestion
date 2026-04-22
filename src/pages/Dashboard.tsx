@@ -30,11 +30,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Stats {
   clientsCount: number;
   facturesCount: number;
   produitsCount: number;
+  fournisseursCount: number;
   totalRevenue: number;
   unpaidRevenue: number;
   totalDepenses: number;
@@ -122,118 +124,117 @@ function KPICard({ title, value, subtitle, icon: Icon, trend, trendUp, color, gr
 }
 
 export function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const { user } = useAuth();
+const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!user?.id) {
+      setStats(null);
+      setLoading(false);
+      return;
+    }
+    
     const fetchStats = async () => {
       try {
-        const [{ data: factures }, { data: ventesPassagers }, { data: depenses }, { data: produits }, { data: clients }, { data: recentFactures }] = await Promise.all([
-          supabase.from('factures').select('*').in('statut', ['payée', 'reste_a_payer', 'annulée']),
-          supabase.from('ventes_passagers').select('*'),
-          supabase.from('depenses').select('*'),
-          supabase.from('produits').select('*'),
-          supabase.from('clients').select('*'),
-          supabase.from('factures').select('*, client:clients(*)').order('date_emission', { ascending: false }).limit(5)
+        const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, avoirRes, bcRes, blRes, dvRes] = await Promise.all([
+          supabase.from('factures').select('*').eq('user_id', user.id),
+          supabase.from('ventes_passagers').select('*').eq('user_id', user.id),
+          supabase.from('depenses').select('*').eq('user_id', user.id),
+          supabase.from('produits').select('*').eq('user_id', user.id),
+          supabase.from('clients').select('*').eq('user_id', user.id),
+          supabase.from('fournisseurs').select('*').eq('user_id', user.id),
+          supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5),
+          supabase.from('avoirs').select('*').eq('user_id', user.id),
+          supabase.from('bons_commande').select('*').eq('user_id', user.id),
+          supabase.from('bons_livraison').select('*').eq('user_id', user.id),
+          supabase.from('devis').select('*').eq('user_id', user.id)
         ]);
 
-        const tvaFactures = (factures || []).reduce((sum, f) => {
-          const val = Number(f.montant_tva || 0);
-          return sum + (f.statut === 'annulée' ? -val : val);
-        }, 0);
-        const tvaVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_tva || 0), 0);
-        const totalTvaCollectee = tvaFactures + tvaVP;
+        const factures = (factRes.data || []);
+        const ventesPassagers = (vpRes.data || []);
+        const depenses = (depRes.data || []);
+        const produits = (prodRes.data || []);
+        const clients = (cliRes.data || []);
+        const fournisseurs = (fourRes.data || []);
+        const recentFacturesRaw = (recentRes.data || []);
+        const avoirs = (avoirRes.data || []);
+        const bonsCommande = (bcRes.data || []);
+        const bonsLivraison = (blRes.data || []);
+        const devis = (dvRes.data || []);
 
-        const tvaDepenses = (depenses || []).reduce((sum, d) => sum + Number(d.montant_tva || 0), 0);
-        const totalTvaDeductible = tvaDepenses;
+        const allFactures = [...factures, ...ventesPassagers];
+        const validFact = allFactures.filter((f: any) => f.statut !== 'annulée');
+        const payeesFact = allFactures.filter((f: any) => f.statut === 'payée');
+        const resteAPayerFact = allFactures.filter((f: any) => f.statut === 'reste_a_payer');
+        const brouillonFact = allFactures.filter((f: any) => f.statut === 'brouillon');
+
+        const totalRevenue = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
+        const totalDepenses = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_ttc || 0), 0);
+        const unpaidRevenue = resteAPayerFact.reduce((sum: number, f: any) => sum + Number(f.reste_a_payer || 0), 0);
+
+        const totalTvaCollectee = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_tva || 0), 0);
+        const totalTvaDeductible = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_tva || 0), 0);
         const tvaNet = totalTvaCollectee - totalTvaDeductible;
 
-        const ventesHT = (factures || []).reduce((sum, f) => {
-          const val = Number(f.montant_ht || 0);
-          return sum + (f.statut === 'annulée' ? -val : val);
-        }, 0) + (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ht || 0), 0);
-
-        const cogsFactures = (factures || []).reduce((sum, f) => {
-          const val = Number(f.cogs || 0);
-          return sum + (f.statut === 'annulée' ? -val : val);
-        }, 0);
-        const cogsVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.cogs || 0), 0);
-        const totalCOGS = cogsFactures + cogsVP;
-
-        const totalDepensesHT = (depenses || []).reduce((sum, d) => sum + Number(d.montant_ht || 0), 0);
-        const profit = ventesHT - totalCOGS - totalDepensesHT;
-
-        const totalRevenue = (factures || []).reduce((sum, f) => {
-          const val = Number(f.montant_ttc || 0);
-          return sum + (f.statut === 'annulée' ? -val : val);
-        }, 0) + (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0);
-
-        const unpaidRevenue = (factures || []).filter(f => f.statut === 'reste_a_payer').reduce((sum, f) => sum + Number(f.reste_a_payer || 0), 0);
+        const totalCOGS = allFactures.reduce((sum: number, f: any) => sum + Number(f.cogs || 0), 0);
+        const ventesHT = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_ht || 0), 0);
+        const profit = totalRevenue - totalDepenses - totalCOGS;
 
         const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-        const monthlyData = [];
+        const monthlyData: any[] = [];
         for (let i = 5; i >= 0; i--) {
           const d = new Date();
           d.setMonth(d.getMonth() - i);
           const month = d.getMonth();
           const year = d.getFullYear();
-
-          const monthFactures = (factures || []).filter(f => {
-            const fDate = new Date(f.date_emission);
-            return fDate.getMonth() === month && fDate.getFullYear() === year;
-          });
-
-          const monthVP = (ventesPassagers || []).filter(vp => {
-            const vpDate = new Date(vp.date);
-            return vpDate.getMonth() === month && vpDate.getFullYear() === year;
-          });
-
-          const monthDepenses = (depenses || []).filter(d => {
-            const dDate = new Date(d.date_depense);
-            return dDate.getMonth() === month && dDate.getFullYear() === year;
-          });
-
+          const monthRevenue = [
+            ...factures.filter((f: any) => new Date(f.date_emission).getMonth() === month && new Date(f.date_emission).getFullYear() === year),
+            ...ventesPassagers.filter((f: any) => new Date(f.date).getMonth() === month && new Date(f.date).getFullYear() === year)
+          ].reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0);
+          const monthExpense = depenses.filter((d: any) => new Date(d.date_depense).getMonth() === month && new Date(d.date_depense).getFullYear() === year).reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0);
           monthlyData.push({
             name: monthNames[month],
-            revenue: monthFactures.reduce((sum, f) => {
-              const val = Number(f.montant_ttc || 0);
-              return sum + (f.statut === 'annulée' ? -val : val);
-            }, 0) + monthVP.reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0),
-            expenses: monthDepenses.reduce((sum, d) => sum + Number(d.montant_ttc || 0), 0)
+            revenue: monthRevenue,
+            expenses: monthExpense
           });
         }
 
-        const lowStockProduits = (produits || [])
-          .filter(p => Number(p.stock_actuel) <= Number(p.stock_min))
-          .slice(0, 5);
+        const stockValueHT = produits.reduce((sum: number, p: any) => {
+          const stock = Number(p.stock_actuel || 0);
+          const prixAchat = Number(p.prix_achat_ht || 0);
+          return sum + (stock * prixAchat);
+        }, 0);
 
         setStats({
-          clientsCount: clients?.length || 0,
-          facturesCount: (factures || []).filter(f => f.statut === 'payée' || f.statut === 'reste_a_payer').length,
-          produitsCount: produits?.length || 0,
+          clientsCount: clients.length,
+          facturesCount: payeesFact.length + resteAPayerFact.length + brouillonFact.length,
+          produitsCount: produits.length,
+          fournisseursCount: fournisseurs.length,
           totalRevenue,
           unpaidRevenue,
-          totalDepenses: (depenses || []).reduce((sum, d) => sum + Number(d.montant_ttc), 0),
+          totalDepenses,
           profit,
           totalTvaCollectee,
           totalTvaDeductible,
           tvaNet,
           ventesHT,
           totalCOGS,
-          stockValueHT: 0,
+          stockValueHT,
           monthlyData,
-          lowStockProduits,
-          recentFactures: recentFactures || []
+          lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
+          recentFactures: recentFacturesRaw
         });
       } catch (error) {
         console.error('Failed to fetch stats', error);
+        setStats(null);
       } finally {
         setLoading(false);
       }
     };
 
     fetchStats();
-  }, []);
+  }, [user?.id]);
 
   if (loading) {
     return (
@@ -455,11 +456,11 @@ export function Dashboard() {
                       <p className="text-xs text-muted-foreground flex items-center gap-2">
                         <span className="font-mono">{facture.numero}</span>
                         <span>•</span>
-                        <span>{new Date(facture.dateEmission).toLocaleDateString('fr-FR')}</span>
+                        <span>{new Date(facture.date_emission).toLocaleDateString('fr-FR')}</span>
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-foreground">{formatCurrency(facture.montantTtc)}</p>
+                      <p className="text-sm font-black text-foreground">{formatCurrency(facture.montant_ttc)}</p>
                       <Badge 
                         variant="outline" 
                         className={cn(
@@ -563,7 +564,7 @@ export function Dashboard() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black text-amber-600">
-                        {produit.stockActuel} {produit.unite}
+                        {produit.stock_actuel} {produit.unite}
                       </p>
                       <p className="text-[10px] text-amber-500/70 font-semibold uppercase">Stock bas</p>
                     </div>
@@ -652,7 +653,7 @@ export function Dashboard() {
           { label: 'Total Clients', value: stats?.clientsCount || 0, icon: Users, color: 'primary' },
           { label: 'Produits', value: stats?.produitsCount || 0, icon: Package, color: 'emerald-500' },
           { label: 'Factures', value: stats?.facturesCount || 0, icon: FileText, color: 'amber-500' },
-          { label: 'Fournisseurs', value: 0, icon: Building2, color: 'purple-500' },
+          { label: 'Fournisseurs', value: stats?.fournisseursCount || 0, icon: Building2, color: 'purple-500' },
         ].map((stat, i) => (
           <Link 
             key={stat.label} 

@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Transaction {
   id: number;
@@ -34,6 +35,7 @@ interface Transaction {
 }
 
 export function TransactionsList() {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,8 +44,10 @@ export function TransactionsList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchAllTransactions();
-  }, []);
+    if (user?.id) {
+      fetchAllTransactions();
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     let filtered = transactions;
@@ -63,15 +67,16 @@ export function TransactionsList() {
   }, [transactions, searchQuery, typeFilter]);
 
   const fetchAllTransactions = async () => {
+    if (!user?.id) return;
     setIsLoading(true);
     try {
       const [{ data: factures }, { data: devis }, { data: commandes }, { data: livraisons }, { data: depenses }, { data: ventes }] = await Promise.all([
-        supabase.from('factures').select('*'),
-        supabase.from('devis').select('*'),
-        supabase.from('bons_commande').select('*'),
-        supabase.from('bons_livraison').select('*'),
-        supabase.from('depenses').select('*'),
-        supabase.from('ventes_passagers').select('*'),
+        supabase.from('factures').select('*').eq('user_id', user.id),
+        supabase.from('devis').select('*').eq('user_id', user.id),
+        supabase.from('bons_commande').select('*').eq('user_id', user.id),
+        supabase.from('bons_livraison').select('*').eq('user_id', user.id),
+        supabase.from('depenses').select('*').eq('user_id', user.id),
+        supabase.from('ventes_passagers').select('*').eq('user_id', user.id),
       ]);
 
       const allTransactions: Transaction[] = [];

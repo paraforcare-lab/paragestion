@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -45,6 +46,7 @@ interface BCFormProps {
 }
 
 export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
+  const { user } = useAuth();
   const [fournisseurs, setFournisseurs] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
@@ -77,11 +79,13 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) return;
+      
       try {
         const [{ data: fournisseursData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
-          supabase.from('fournisseurs').select('*').order('nom'),
-          supabase.from('produits').select('*').order('designation'),
-          supabase.from('parametres').select('*').limit(1)
+          supabase.from('fournisseurs').select('*').eq('user_id', user.id).order('nom'),
+          supabase.from('produits').select('*').eq('user_id', user.id).order('designation'),
+          supabase.from('parametres').select('*').eq('user_id', user.id).limit(1)
         ]);
         
         setFournisseurs(fournisseursData || []);
@@ -177,7 +181,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
       }
 
       if (!bonId) {
-        const { data: newBon, error } = await supabase.from('bons_commande').insert([payload]).select().single();
+        const { data: newBon, error } = await supabase.from('bons_commande').insert([{ ...payload, user_id: user?.id }]).select().single();
         if (error) {
           console.error('Insert error:', error);
           throw error;

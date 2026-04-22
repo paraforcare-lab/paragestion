@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -45,6 +46,7 @@ interface DevisFormProps {
 }
 
 export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
+  const { user } = useAuth();
   const [clients, setClients] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
@@ -77,11 +79,13 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.id) return;
+      
       try {
         const [{ data: clientsData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
-          supabase.from('clients').select('*').order('nom'),
-          supabase.from('produits').select('*').order('designation'),
-          supabase.from('parametres').select('*').limit(1)
+          supabase.from('clients').select('*').eq('user_id', user.id).order('nom'),
+          supabase.from('produits').select('*').eq('user_id', user.id).order('designation'),
+          supabase.from('parametres').select('*').eq('user_id', user.id).limit(1)
         ]);
         
         setClients(clientsData || []);
@@ -156,7 +160,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
 
       if (!devisId) {
         // Create new devis
-        const { data: newDevis, error } = await supabase.from('devis').insert([payload]).select().single();
+        const { data: newDevis, error } = await supabase.from('devis').insert([{ ...payload, user_id: user?.id }]).select().single();
         if (error) throw error;
         devisId = newDevis.id;
       } else {

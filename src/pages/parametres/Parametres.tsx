@@ -234,7 +234,7 @@ export function Parametres() {
       } else {
         const response = await supabase
           .from('parametres')
-          .insert([fields])
+          .insert([{ ...fields, user_id: user.id }])
           .select()
           .single();
         result = response.data;

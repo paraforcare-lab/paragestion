@@ -23,16 +23,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Building2, User, Mail, Phone, MapPin, CreditCard, Save, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const clientSchema = z.object({
-  nom: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
+  nom: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères'}),
+  nomSociete: z.string().optional().or(z.literal('')),
   type: z.enum(['particulier', 'entreprise']),
-  contact: z.string().optional().or(z.literal('')),
   email: z.string().optional().or(z.literal('')),
   telephone: z.string().optional().or(z.literal('')),
   adresse: z.string().optional().or(z.literal('')),
   ville: z.string().optional().or(z.literal('')),
+  codePostal: z.string().optional().or(z.literal('')),
+  pays: z.string().optional().or(z.literal('')),
   ice: z.string().optional().or(z.literal('')),
+  rc: z.string().optional().or(z.literal('')),
+  ifIdentifiant: z.string().optional().or(z.literal('')),
+  patente: z.string().optional().or(z.literal('')),
+  notes: z.string().optional().or(z.literal('')),
 });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
@@ -43,17 +50,25 @@ interface ClientFormProps {
 }
 
 export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
+  const { user } = useAuth();
+  
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
       nom: '',
+      nomSociete: '',
       type: 'entreprise',
-      contact: '',
       email: '',
       telephone: '',
       adresse: '',
       ville: '',
+      codePostal: '',
+      pays: 'Maroc',
       ice: '',
+      rc: '',
+      ifIdentifiant: '',
+      patente: '',
+      notes: '',
     },
   });
 
@@ -64,25 +79,37 @@ export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
     if (initialData?.id && !isInitialized.current) {
       form.reset({
         nom: initialData.nom || '',
+        nomSociete: initialData.nomSociete || initialData.nom_societe || '',
         type: initialData.type || 'entreprise',
-        contact: initialData.contact || '',
         email: initialData.email || '',
         telephone: initialData.telephone || '',
         adresse: initialData.adresse || '',
         ville: initialData.ville || '',
+        codePostal: initialData.codePostal || initialData.code_postal || '',
+        pays: initialData.pays || 'Maroc',
         ice: initialData.ice || '',
+        rc: initialData.rc || '',
+        ifIdentifiant: initialData.ifIdentifiant || initialData.if_identifiant || '',
+        patente: initialData.patente || '',
+        notes: initialData.notes || '',
       });
       isInitialized.current = true;
     } else if (!initialData?.id && !isInitialized.current) {
       form.reset({
         nom: '',
+        nomSociete: '',
         type: 'entreprise',
-        contact: '',
         email: '',
         telephone: '',
         adresse: '',
         ville: '',
+        codePostal: '',
+        pays: 'Maroc',
         ice: '',
+        rc: '',
+        ifIdentifiant: '',
+        patente: '',
+        notes: '',
       });
       isInitialized.current = true;
     }
@@ -97,12 +124,29 @@ export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
   async function onSubmit(data: ClientFormValues) {
     try {
       const isEditing = initialData?.id;
-
+      
+      const payload = {
+        nom: data.nom,
+        nom_societe: data.nomSociete || null,
+        type: data.type,
+        email: data.email || null,
+        telephone: data.telephone || null,
+        adresse: data.adresse || null,
+        ville: data.ville || null,
+        code_postal: data.codePostal || null,
+        pays: data.pays || 'Maroc',
+        ice: data.ice || null,
+        rc: data.rc || null,
+        if_identifiant: data.ifIdentifiant || null,
+        patente: data.patente || null,
+        notes: data.notes || null,
+      };
+      
       if (isEditing) {
-        const { error } = await supabase.from('clients').update(data).eq('id', initialData.id);
+        const { error } = await supabase.from('clients').update(payload).eq('id', initialData.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('clients').insert([data]);
+        const { error } = await supabase.from('clients').insert([{ ...payload, user_id: user?.id }]);
         if (error) throw error;
       }
 
@@ -292,24 +336,6 @@ export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
                       <Input 
                         placeholder="15 chiffres" 
                         className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="contact"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-sm font-medium text-muted-foreground">Personne de contact</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Nom du responsable" 
-                        className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10"
                         {...field} 
                       />
                     </FormControl>

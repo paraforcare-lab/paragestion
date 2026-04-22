@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { ProduitForm } from '@/components/forms/ProduitForm';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Produit {
   id: number;
@@ -41,6 +42,7 @@ interface Produit {
 }
 
 export function ProduitsList() {
+  const { user } = useAuth();
   const [produits, setProduits] = useState<Produit[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -68,25 +70,68 @@ export function ProduitsList() {
   });
 
   const fetchProduits = async () => {
+    if (!user?.id) {
+      setProduits([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
+    console.log('=== FETCHING PRODUITS for user_id:', user.id);
+    
     try {
-      const { data, error } = await supabase.from('produits').select('*').order('nom');
-      if (error) throw error;
-      setProduits((data || []).map(mapProduit));
+      // Fetch ALL columns
+      const { data, error } = await supabase
+        .from('produits')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('nom');
+      
+      console.log('Query result:', { data, error });
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        toast.error('Erreur: ' + error.message);
+        setProduits([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('No produits for user_id:', user.id);
+        setProduits([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log('Found:', data.length, 'produits');
+      const mapped = data.map(mapProduit);
+      setProduits(mapped);
     } catch (error) {
-      console.error('Failed to fetch produits', error);
+      console.error('ERROR:', error);
+      setProduits([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  useEffect(() => {
+    if (user?.id) {
+      fetchProduits();
+    }
+  }, [user?.id]);
+
   const handleDelete = async () => {
-    if (!produitToDelete) return;
+    if (!produitToDelete || !user?.id) return;
     try {
       const productId = Number(produitToDelete);
       
-      // Delete the product (cascade will handle related records)
-      const { error } = await supabase.from('produits').delete().eq('id', productId);
+      // Only delete if belongs to this user
+      const { error } = await supabase
+        .from('produits')
+        .delete()
+        .eq('id', productId)
+        .eq('user_id', user.id);
+      
       if (error) throw error;
       
       toast.success('Produit supprimé');
