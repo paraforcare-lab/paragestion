@@ -25,8 +25,8 @@ interface Transaction {
   id: number;
   type: 'facture' | 'devis' | 'commande' | 'livraison' | 'depense' | 'vente';
   numero: string;
-  client?: { nom: string; nomSociete?: string };
-  fournisseur?: { nom: string; nomSociete?: string };
+  client?: string;
+  fournisseur?: string;
   date: string;
   montantHt: number;
   montantTva: number;
@@ -66,109 +66,140 @@ export function TransactionsList() {
     setFilteredTransactions(filtered);
   }, [transactions, searchQuery, typeFilter]);
 
-  const fetchAllTransactions = async () => {
+const fetchAllTransactions = async () => {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const [{ data: factures }, { data: devis }, { data: commandes }, { data: livraisons }, { data: depenses }, { data: ventes }] = await Promise.all([
-        supabase.from('factures').select('*').eq('user_id', user.id),
-        supabase.from('devis').select('*').eq('user_id', user.id),
-        supabase.from('bons_commande').select('*').eq('user_id', user.id),
+      // Fetch all transactions with client/fournisseur relationships directly
+      const [factData, devisData, bcData, blData, depData, vpData] = await Promise.all([
+        supabase.from('factures').select('*, clients(nom, nom_societe)').eq('user_id', user.id),
+        supabase.from('devis').select('*, clients(nom, nom_societe)').eq('user_id', user.id),
+        supabase.from('bons_commande').select('*, fournisseurs(nom, nom_societe)').eq('user_id', user.id),
         supabase.from('bons_livraison').select('*').eq('user_id', user.id),
-        supabase.from('depenses').select('*').eq('user_id', user.id),
+        supabase.from('depenses').select('*, fournisseurs(nom, nom_societe)').eq('user_id', user.id),
         supabase.from('ventes_passagers').select('*').eq('user_id', user.id),
       ]);
 
+      const facteur = factData?.data || [];
+      const devis = devisData?.data || [];
+      const commandes = bcData?.data || [];
+      const livraisons = blData?.data || [];
+      const depenses = depData?.data || [];
+      const ventes = vpData?.data || [];
+
       const allTransactions: Transaction[] = [];
 
-      // Factures
-      if (Array.isArray(factures)) {
-        allTransactions.push(...factures.map((f: any) => ({
+      // Process Factures - get client name directly from relation
+      for (const f of facteur) {
+        const cliName = f.clients?.nom_societe || f.clients?.nom || f.client_nom || '-';
+        allTransactions.push({
           id: f.id,
           type: 'facture' as const,
           numero: f.numero,
-          client: f.client,
-          date: f.date_emission || f.date,
+          client: cliName,
+          date: f.date_emission,
           montantHt: f.montant_ht || 0,
           montantTva: f.montant_tva || 0,
           montantTtc: f.montant_ttc || 0,
-          statut: f.statut,
-        })));
+          statut: f.statut || 'Aucun statut',
+        });
       }
 
-      // Devis
-      if (Array.isArray(devis)) {
-        allTransactions.push(...devis.map((d: any) => ({
+      // Process Devis
+      for (const d of devis) {
+        const cliName = d.clients?.nom_societe || d.clients?.nom || d.client_nom || '-';
+        allTransactions.push({
           id: d.id,
           type: 'devis' as const,
           numero: d.numero,
-          client: d.client,
-          date: d.dateEmission || d.date,
-          montantHt: d.montantHt || 0,
-          montantTva: d.montantTva || 0,
-          montantTtc: d.montantTtc || 0,
-          statut: d.statut,
-        })));
-      }
-
-      // Bons Commande
-      if (Array.isArray(commandes)) {
-        allTransactions.push(...commandes.map((c: any) => ({
-          id: c.id,
-          type: 'commande' as const,
-          numero: c.numero,
-          fournisseur: c.fournisseur,
-          date: c.date_commande || c.date,
-          montantHt: c.montant_ht || 0,
-          montantTva: c.montant_tva || 0,
-          montantTtc: c.montant_ttc || 0,
-          statut: c.statut,
-        })));
-      }
-
-      // Bons Livraison
-      if (Array.isArray(livraisons)) {
-        allTransactions.push(...livraisons.map((l: any) => ({
-          id: l.id,
-          type: 'livraison' as const,
-          numero: l.numero,
-          client: l.client,
-          fournisseur: l.fournisseur,
-          date: l.date_livraison || l.date,
-          montantHt: l.montant_ht || 0,
-          montantTva: l.montant_tva || 0,
-          montantTtc: l.montant_ttc || 0,
-          statut: l.statut,
-        })));
-      }
-
-      // Dépenses
-      if (Array.isArray(depenses)) {
-        allTransactions.push(...depenses.map((d: any) => ({
-          id: d.id,
-          type: 'depense' as const,
-          numero: d.reference || d.numero || `DEP-${d.id}`,
-          date: d.date_depense || d.date,
+          client: cliName,
+          date: d.date_emission,
           montantHt: d.montant_ht || 0,
           montantTva: d.montant_tva || 0,
           montantTtc: d.montant_ttc || 0,
-          statut: d.statut,
-        })));
+          statut: d.statut || 'Aucun statut',
+        });
       }
 
-      // Ventes Passagers
-      if (Array.isArray(ventes)) {
-        allTransactions.push(...ventes.map((v: any) => ({
+      // Process Bons Commande
+      for (const c of commandes) {
+        const fourName = c.fournisseurs?.nom_societe || c.fournisseurs?.nom || '-';
+        allTransactions.push({
+          id: c.id,
+          type: 'commande' as const,
+          numero: c.numero,
+          fournisseur: fourName,
+          date: c.date_commande,
+          montantHt: c.montant_ht || 0,
+          montantTva: c.montant_tva || 0,
+          montantTtc: c.montant_ttc || 0,
+          statut: c.statut || 'Aucun statut',
+        });
+      }
+
+      // Process Bons Livraison - fetch client and fournisseur separately
+      for (const l of livraisons) {
+        let cliName = '-';
+        let fourName = '-';
+        
+        if (l.client_id) {
+          const { data: clientData } = await supabase.from('clients').select('nom, nom_societe').eq('id', l.client_id).single();
+          cliName = clientData?.nom_societe || clientData?.nom || '-';
+        }
+        
+        if (l.fournisseur_id) {
+          const { data: fourData } = await supabase.from('fournisseurs').select('nom, nom_societe').eq('id', l.fournisseur_id).single();
+          fourName = fourData?.nom_societe || fourData?.nom || '-';
+        }
+        
+        allTransactions.push({
+          id: l.id,
+          type: 'livraison' as const,
+          numero: l.numero,
+          client: cliName,
+          fournisseur: fourName,
+          date: l.date_livraison,
+          montantHt: l.montant_ht || 0,
+          montantTva: l.montant_tva || 0,
+          montantTtc: l.montant_ttc || 0,
+          statut: l.statut || 'Aucun statut',
+        });
+      }
+
+      // Process Dépenses
+      for (const d of depenses) {
+        const fourName = d.fournisseurs?.nom_societe || d.fournisseurs?.nom || '-';
+        allTransactions.push({
+          id: d.id,
+          type: 'depense' as const,
+          numero: d.reference || d.numero || `DEP-${d.id}`,
+          fournisseur: fourName,
+          date: d.date_depense,
+          montantHt: d.montant_ht || 0,
+          montantTva: d.montant_tva || 0,
+          montantTtc: d.montant_ttc || 0,
+          statut: d.statut || 'Aucun statut',
+        });
+      }
+
+      // Process Ventes Passagers
+      for (const v of ventes) {
+        allTransactions.push({
           id: v.id,
           type: 'vente' as const,
           numero: v.numero,
+          client: v.client_nom || '-',
           date: v.date,
           montantHt: v.montant_ht || 0,
           montantTva: v.montant_tva || 0,
           montantTtc: v.montant_ttc || 0,
-          statut: 'payée',
-        })));
+          statut: v.statut || 'payée',
+        });
       }
+
+      // Sort by date descending
+      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setTransactions(allTransactions);
 
       // Sort by date descending
       allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -320,7 +351,6 @@ export function TransactionsList() {
             <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-muted/50 border-b border-border/50">
               <TableHead className="font-bold text-foreground">Type</TableHead>
               <TableHead className="w-[140px] font-bold text-foreground">Numéro</TableHead>
-              <TableHead className="font-bold text-foreground">Client/Fournisseur</TableHead>
               <TableHead className="font-bold text-foreground">Date</TableHead>
               <TableHead className="text-right font-bold text-foreground">Montant HT</TableHead>
               <TableHead className="text-right font-bold text-foreground">TVA</TableHead>
@@ -332,7 +362,7 @@ export function TransactionsList() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-40 text-center">
+                <TableCell colSpan={6} className="h-40 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
                     <p className="text-muted-foreground font-medium">Chargement des transactions...</p>
@@ -341,7 +371,7 @@ export function TransactionsList() {
               </TableRow>
             ) : filteredTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-40 text-center">
+                <TableCell colSpan={6} className="h-40 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <div className="bg-muted/50 rounded-full p-4">
                       <Receipt className="h-8 w-8 text-muted-foreground" />
@@ -352,10 +382,10 @@ export function TransactionsList() {
                   </div>
                 </TableCell>
               </TableRow>
-            ) : (
+) : (
               filteredTransactions.map((transaction) => (
-                <TableRow 
-                  key={`${transaction.type}-${transaction.id}`}
+              <TableRow 
+                key={`${transaction.type}-${transaction.id}`}
                   className="hover:bg-muted/30 transition-colors border-b border-border/30 last:border-0"
                 >
                   <TableCell>
@@ -368,28 +398,24 @@ export function TransactionsList() {
                     <span className="font-mono font-bold text-primary">{transaction.numero}</span>
                   </TableCell>
                   <TableCell>
-                    <p className="font-semibold text-foreground">
-                      {transaction.client?.nom || transaction.client?.nomSociete || 
-                       transaction.fournisseur?.nom || transaction.fournisseur?.nomSociete || '-'}
-                    </p>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(transaction.date)}
-                    </span>
+                    <span className="text-sm text-muted-foreground">{formatDate(transaction.date)}</span>
                   </TableCell>
                   <TableCell className="text-right">
                     <span className="font-medium text-foreground">{formatCurrency(transaction.montantHt)}</span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <span className="font-medium text-muted-foreground">{formatCurrency(transaction.montantTva)}</span>
-                  </TableCell>
+                  <TableCell className="text-right">{formatCurrency(transaction.montantTva)}</TableCell>
                   <TableCell className="text-right">
                     <span className="font-bold text-foreground">{formatCurrency(transaction.montantTtc)}</span>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="secondary" className="capitalize">
-                      {transaction.statut?.replace('_', ' ')}
+                    <Badge variant="outline" className={cn("font-semibold",
+                      transaction.statut === 'payée' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                      transaction.statut === 'reste_a_payer' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                      transaction.statut === 'brouillon' ? 'bg-gray-100 text-gray-700 border-gray-200' :
+                      transaction.statut === 'en_attente' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                      'bg-muted text-muted-foreground border-input'
+                    )}>
+                      {transaction.statut}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
