@@ -556,7 +556,7 @@ export function FacturesList() {
           </div>
 
           {/* Table */}
-          <div className="rounded-2xl border border-border/50 bg-white shadow-lg overflow-hidden">
+          <div className="rounded-2xl border border-border/50 bg-white shadow-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-gradient-to-r from-muted/50 to-muted/30 hover:bg-muted/50 border-b border-border/50">

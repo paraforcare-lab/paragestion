@@ -154,7 +154,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
       )}
 
       <div className={cn(
-        "flex flex-col h-full transition-all duration-300 ease-out relative z-50",
+        "flex flex-col h-full transition-all duration-300 ease-out relative z-50 bg-background",
         isCollapsed ? "w-20" : "w-64",
         "fixed lg:relative inset-y-0 left-0",
         isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -208,7 +208,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
         <div className="relative flex-1 flex flex-col min-h-0">
           {/* Top Shadow */}
           <div className={cn(
-            "absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none transition-opacity",
+            "absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none transition-opacity",
             showTopShadow ? "opacity-100" : "opacity-0"
           )} />
           
@@ -279,13 +279,13 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           
           {/* Bottom Shadow */}
           <div className={cn(
-            "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none transition-opacity",
+            "absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none transition-opacity",
             showBottomShadow ? "opacity-100" : "opacity-0"
           )} />
         </div>
 
         {/* User Profile & Logout */}
-        <div className="border-t border-border/50 p-4 shrink-0 bg-gradient-to-t from-muted/30 to-transparent">
+        <div className="border-t border-border/50 p-4 shrink-0 bg-gradient-to-t from-background to-background">
           <div className={cn(
             "flex items-center",
             isCollapsed ? "justify-center" : "gap-3"

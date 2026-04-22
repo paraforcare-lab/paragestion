@@ -27,7 +27,7 @@ export function DashboardLayout() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar 
         isCollapsed={isSidebarCollapsed} 
         onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 

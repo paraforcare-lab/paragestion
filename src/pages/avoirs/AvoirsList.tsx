@@ -251,7 +251,7 @@ export function AvoirsList() {
         </div>
       </div>
 
-      <Card className="border-0 shadow-lg overflow-hidden">
+      <Card className="border-0 shadow-lg overflow-x-auto">
         <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent py-4">
           <CardTitle className="flex items-center gap-2 text-lg">
             <Receipt className="h-5 w-5 text-primary" />

@@ -288,33 +288,34 @@ export function Parametres() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs defaultValue="general" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/50 p-1 rounded-xl">
-              <TabsTrigger 
-                value="general" 
-                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold"
-              >
-                <Building2 className="h-4 w-4 mr-2" />
-                Informations
-              </TabsTrigger>
-              <TabsTrigger 
-                value="fiscal" 
-                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Fiscalité & Banque
-              </TabsTrigger>
-              <TabsTrigger 
-                value="personalisation" 
-                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold"
-              >
-                <Palette className="h-4 w-4 mr-2" />
-                Personnalisation
-              </TabsTrigger>
-            </TabsList>
+          <div className="bg-muted/50 p-4 md:p-6 rounded-xl md:rounded-2xl space-y-4 md:space-y-6">
+            <Tabs defaultValue="general" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 rounded-xl md:rounded-2xl">
+                <TabsTrigger 
+                  value="general" 
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Informations</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="fiscal" 
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Fiscalité</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="personalisation" 
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-primary font-semibold"
+                >
+                  <Palette className="h-4 w-4 mr-2" />
+                  <span className="hidden md:inline">Personnalisation</span>
+                </TabsTrigger>
+              </TabsList>
 
-            {/* General Tab */}
-            <TabsContent value="general" className="space-y-6">
+              {/* General Tab */}
+              <TabsContent value="general" className="mt-6 md:mt-8">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="bg-gradient-to-r from-muted/30 to-muted/10 border-b border-border/30 rounded-t-xl">
                   <div className="flex items-center gap-3">
@@ -474,7 +475,7 @@ export function Parametres() {
             </TabsContent>
 
             {/* Fiscal Tab */}
-            <TabsContent value="fiscal" className="space-y-6">
+            <TabsContent value="fiscal" className="mt-6 md:mt-8 space-y-6">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="bg-gradient-to-r from-muted/30 to-muted/10 border-b border-border/30 rounded-t-xl">
                   <div className="flex items-center gap-3">
@@ -664,7 +665,7 @@ export function Parametres() {
             </TabsContent>
 
             {/* Personalization Tab */}
-            <TabsContent value="personalisation" className="space-y-6">
+            <TabsContent value="personalisation" className="mt-6 md:mt-8 space-y-6">
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="bg-gradient-to-r from-muted/30 to-muted/10 border-b border-border/30 rounded-t-xl">
                   <div className="flex items-center gap-3">
@@ -773,9 +774,10 @@ export function Parametres() {
                     )}
                   />
                 </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+</Card>
+              </TabsContent>
+            </Tabs>
+          </div>
 
           <div className="flex justify-end pt-6">
             <Button 

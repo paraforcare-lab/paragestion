@@ -222,23 +222,24 @@ export function ImportExport() {
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6 md:space-y-8">
       <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Import / Export</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Import / Export</h1>
         <p className="text-muted-foreground">
           Gérez vos sauvegardes et exportez vos données pour votre comptabilité.
         </p>
       </div>
 
-      <Tabs defaultValue="export" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="export">Export Sauvegarde</TabsTrigger>
-          <TabsTrigger value="import">Import Sauvegarde</TabsTrigger>
-          <TabsTrigger value="comptable">Export Comptable</TabsTrigger>
-          <TabsTrigger value="reset" className="text-red-500">Réinitialisation</TabsTrigger>
-        </TabsList>
+      <div className="bg-muted/50 p-4 md:p-6 rounded-xl md:rounded-2xl space-y-4 md:space-y-6">
+          <Tabs defaultValue="export" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 rounded-xl md:rounded-2xl">
+              <TabsTrigger value="export">Export</TabsTrigger>
+              <TabsTrigger value="import">Import</TabsTrigger>
+              <TabsTrigger value="comptable">Comptable</TabsTrigger>
+              <TabsTrigger value="reset" className="text-red-500">Reset</TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="export">
+            <TabsContent value="export" className="mt-6 md:mt-8">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -249,7 +250,7 @@ export function ImportExport() {
                 Téléchargez l'intégralité de vos données (produits, factures, clients, etc.) dans un seul fichier Excel.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 md:space-y-6">
               <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5" />
                 <div>
@@ -257,12 +258,12 @@ export function ImportExport() {
                   <p className="text-blue-800 text-sm">Nous vous conseillons d'exporter une sauvegarde complète au moins une fois par semaine pour sécuriser vos données.</p>
                 </div>
               </div>
-              <div className="flex justify-center py-8">
+              <div className="flex flex-col sm:flex-row justify-center py-4 sm:py-8 gap-4">
                 <Button 
                   size="lg" 
                   onClick={handleFullBackupExport}
                   disabled={isExporting}
-                  className="bg-[#267E54] hover:bg-[#1e6643] w-full max-w-xs"
+                  className="bg-[#267E54] hover:bg-[#1e6643] w-full sm:max-w-xs"
                 >
                   {isExporting ? (
                     <>
@@ -281,7 +282,7 @@ export function ImportExport() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="import">
+        <TabsContent value="import" className="mt-6 md:mt-8">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -292,7 +293,7 @@ export function ImportExport() {
                 Importez un fichier Excel précédemment exporté pour restaurer vos données.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 md:space-y-6">
               <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start gap-3">
                 <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
                 <div>
@@ -341,7 +342,7 @@ export function ImportExport() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="comptable">
+        <TabsContent value="comptable" className="mt-6 md:mt-8">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -352,8 +353,8 @@ export function ImportExport() {
                 Générez un fichier Excel structuré par onglets pour faciliter le travail de votre comptable.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="space-y-4 md:space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-start gap-3 p-4 border rounded-lg">
                   <div className="bg-green-100 p-2 rounded-full">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -392,12 +393,12 @@ export function ImportExport() {
                 </div>
               </div>
 
-              <div className="flex justify-center py-8">
+              <div className="flex flex-col sm:flex-row justify-center py-4 sm:py-8 gap-4">
                 <Button 
                   size="lg" 
                   onClick={handleComptableExport}
                   disabled={isComptableExporting}
-                  className="bg-blue-600 hover:bg-blue-700 w-full max-w-xs"
+                  className="bg-blue-600 hover:bg-blue-700 w-full sm:max-w-xs"
                 >
                   {isComptableExporting ? (
                     <>
@@ -416,7 +417,7 @@ export function ImportExport() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="reset">
+        <TabsContent value="reset" className="mt-6 md:mt-8">
           <Card className="border-red-200">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-red-600">
@@ -427,7 +428,7 @@ export function ImportExport() {
                 Supprimez définitivement toutes les données de l'application. Cette action est irréversible.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 md:space-y-6">
               <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-start gap-3">
                 <ShieldAlert className="h-5 w-5 text-red-600 mt-0.5" />
                 <div>
@@ -439,24 +440,25 @@ export function ImportExport() {
                 </div>
               </div>
               
-              <div className="flex justify-center py-8">
+              <div className="flex flex-col sm:flex-row justify-center py-4 sm:py-8 gap-4">
                 <Button 
                   variant="destructive"
                   size="lg"
                   onClick={() => setIsResetDialogOpen(true)}
-                  className="w-full max-w-xs"
+                  className="w-full sm:max-w-xs"
                 >
                   <Trash2 className="mr-2 h-5 w-5" />
                   Réinitialiser toutes les données
                 </Button>
               </div>
             </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+</Card>
+          </TabsContent>
+          </Tabs>
+        </div>
 
-      <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
               <ShieldAlert className="h-5 w-5" />
@@ -508,6 +510,6 @@ export function ImportExport() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
+      </div>
+    );
+  }
