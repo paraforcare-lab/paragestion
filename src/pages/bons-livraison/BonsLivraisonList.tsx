@@ -325,29 +325,9 @@ const fetchEntreprise = async () => {
               </p>
             </div>
           </div>
-        </div>
+         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm">
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-muted/50 to-transparent">
-            <p className="text-2xl font-black text-foreground">{totalBons}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total</p>
-          </div>
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50/50 to-transparent">
-            <p className="text-2xl font-black text-emerald-600">{bonsLivres}</p>
-            <p className="text-xs text-muted-foreground font-medium">Livrés</p>
-          </div>
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-amber-50/50 to-transparent">
-            <p className="text-2xl font-black text-amber-600">{bonsEnAttente}</p>
-            <p className="text-xs text-muted-foreground font-medium">En attente</p>
-          </div>
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary/10 to-transparent">
-            <p className="text-2xl font-black text-primary">{formatCurrency(totalMontant)}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total TTC</p>
-          </div>
-        </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setEditingBon(null);
         }}>

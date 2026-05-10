@@ -162,25 +162,7 @@ export function ClientsList() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-center">
-            <p className="text-2xl font-black text-foreground">{clientsCount}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total</p>
-          </div>
-          <div className="h-10 w-px bg-border" />
-          <div className="text-center">
-            <p className="text-2xl font-black text-primary">{entreprisesCount}</p>
-            <p className="text-xs text-muted-foreground font-medium">Entreprises</p>
-          </div>
-          <div className="h-10 w-px bg-border" />
-          <div className="text-center">
-            <p className="text-2xl font-black text-emerald-600">{particuliersCount}</p>
-            <p className="text-xs text-muted-foreground font-medium">Particuliers</p>
-          </div>
-        </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setEditingClient(null);
         }}>
@@ -221,19 +203,19 @@ export function ClientsList() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Rechercher par nom, code, email ou téléphone..."
-          className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+       {/* Search */}
+       <div className="relative max-w-md">
+         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+         <Input
+           type="search"
+           placeholder="Rechercher par nom, code, email ou téléphone..."
+           className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+         />
+       </div>
 
       {/* Table */}
       <div className="rounded-2xl border border-border/50 bg-white shadow-lg overflow-x-auto">

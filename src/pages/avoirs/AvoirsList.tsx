@@ -225,31 +225,19 @@ export function AvoirsList() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-muted/50 to-transparent">
-            <p className="text-2xl font-black text-foreground">{avoirsCount}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total</p>
-          </div>
-          <div className="h-10 w-px bg-border" />
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-orange-50/50 to-transparent">
-            <p className="text-2xl font-black text-orange-600">{formatCurrency(totalAvoirs)}</p>
-            <p className="text-xs text-muted-foreground font-medium">Montant Total</p>
-          </div>
-        </div>
-      </div>
+       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-          <Input
-            type="text"
-            placeholder="Rechercher par numéro, facture ou client..."
-            className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
+       {/* Search */}
+       <div className="relative max-w-md">
+         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+         <Input
+           type="text"
+           placeholder="Rechercher par numéro, facture ou client..."
+           className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+         />
+       </div>
 
       <Card className="border-0 shadow-lg overflow-x-auto">
         <CardHeader className="border-b border-border/50 bg-gradient-to-r from-muted/30 to-transparent py-4">

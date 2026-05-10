@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, MoreHorizontal, FileEdit, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, FileEdit, Trash2, AlertTriangle, Package } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,6 +163,9 @@ export function ProduitsList() {
     produit.barcode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     produit.marque?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const produitsCount = produits.length;
+  const lowStockCount = produits.filter(p => p.stockActuel <= p.stockMin).length;
+  const stockValue = produits.reduce((sum, p) => sum + (p.stockActuel * p.prixAchatHt), 0);
 
   return (
     <div className="space-y-6">
@@ -217,20 +220,19 @@ export function ProduitsList() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            type="search"
-            placeholder="Rechercher par nom ou référence..."
-            className="pl-10 bg-white border-slate-200 focus:border-primary focus:ring-primary/20 transition-all"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
+       {/* Search */}
+       <div className="relative max-w-md">
+         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+         <Input
+           type="search"
+           placeholder="Rechercher par nom ou référence..."
+           className="pl-10 bg-white border-slate-200 focus:border-primary focus:ring-primary/20 transition-all"
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+         />
+       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
         <Table>

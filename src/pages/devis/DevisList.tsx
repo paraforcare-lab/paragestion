@@ -333,6 +333,8 @@ banque: data.banque || '',
   const totalDevis = devisList.length;
   const devisAcceptes = devisList.filter(d => d.statut === 'accepté').length;
   const devisEnAttente = devisList.filter(d => ['brouillon', 'envoyé'].includes(d.statut)).length;
+  const totalMontant = devisList.reduce((sum, d) => sum + (d.montantTtc || 0), 0);
+  const montantAcceptes = devisList.filter(d => d.statut === 'accepté').reduce((sum, d) => sum + (d.montantTtc || 0), 0);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -366,23 +368,7 @@ banque: data.banque || '',
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm">
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-muted/50 to-transparent">
-            <p className="text-2xl font-black text-foreground">{totalDevis}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total</p>
-          </div>
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50/50 to-transparent">
-            <p className="text-2xl font-black text-emerald-600">{devisAcceptes}</p>
-            <p className="text-xs text-muted-foreground font-medium">Acceptés</p>
-          </div>
-          <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-amber-50/50 to-transparent">
-            <p className="text-2xl font-black text-amber-600">{devisEnAttente}</p>
-            <p className="text-xs text-muted-foreground font-medium">En attente</p>
-          </div>
-        </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+         <Dialog open={isDialogOpen} onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) setEditingDevis(null);
         }}>
@@ -423,21 +409,19 @@ banque: data.banque || '',
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-
-      {/* Search */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Rechercher par numéro ou client..."
-            className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
         </div>
-      </div>
+
+       {/* Search */}
+       <div className="relative max-w-md">
+         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+         <Input
+           type="search"
+           placeholder="Rechercher par numéro ou client..."
+           className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+         />
+       </div>
 
       {/* Table */}
       <div className="rounded-2xl border border-border/50 bg-white shadow-lg overflow-x-auto">

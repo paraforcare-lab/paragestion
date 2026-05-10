@@ -50,30 +50,7 @@ interface Stats {
   bonsCommandeCount: number;
 }
 
-interface KPICardProps {
-  title: string;
-  value: string;
-  subtitle: string;
-  icon: React.ElementType;
-}
-
-function KPICard({ title, value, subtitle, icon: Icon }: KPICardProps) {
-  return (
-    <Card className="border border-border/50 shadow-sm">
-      <CardHeader className="pb-2">
-        <CardDescription className="text-xs font-medium text-muted-foreground">
-          {title}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <CardTitle className="text-2xl font-bold mb-1">
-          {value}
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
-      </CardContent>
-    </Card>
-  );
-}
+import { KPICard } from '@/components/ui/kpi-card';
 
 export function Dashboard() {
   const { user } = useAuth();

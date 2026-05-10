@@ -133,6 +133,7 @@ const fetchFournisseurs = async () => {
 
   const fournisseursCount = fournisseurs.length;
   const entreprisesCount = fournisseurs.filter(f => f.type === 'entreprise').length;
+  const particuliersCount = fournisseurs.filter(f => f.type !== 'entreprise').length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -157,19 +158,6 @@ const fetchFournisseurs = async () => {
                 Gérez vos partenaires et fournisseurs
               </p>
             </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-center">
-            <p className="text-2xl font-black text-foreground">{fournisseursCount}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total</p>
-          </div>
-          <div className="h-10 w-px bg-border" />
-          <div className="text-center">
-            <p className="text-2xl font-black text-purple-600">{entreprisesCount}</p>
-            <p className="text-xs text-muted-foreground font-medium">Entreprises</p>
           </div>
         </div>
 
@@ -214,19 +202,19 @@ const fetchFournisseurs = async () => {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Rechercher par nom, code ou email..."
-          className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+       {/* Search */}
+       <div className="relative max-w-md">
+         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+         <Input
+           type="search"
+           placeholder="Rechercher par nom, code ou email..."
+           className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all shadow-sm"
+           value={searchQuery}
+           onChange={(e) => setSearchQuery(e.target.value)}
+         />
+       </div>
 
       {/* Table */}
       <div className="rounded-2xl border border-border/50 bg-white shadow-lg overflow-x-auto">

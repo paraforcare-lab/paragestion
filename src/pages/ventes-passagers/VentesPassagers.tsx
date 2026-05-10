@@ -248,6 +248,7 @@ export default function VentesPassagers() {
     const today = new Date().toDateString();
     return new Date(v.date).toDateString() === today;
   }).length;
+  const ventesCount = ventes.length;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -262,19 +263,6 @@ export default function VentesPassagers() {
               <h2 className="text-3xl font-black tracking-tight text-foreground">Ventes Passagers</h2>
               <p className="text-sm text-muted-foreground">Gérez vos ventes directes sans facture nominative</p>
             </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-center">
-            <p className="text-2xl font-black text-emerald-600">{todayVentes}</p>
-            <p className="text-xs text-muted-foreground font-medium">Aujourd'hui</p>
-          </div>
-          <div className="h-10 w-px bg-border" />
-          <div className="text-center">
-            <p className="text-2xl font-black text-foreground">{formatCurrency(totalVentes)}</p>
-            <p className="text-xs text-muted-foreground font-medium">Total TTC</p>
           </div>
         </div>
 
@@ -442,19 +430,19 @@ export default function VentesPassagers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
+       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-        <Input
-          type="text"
-          placeholder="Rechercher par numéro ou date..."
-          className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
+       {/* Search */}
+       <div className="relative max-w-md">
+         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+         <Input
+           type="text"
+           placeholder="Rechercher par numéro ou date..."
+           className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
+           value={searchTerm}
+           onChange={(e) => setSearchTerm(e.target.value)}
+         />
+       </div>
 
       {/* Sales Table */}
       <Card className="border-0 shadow-lg overflow-hidden">

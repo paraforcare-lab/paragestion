@@ -516,73 +516,40 @@ export function FacturesList() {
         </div>
 
         {!showForm && (
-          <>
-            {/* Stats */}
-            <div className="flex items-center gap-4 text-sm">
-              <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-muted/50 to-transparent">
-                <p className="text-2xl font-black text-foreground">{totalFactures}</p>
-                <p className="text-xs text-muted-foreground font-medium">Total</p>
-              </div>
-              <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50/50 to-transparent">
-                <p className="text-2xl font-black text-emerald-600">{facturesPayees}</p>
-                <p className="text-xs text-muted-foreground font-medium">Payées</p>
-              </div>
-              <div className="text-center px-4 py-2 rounded-xl bg-gradient-to-r from-amber-50/50 to-transparent">
-                <p className="text-2xl font-black text-amber-600">{facturesEnAttente}</p>
-                <p className="text-xs text-muted-foreground font-medium">En attente</p>
-              </div>
-            </div>
-
-            <Button 
-              onClick={openNewForm}
-              className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary text-white font-bold shadow-lg shadow-primary/30 rounded-xl h-11 px-6"
-            >
-              <Plus className="mr-2 h-5 w-5" />
-              Nouvelle Facture
-            </Button>
-          </>
+          <Button 
+            onClick={openNewForm}
+            className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary text-white font-bold shadow-lg shadow-primary/30 rounded-xl h-11 px-6"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            Nouvelle Facture
+          </Button>
         )}
       </div>
 
-      {showForm ? (
-        /* Form View */
-        <div className="bg-white rounded-2xl shadow-lg border border-border/50 p-6">
-          <FactureForm
-            initialData={editingFacture}
-            onSuccess={() => {
-              closeForm();
-              fetchFactures();
-            }}
-          />
-        </div>
-      ) : (
-        <>
-          {/* Search & Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Rechercher par numéro ou client..."
-                className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
-            {/* Quick Stats */}
-            <div className="flex items-center gap-4 px-4 py-2 rounded-xl bg-white border border-border/50 shadow-sm">
-              <div className="text-center">
-                <p className="text-sm font-bold text-foreground">{formatCurrency(totalMontant)}</p>
-                <p className="text-[10px] text-muted-foreground font-medium">Total TTC</p>
-              </div>
-              <div className="h-8 w-px bg-border" />
-              <div className="text-center">
-                <p className="text-sm font-bold text-amber-600">{formatCurrency(totalResteAPayer)}</p>
-                <p className="text-[10px] text-muted-foreground font-medium">En attente</p>
-              </div>
-            </div>
-          </div>
+       {showForm ? (
+         /* Form View */
+         <div className="bg-white rounded-2xl shadow-lg border border-border/50 p-6">
+           <FactureForm
+             initialData={editingFacture}
+             onSuccess={() => {
+               closeForm();
+               fetchFactures();
+             }}
+           />
+         </div>
+       ) : (
+         <>
+           {/* Search */}
+           <div className="relative max-w-md">
+             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+             <Input
+               type="search"
+               placeholder="Rechercher par numéro ou client..."
+               className="pl-12 h-12 bg-white border-border/50 rounded-xl focus:border-primary focus:ring-2 focus:ring-primary/10 shadow-sm"
+               value={searchQuery}
+               onChange={(e) => setSearchQuery(e.target.value)}
+             />
+           </div>
 
           {/* Table */}
           <div className="rounded-2xl border border-border/50 bg-white shadow-lg overflow-x-auto">
