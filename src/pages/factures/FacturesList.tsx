@@ -204,11 +204,12 @@ export function FacturesList() {
 
   const handleEdit = async (facture: Facture) => {
     try {
-      // First fetch all needed data in parallel
-      const [factureResult, clientResult, lignesResult] = await Promise.all([
+      // Fetch all needed data - INCLUDING all products for the dropdown
+      const [factureResult, clientResult, lignesResult, allProductsResult] = await Promise.all([
         supabase.from('factures').select('*').eq('id', facture.id).single(),
         supabase.from('clients').select('*').eq('id', facture.clientId).single(),
-        supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre')
+        supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre'),
+        supabase.from('produits').select('*').eq('user_id', user?.id).order('nom')
       ]);
       
       const { data: factureData, error: fError } = factureResult;
@@ -216,16 +217,20 @@ export function FacturesList() {
       
       const { data: clientData } = clientResult;
       const { data: lignesData } = lignesResult;
+      const { data: allProductsData } = allProductsResult;
       
-      // Fetch all products at once for the lines
-      const productIds = (lignesData || []).map((l: any) => l.produit_id).filter(Boolean);
-      let produitsMap: any = {};
-      if (productIds.length > 0) {
-        const { data: produitsData } = await supabase.from('produits').select('*').in('id', productIds);
-        (produitsData || []).forEach((p: any) => {
-          produitsMap[p.id] = p;
-        });
-      }
+      // Build products map from ALL products
+      const produitsMap: any = {};
+      (allProductsData || []).forEach((p: any) => {
+        produitsMap[p.id] = p;
+      });
+      
+      // Also map by product IDs in lignes
+      (lignesData || []).forEach((l: any) => {
+        if (l.produit_id && !produitsMap[l.produit_id]) {
+          produitsMap[l.produit_id] = { id: l.produit_id, nom: l.designation };
+        }
+      });
       
       // Map lignes with product details
       const mappedLignes = (lignesData || []).map((l: any) => {
@@ -233,11 +238,12 @@ export function FacturesList() {
         return {
           id: l.id,
           produitId: String(l.produit_id || ''),
+          produit: produit,
           reference: l.reference || produit?.reference || '',
-          designation: l.description || produit?.nom || '',
+          designation: l.designation || l.description || produit?.nom || produit?.designation || '',
           quantite: l.quantite || 1,
-          prixUnitaireHt: Number(l.prix_unitaire || produit?.prix_vente_ht || 0),
-          tva: Number(l.tva || produit?.taux_tva || 20),
+          prixUnitaireHt: Number(l.prix_unitaire_ht || l.prix_unitaire || produit?.prix_vente_ht || 0),
+          tva: Number(l.tva || produit?.taux_tva || produit?.tva || 20),
           montantHt: Number(l.montant_ht || 0),
           montantTtc: Number(l.montant_ttc || 0),
         };
@@ -361,12 +367,35 @@ export function FacturesList() {
     try {
       toast.info('Préparation du PDF...');
       
-      // Fetch facture with client
-      const { data: factureData, error } = await supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single();
+      // Fetch facture with client AND all products
+      const [factureResult, allProductsResult] = await Promise.all([
+        supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single(),
+        supabase.from('produits').select('*').eq('user_id', user?.id).order('nom')
+      ]);
+      
+      const { data: factureData, error } = factureResult;
       if (error) throw error;
+      
+      const { data: allProductsData } = allProductsResult;
       
       // Fetch lignes
       const { data: lignesData } = await supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre');
+      
+      // Build products map from ALL products (same as edit)
+      const produitsMap: any = {};
+      (allProductsData || []).forEach((p: any) => {
+        produitsMap[p.id] = p;
+      });
+      
+      // Map lignes with product details
+      const mappedLignes = (lignesData || []).map((l: any) => {
+        const produit = produitsMap[l.produit_id];
+        return {
+          ...l,
+          designation: l.designation || l.description || produit?.nom || produit?.designation || '',
+          reference: l.reference || produit?.reference || '',
+        };
+      });
       
       const mappedFacture = {
         ...factureData,
@@ -381,7 +410,7 @@ export function FacturesList() {
         statut: factureData.statut,
         resteAPayer: factureData.reste_a_payer,
         modePaiement: factureData.mode_paiement,
-        lignes: lignesData || [],
+        lignes: mappedLignes,
       };
       setPrintingFacture(mappedFacture);
     } catch (error) {

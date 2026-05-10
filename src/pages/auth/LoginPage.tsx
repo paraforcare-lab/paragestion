@@ -41,7 +41,7 @@ export function LoginPage() {
         return;
       }
 
-      toast.success('Connexion réussie. Bienvenue sur ParaCare!');
+      toast.success('Connexion réussie. Bienvenue sur ParaGestion!');
       navigate('/');
     } catch (error: any) {
       toast.error('Une erreur est survenue lors de la connexion');
@@ -195,7 +195,7 @@ export function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-xs text-muted-foreground mt-6 animate-in fade-in" style={{ animationDelay: '400ms' }}>
-          © 2026 ParaCare. Gestion Parapharmaceutique Premium.
+          © 2026 ParaGestion. Gestion Parapharmaceutique Premium.
         </p>
       </div>
     </div>

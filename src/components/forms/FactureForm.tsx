@@ -345,16 +345,25 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
               {fields.map((field, index) => {
                 const ligne = watchLignes[index];
                 const totalHt = (ligne?.quantite || 0) * (ligne?.prixUnitaireHt || 0);
+                const selectedProductId = form.watch(`lignes.${index}.produitId`);
+                const selectedProduct = selectedProductId ? produits.find(p => p.id.toString() === selectedProductId) : null;
+                const displayText = selectedProduct ? (selectedProduct.nom || selectedProduct.reference || '-') : (ligne?.designation || '');
 
                 return (
                   <tr key={field.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-2">
                       <Select
-                        value={form.watch(`lignes.${index}.produitId`) || ""}
+                        value={selectedProductId || ""}
                         onValueChange={(val) => handleProduitSelect(index, val)}
                       >
                         <SelectTrigger className="h-9 bg-white border-slate-200">
-                          <SelectValue placeholder="Choisir..." />
+                          {selectedProductId ? (
+                            <span className={!selectedProduct ? 'text-orange-500' : ''}>
+                              {displayText}
+                            </span>
+                          ) : (
+                            <SelectValue placeholder="Choisir..." />
+                          )}
                         </SelectTrigger>
                         <SelectContent className="max-h-[400px] overflow-y-auto">
                           {produits.map((p) => (

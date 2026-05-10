@@ -47,7 +47,7 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
                     {entreprise?.nomEntreprise?.[0] || 'P'}
                   </div>
                   <div>
-                    <h1 className="text-2xl font-black text-gray-800">{entreprise?.nomEntreprise || 'ParaCare'}</h1>
+                    <h1 className="text-2xl font-black text-gray-800">{entreprise?.nomEntreprise || 'ParaGestion'}</h1>
                     <p className="text-xs text-gray-500 font-medium">Parapharmacie Management</p>
                   </div>
                 </div>

@@ -1,8 +1,8 @@
-# ParaCare - Parapharmacy Management ERP
+# ParaGestion - Parapharmacy Management ERP
 
 ## Concept & Vision
 
-ParaCare is a comprehensive, medical-themed French ERP-lite application designed specifically for parapharmacies. It delivers a clean, professional interface inspired by healthcare aesthetics with teal/blue tones that evoke trust and professionalism. The app streamlines all business operations from invoicing to inventory management with an intuitive, French-localized interface that feels both modern and reliable.
+ParaGestion is a comprehensive, medical-themed French ERP-lite application designed specifically for parapharmacies. It delivers a clean, professional interface inspired by healthcare aesthetics with teal/blue tones that evoke trust and professionalism. The app streamlines all business operations from invoicing to inventory management with an intuitive, French-localized interface that feels both modern and reliable.
 
 ## Design Language
 

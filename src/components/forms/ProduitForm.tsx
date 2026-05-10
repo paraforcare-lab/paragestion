@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 const produitSchema = z.object({
   reference: z.string().optional(),
@@ -28,6 +29,7 @@ const produitSchema = z.object({
   stockActuel: z.coerce.number().int(),
   stockMin: z.coerce.number().int().optional(),
   unite: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 type ProduitFormValues = z.infer<typeof produitSchema>;
@@ -53,6 +55,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
       stockActuel: initialData?.stockActuel || 0,
       stockMin: initialData?.stockMin || 5,
       unite: initialData?.unite || 'unité',
+      imageUrl: initialData?.imageUrl || initialData?.image_url || '',
     },
   });
 
@@ -72,22 +75,23 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
       const stockActuel = Number(data.stockActuel) || 0;
       const stockMin = Number(data.stockMin) || 5;
 
-      const payload = {
-        reference: data.reference?.trim() || null,
-        nom: data.nom?.trim() || null,
-        designation: data.nom?.trim() || null,
-        marque: data.marque?.trim() || null,
-        barcode: data.barcode?.trim() || null,
-        description: data.description?.trim() || null,
-        prix_vente_ht: prixVenteHT,
-        prix_vente_ttc: prixVenteTTC,
-        prix_achat_ht: prixAchatHT,
-        prix_achat_ttc: prixAchatTTC,
-        taux_tva: tauxTVA,
-        stock_actuel: stockActuel,
-        stock_min: stockMin,
-        unite: data.unite?.trim() || 'unité',
-      };
+       const payload = {
+         reference: data.reference?.trim() || null,
+         nom: data.nom?.trim() || null,
+         designation: data.nom?.trim() || null,
+         marque: data.marque?.trim() || null,
+         barcode: data.barcode?.trim() || null,
+         description: data.description?.trim() || null,
+         prix_vente_ht: prixVenteHT,
+         prix_vente_ttc: prixVenteTTC,
+         prix_achat_ht: prixAchatHT,
+         prix_achat_ttc: prixAchatTTC,
+         taux_tva: tauxTVA,
+         stock_actuel: stockActuel,
+         stock_min: stockMin,
+         unite: data.unite?.trim() || 'unité',
+         image_url: data.imageUrl || null,
+       };
 
       let result;
       if (initialData?.id) {
@@ -109,38 +113,58 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
     }
   }
 
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="reference"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Référence</FormLabel>
-                <FormControl>
-                  <Input placeholder="REF-001" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+   return (
+     <Form {...form}>
+       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="md:col-span-1 space-y-4">
+             <FormField
+               control={form.control}
+               name="imageUrl"
+               render={({ field }) => (
+                 <FormItem>
+                   <FormControl>
+                     <ImageUpload
+                       value={field.value || undefined}
+                       onChange={field.onChange}
+                       label="Image du produit"
+                     />
+                   </FormControl>
+                   <FormMessage />
+                 </FormItem>
+               )}
+             />
+           </div>
+           <div className="md:col-span-2 space-y-4">
+         <div className="grid grid-cols-2 gap-4">
+           <FormField
+             control={form.control}
+             name="reference"
+             render={({ field }) => (
+               <FormItem>
+                 <FormLabel>Référence</FormLabel>
+                 <FormControl>
+                   <Input placeholder="REF-001" {...field} />
+                 </FormControl>
+                 <FormMessage />
+               </FormItem>
+             )}
+           />
 
-          <FormField
-            control={form.control}
-            name="barcode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Code-barres (EAN)</FormLabel>
-                <FormControl>
-                  <Input placeholder="6111234567890" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+           <FormField
+             control={form.control}
+             name="barcode"
+             render={({ field }) => (
+               <FormItem>
+                 <FormLabel>Code-barres (EAN)</FormLabel>
+                 <FormControl>
+                   <Input placeholder="6111234567890" {...field} />
+                 </FormControl>
+                 <FormMessage />
+               </FormItem>
+             )}
+           />
+         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -272,14 +296,16 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
               </FormItem>
             )}
           />
-        </div>
+         </div>
+           </div>
+         </div>
 
-        <div className="flex justify-end pt-6 border-t mt-6">
-          <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-8 h-11 font-bold shadow-md">
-            Enregistrer le produit
-          </Button>
-        </div>
-      </form>
-    </Form>
-  );
-}
+         <div className="flex justify-end pt-6 border-t mt-6">
+           <Button type="submit" className="bg-primary hover:bg-primary/90 text-white px-8 h-11 font-bold shadow-md">
+             Enregistrer le produit
+           </Button>
+         </div>
+       </form>
+     </Form>
+   );
+ }

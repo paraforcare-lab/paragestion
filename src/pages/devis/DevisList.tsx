@@ -200,7 +200,8 @@ banque: data.banque || '',
         const lignesPayload = devisLignes.map((l: any, index: number) => ({
           facture_id: newFacture.id,
           produit_id: l.produit_id,
-          description: l.description,
+          reference: l.reference,
+          designation: l.designation,
           quantite: l.quantite,
           prix_unitaire_ht: l.prix_unitaire_ht,
           tva: l.tva,
@@ -208,16 +209,20 @@ banque: data.banque || '',
           montant_ttc: l.montant_ttc,
           ordre: index,
         }));
-        await supabase.from('facture_lignes').insert(lignesPayload);
+        const { error: lignesError } = await supabase.from('facture_lignes').insert(lignesPayload);
+        if (lignesError) {
+          await supabase.from('factures').delete().eq('id', newFacture.id);
+          throw lignesError;
+        }
       }
       
       await supabase.from('devis').update({ statut: 'converti' }).eq('id', id).eq('user_id', user?.id);
       
       toast.success('Devis converti en facture avec succès !');
       fetchDevis();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Conversion error:', error);
-      toast.error('Erreur lors de la conversion');
+      toast.error(error?.message || 'Erreur lors de la conversion');
     }
   };
 

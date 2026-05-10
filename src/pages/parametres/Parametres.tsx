@@ -95,6 +95,7 @@ export function Parametres() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [parametresId, setParametresId] = useState<string | null>(null);
+  const [isModified, setIsModified] = useState(false);
   
   const form = useForm<ParametresFormValues>({
     resolver: zodResolver(parametresSchema),
@@ -123,6 +124,18 @@ export function Parametres() {
       activerDroitTimbre: true,
     },
   });
+
+  const STORAGE_KEY = 'sf_params_modified';
+
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      if (!isLoading) {
+        setIsModified(true);
+        localStorage.setItem(STORAGE_KEY, Date.now().toString());
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [form, isLoading]);
 
   useEffect(() => {
     const fetchParametres = async () => {
@@ -249,6 +262,8 @@ export function Parametres() {
         throw error;
       }
 
+      localStorage.removeItem(STORAGE_KEY);
+      setIsModified(false);
       toast.success('Paramètres enregistrés avec succès');
     } catch (err: any) {
       console.error('Error saving parametres:', err);
@@ -288,6 +303,22 @@ export function Parametres() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {isModified && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-100 p-2 rounded-full">
+                  <FileText className="h-4 w-4 text-amber-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-amber-800">Modifications non enregistrées</p>
+                  <p className="text-sm text-amber-600">Veuillez enregistrer vos changements avant d'exporter</p>
+                </div>
+              </div>
+              <Button type="submit" size="sm" className="bg-amber-500 hover:bg-amber-600 text-white">
+                Enregistrer
+              </Button>
+            </div>
+          )}
           <div className="bg-muted/50 p-4 md:p-6 rounded-xl md:rounded-2xl space-y-4 md:space-y-6">
             <Tabs defaultValue="general" className="w-full">
               <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 rounded-xl md:rounded-2xl">
@@ -764,7 +795,7 @@ export function Parametres() {
                         <FormLabel className="text-foreground font-semibold">Pied de page par défaut</FormLabel>
                         <FormControl>
                           <Textarea 
-                            placeholder="ex: Merci de votre confiance. ParaCare - Votre système de gestion parapharmaceutique." 
+                            placeholder="ex: Merci de votre confiance. ParaGestion - Votre système de gestion parapharmaceutique." 
                             className="min-h-[80px] bg-white border-border/50 focus:border-primary" 
                             {...field} 
                           />

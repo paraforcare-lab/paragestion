@@ -85,6 +85,51 @@ DROP POLICY IF EXISTS "avoirs can insert" ON avoirs;
 CREATE POLICY "avoirs can read" ON avoirs FOR SELECT USING (user_id = auth.uid() OR user_id IS NULL);
 CREATE POLICY "avoirs can insert" ON avoirs FOR INSERT WITH CHECK (user_id = auth.uid());
 
+-- =====================================================
+-- Child tables (_lignes) RLS policies
+-- These inherit security from parent tables
+-- =====================================================
+ALTER TABLE facture_lignes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE devis_lignes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bon_commande_lignes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bon_livraison_lignes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE avoir_lignes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "facture_lignes can read" ON facture_lignes;
+DROP POLICY IF EXISTS "facture_lignes can insert" ON facture_lignes;
+DROP POLICY IF EXISTS "facture_lignes can delete" ON facture_lignes;
+CREATE POLICY "facture_lignes can read" ON facture_lignes FOR SELECT USING (true);
+CREATE POLICY "facture_lignes can insert" ON facture_lignes FOR INSERT WITH CHECK (true);
+CREATE POLICY "facture_lignes can delete" ON facture_lignes FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "devis_lignes can read" ON devis_lignes;
+DROP POLICY IF EXISTS "devis_lignes can insert" ON devis_lignes;
+DROP POLICY IF EXISTS "devis_lignes can delete" ON devis_lignes;
+CREATE POLICY "devis_lignes can read" ON devis_lignes FOR SELECT USING (true);
+CREATE POLICY "devis_lignes can insert" ON devis_lignes FOR INSERT WITH CHECK (true);
+CREATE POLICY "devis_lignes can delete" ON devis_lignes FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "bon_commande_lignes can read" ON bon_commande_lignes;
+DROP POLICY IF EXISTS "bon_commande_lignes can insert" ON bon_commande_lignes;
+DROP POLICY IF EXISTS "bon_commande_lignes can delete" ON bon_commande_lignes;
+CREATE POLICY "bon_commande_lignes can read" ON bon_commande_lignes FOR SELECT USING (true);
+CREATE POLICY "bon_commande_lignes can insert" ON bon_commande_lignes FOR INSERT WITH CHECK (true);
+CREATE POLICY "bon_commande_lignes can delete" ON bon_commande_lignes FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "bon_livraison_lignes can read" ON bon_livraison_lignes;
+DROP POLICY IF EXISTS "bon_livraison_lignes can insert" ON bon_livraison_lignes;
+DROP POLICY IF EXISTS "bon_livraison_lignes can delete" ON bon_livraison_lignes;
+CREATE POLICY "bon_livraison_lignes can read" ON bon_livraison_lignes FOR SELECT USING (true);
+CREATE POLICY "bon_livraison_lignes can insert" ON bon_livraison_lignes FOR INSERT WITH CHECK (true);
+CREATE POLICY "bon_livraison_lignes can delete" ON bon_livraison_lignes FOR DELETE USING (true);
+
+DROP POLICY IF EXISTS "avoir_lignes can read" ON avoir_lignes;
+DROP POLICY IF EXISTS "avoir_lignes can insert" ON avoir_lignes;
+DROP POLICY IF EXISTS "avoir_lignes can delete" ON avoir_lignes;
+CREATE POLICY "avoir_lignes can read" ON avoir_lignes FOR SELECT USING (true);
+CREATE POLICY "avoir_lignes can insert" ON avoir_lignes FOR INSERT WITH CHECK (true);
+CREATE POLICY "avoir_lignes can delete" ON avoir_lignes FOR DELETE USING (true);
+
 -- Verify RLS is enabled
 SELECT 
   tablename,
@@ -92,7 +137,8 @@ SELECT
 FROM pg_tables 
 WHERE schemaname = 'public'
 AND tablename IN ('fournisseurs', 'clients', 'produits', 'factures', 'devis', 
-                 'bons_commande', 'bons_livraison', 'depenses', 'parametres', 
-                 'ventes_passagers', 'avoirs');
+                  'bons_commande', 'bons_livraison', 'depenses', 'parametres', 
+                 'ventes_passagers', 'avoirs', 'facture_lignes', 'devis_lignes',
+                 'bon_commande_lignes', 'bon_livraison_lignes', 'avoir_lignes');
 
 SELECT 'RLS policies created successfully!' as status;

@@ -3278,14 +3278,100 @@ router.get('/backup/data', async (req, res) => {
     const backupData: any = {};
     
     for (const table of tables) {
-      const { data, error } = await supabase.from(table).select('*');
-      if (error) {
-        console.error(`Error fetching table ${table}:`, error);
-        backupData[table] = [];
-      } else {
-        backupData[table] = data;
+      // For tables with client_id, include client name AND ID for re-import matching
+      if (table === 'factures' || table === 'devis' || table === 'avoirs') {
+        const { data, error } = await supabase
+          .from(table)
+          .select('*, client:clients(id, nom, nom_societe)');
+        
+        if (error) {
+          console.log(`Error fetching ${table}:`, error);
+          backupData[table] = [];
+        } else {
+          // Debug: log first row
+          console.log(`${table} sample before processing:`, JSON.stringify(data?.[0])?.slice(0, 200));
+          
+          // Add BOTH client_id (for reference) AND client_nom (for linking)
+          const processedData = (data || []).map((row: any) => {
+            if (row.client) {
+              row.client_id = row.client.id; // Keep original ID for reference
+              row.client_nom = row.client.nom || row.client.nom_societe || ''; // For linking
+              delete row.client;
+            }
+            return row;
+          });
+          
+          console.log(`${table} sample after processing:`, JSON.stringify(processedData[0])?.slice(0, 200));
+          backupData[table] = processedData;
+        }
+      }
+      // For tables with fournisseur_id
+      else if (table === 'bons_commande' || table === 'bons_livraison' || table === 'depenses') {
+        const { data, error } = await supabase
+          .from(table)
+          .select('*, fournisseur:fournisseurs(id, nom, nom_societe)');
+        
+        if (error) {
+          console.log(`Error fetching ${table}:`, error);
+          backupData[table] = [];
+        } else {
+          console.log(`${table} sample before processing:`, JSON.stringify(data?.[0])?.slice(0, 200));
+          
+          const processedData = (data || []).map((row: any) => {
+            if (row.fournisseur) {
+              row.fournisseur_id = row.fournisseur.id;
+              row.fournisseur_nom = row.fournisseur.nom || row.fournisseur.nom_societe || '';
+              delete row.fournisseur;
+            }
+            return row;
+          });
+          
+          console.log(`${table} sample after processing:`, JSON.stringify(processedData[0])?.slice(0, 200));
+          backupData[table] = processedData;
+        }
+      }
+      // All other tables - simple fetch
+      else {
+        const { data, error } = await supabase.from(table).select('*');
+        backupData[table] = error ? [] : (data || []);
       }
     }
+    
+    // Special handling for ligne tables - include parent reference for proper linking
+    const ligneTableMapping: Record<string, string> = {
+      'facture_lignes': 'factures',
+      'devis_lignes': 'devis',
+      'bon_commande_lignes': 'bons_commande',
+      'bon_livraison_lignes': 'bons_livraison',
+      'avoir_lignes': 'avoirs',
+      'ventes_passagers_lignes': 'ventes_passagers'
+    };
+    
+    for (const [ligneTable, parentTable] of Object.entries(ligneTableMapping)) {
+      // Include parent ID for proper re-import linking
+      const parentSelect = parentTable === 'factures' ? 'id, numero' : 'id, numero';
+      const { data, error } = await supabase
+        .from(ligneTable)
+        .select(`*, ${parentTable}(${parentSelect})`);
+      
+      if (!error && data) {
+        const processedData = (data || []).map((row: any) => {
+          const parentRef = row[parentTable];
+          if (parentRef) {
+            // Include BOTH parent ID and parent numero for linking
+            row[`${parentTable}_id`] = parentRef.id;
+            row.facture_numero = parentRef.numero || '';
+          }
+          return row;
+        });
+        backupData[ligneTable] = processedData;
+        console.log(`${ligneTable}: ${processedData.length} rows, sample parent_id:`, processedData[0]?.[`${parentTable}_id`]);
+      }
+    }
+    
+    // Debug: log what we're sending
+    console.log('Exporting data keys:', Object.keys(backupData));
+    console.log('Factures first row keys:', Object.keys(backupData['factures']?.[0] || {}));
     
     res.json(backupData);
   } catch (error) {
@@ -3294,36 +3380,1004 @@ router.get('/backup/data', async (req, res) => {
   }
 });
 
+// Mapping French Excel headers to snake_case database columns
+const fieldMappings: Record<string, Record<string, string>> = {
+  produits: {
+    'Référence': 'reference',
+    'Désignation': 'designation',
+    'Code à barre': 'codebarre',
+    'Code barre': 'codebarre',
+    'Catégorie': 'categorie',
+    'Prix achat': 'prix_achat',
+    'Prix vente': 'prix_vente',
+    'Quantité': 'quantite',
+    'Seuil alerte': 'seuil_alerte',
+    'TVA': 'taux_tva',
+    'Unité': 'unite'
+  },
+  clients: {
+    'Nom': 'nom',
+    'Email': 'email',
+    'Téléphone': 'telephone',
+    'Adresse': 'adresse',
+    'Ville': 'ville',
+    'Code postal': 'code_postal',
+    'ICE': 'ice'
+  },
+  fournisseurs: {
+    'Nom': 'nom',
+    'Email': 'email',
+    'Téléphone': 'telephone',
+    'Adresse': 'adresse',
+    'Ville': 'ville',
+    'Code postal': 'code_postal',
+    'ICE': 'ice'
+  },
+  factures: {
+    'Numéro': 'numero',
+    'Date': 'date',
+    'Client': 'client_id',  // Map to ID directly if Excel has ID
+    'Montant HT': 'montant_ht',
+    'Montant TVA': 'montant_tva',
+    'Montant TTC': 'montant_ttc',
+    'Statut': 'statut',
+    'Reste à payer': 'reste_a_payer',
+    'Échéance': 'echeance'
+  },
+  facture_lignes: {
+    'Facture': 'facture_id',
+    'factures_id': 'facture_id',
+    'Numéro facture': 'facture_numero',
+    'Facture numéro': 'facture_numero',
+    'Produit': 'produit_id',
+    'produit_id': 'produit_id',
+    'Désignation': 'designation',
+    'Quantité': 'quantite',
+    'Prix unitaire': 'prix_unitaire',
+    'Total HT': 'total_ht',
+    'TVA': 'taux_tva',
+    'Total TVA': 'total_tva',
+    'Total TTC': 'total_ttc'
+  },
+  bons_commande: {
+    'Numéro': 'numero',
+    'Date': 'date',
+    'Fournisseur': 'fournisseur_id',  // Map to ID directly if Excel has ID
+    'Montant HT': 'montant_ht',
+    'Montant TVA': 'montant_tva',
+    'Montant TTC': 'montant_ttc',
+    'Statut': 'statut'
+  },
+  bon_commande_lignes: {
+    'Bon de commande': 'bon_commande_id',
+    'bons_commande_id': 'bon_commande_id',
+    'Produit': 'produit_id',
+    'produit_id': 'produit_id',
+    'Désignation': 'designation',
+    'Quantité': 'quantite',
+    'Prix unitaire': 'prix_unitaire',
+    'Total HT': 'total_ht',
+    'TVA': 'taux_tva',
+    'Total TVA': 'total_tva',
+    'Total TTC': 'total_ttc'
+  },
+  bons_livraison: {
+    'Numéro': 'numero',
+    'Date': 'date',
+    'Fournisseur': 'fournisseur_id',  // Map to ID directly if Excel has ID
+    'Bon de commande': 'bon_commande_id',
+    'Statut': 'statut'
+  },
+  bon_livraison_lignes: {
+    'Bon de livraison': 'bon_livraison_id',
+    'bons_livraison_id': 'bon_livraison_id',
+    'Produit': 'produit_id',
+    'produit_id': 'produit_id',
+    'Désignation': 'designation',
+    'Quantité': 'quantite'
+  },
+  devis: {
+    'Numéro': 'numero',
+    'Date': 'date',
+    'Client': 'client_id',  // Map to ID directly if Excel has ID
+    'Montant HT': 'montant_ht',
+    'Montant TVA': 'montant_tva',
+    'Montant TTC': 'montant_ttc',
+    'Statut': 'statut',
+    'Validité': 'validite'
+  },
+  devis_lignes: {
+    'Devis': 'devis_id',
+    'devis_id': 'devis_id',
+    'Produit': 'produit_id',
+    'produit_id': 'produit_id',
+    'Désignation': 'designation',
+    'Quantité': 'quantite',
+    'Prix unitaire': 'prix_unitaire',
+    'Total HT': 'total_ht',
+    'TVA': 'taux_tva',
+    'Total TVA': 'total_tva',
+    'Total TTC': 'total_ttc'
+  },
+  avoirs: {
+    'Numéro': 'numero',
+    'Date': 'date',
+    'Facture': 'facture_numero',
+    'Montant HT': 'montant_ht',
+    'Montant TVA': 'montant_tva',
+    'Montant TTC': 'montant_ttc',
+    'Motif': 'motif'
+  },
+  avoir_lignes: {
+    'Avoir': 'avoir_id',
+    'avoirs_id': 'avoir_id',
+    'Produit': 'produit_id',
+    'produit_id': 'produit_id',
+    'Désignation': 'designation',
+    'Quantité': 'quantite',
+    'Prix unitaire': 'prix_unitaire',
+    'Total HT': 'total_ht',
+    'TVA': 'taux_tva',
+    'Total TVA': 'total_tva',
+    'Total TTC': 'total_ttc'
+  },
+  ventes_passagers: {
+    'Date': 'date',
+    'Client': 'client_nom',
+    'Montant HT': 'montant_ht',
+    'Montant TVA': 'montant_tva',
+    'Montant TTC': 'montant_ttc'
+  },
+  ventes_passagers_lignes: {
+    'Vente': 'vente_passager_id',
+    'ventes_passagers_id': 'vente_passager_id',
+    'vente_passager_id': 'vente_passager_id',
+    'Produit': 'produit_id',
+    'produit_id': 'produit_id',
+    'Désignation': 'designation',
+    'Quantité': 'quantite',
+    'Prix unitaire': 'prix_unitaire',
+    'Total HT': 'total_ht',
+    'TVA': 'taux_tva',
+    'Total TVA': 'total_tva',
+    'Total TTC': 'total_ttc'
+  },
+  depenses: {
+    'Référence': 'reference',
+    'Date': 'date_depense',
+    'Catégorie': 'categorie',
+    'Description': 'description',
+    'Montant HT': 'montant_ht',
+    'Montant TVA': 'montant_tva',
+    'Montant TTC': 'montant_ttc',
+    'Fournisseur': 'fournisseur_id'  // Map to ID directly if Excel has ID
+  },
+  parametres: {
+    'Nom': 'nom_societe',
+    'Adresse': 'adresse',
+    'Ville': 'ville',
+    'Code postal': 'code_postal',
+    'Téléphone': 'telephone',
+    'Email': 'email',
+    'Site web': 'site_web',
+    'ICE': 'ice',
+    'RC': 'rc',
+    'IF': 'if_number',
+    'TP': 'tp_patente',
+    'CNSS': 'cnss',
+    'Capital': 'capital_social',
+    'Forme juridique': 'forme_juridique',
+    'Banque': 'banque',
+    'RIB': 'rib',
+    'SWIFT': 'swift',
+    'Couleur': 'couleur_principale'
+  }
+};
+
+// Map French sheet names to database table names
+const tableNameMapping: Record<string, string> = {
+  // French names
+  'Ventes': 'factures',
+  'Factures': 'factures',
+  'Devis': 'devis',
+  'Avoirs': 'avoirs',
+  'Achats': 'bons_commande',
+  'Bons de commande': 'bons_commande',
+  'Bons de livraison': 'bons_livraison',
+  'Dépenses': 'depenses',
+  'Produits': 'produits',
+  'Clients': 'clients',
+  'Fournisseurs': 'fournisseurs',
+  'Paramètres': 'parametres',
+  'Mouvements de stock': 'mouvements_stock',
+  // Line tables
+  'facture_lignes': 'facture_lignes',
+  'facture_ligne': 'facture_lignes',
+  'devis_lignes': 'devis_lignes',
+  'devis_ligne': 'devis_lignes',
+  'bon_commande_lignes': 'bon_commande_lignes',
+  'bon_commande_ligne': 'bon_commande_lignes',
+  'bons_livraison': 'bons_livraison',
+  'bon_livraison': 'bons_livraison',
+  'bon_livraison_lignes': 'bon_livraison_lignes',
+  'avoir_lignes': 'avoir_lignes',
+  'avoir_ligne': 'avoir_lignes',
+  'ventes_passagers': 'ventes_passagers',
+  'ventes_passagers_lignes': 'ventes_passagers_lignes',
+  'mouvements_stock': 'mouvements_stock',
+  // Lowercase variants
+  'factures': 'factures',
+  'devis': 'devis',
+  'avoirs': 'avoirs',
+  'bons_commande': 'bons_commande',
+  'depenses': 'depenses',
+  'produits': 'produits',
+  'clients': 'clients',
+  'fournisseurs': 'fournisseurs',
+  'parametres': 'parametres'
+};
+
+function transformRow(table: string, row: any, _lookupCache: any): any {
+  const mapping = fieldMappings[table] || {};
+  const transformed: any = {};
+  
+  // Generate unique suffix for tables with unique constraints (random 4 digits)
+  const uniqueSuffix = Math.floor(1000 + Math.random() * 9000).toString();
+  
+  for (const excelKey of Object.keys(row)) {
+    const dbKey = mapping[excelKey] || excelKey;
+    let value = row[excelKey];
+    
+    // Skip empty values and ID field (let database auto-generate)
+    if (dbKey === 'id' || value === '' || value === null || value === undefined) continue;
+    
+    // Skip user_id if present in import (user-specific)
+    if (dbKey === 'user_id') continue;
+    
+    // For tables with unique constraints, add suffix to make unique
+    if (table === 'produits' && dbKey === 'reference') {
+      value = value + '-' + uniqueSuffix;
+    }
+    if (table === 'bons_commande' && dbKey === 'numero') {
+      value = value + '-' + uniqueSuffix;
+    }
+    if (table === 'bons_livraison' && dbKey === 'numero') {
+      value = value + '-' + uniqueSuffix;
+    }
+    if (table === 'ventes_passagers' && dbKey === 'numero') {
+      value = value + '-' + uniqueSuffix;
+    }
+    
+    transformed[dbKey] = value;
+  }
+  
+  return transformed;
+}
+
 router.post('/backup/import', async (req, res) => {
   try {
-    const data = req.body;
-    const tables = Object.keys(data);
+    // Extract user_id first (not part of the Excel data)
+    const userId = req.body.user_id;
+    console.log('Importing for user:', userId);
     
-    // We should import in a specific order to respect foreign keys if possible,
-    // but Supabase/Postgres might have constraints.
-    // For a full restore, we might need to delete existing data first or upsert.
-    // The user asked to "Handle duplicates and data conflicts safely (avoid double entries)".
-    // Upserting by ID is usually the safest way if IDs are preserved.
-    
+// Get the Excel data (everything except user_id)
+    const { user_id, ...excelData } = req.body;
+    const data = excelData;
     const results: any = {};
     
-    for (const table of tables) {
-      if (!Array.isArray(data[table]) || data[table].length === 0) continue;
+    // Map French sheet names to database table names
+    const mappedData: any = {};
+    for (const sheetName of Object.keys(data)) {
+      // First check the exact mapping
+      let dbTable = tableNameMapping[sheetName];
       
-      // Upsert data
-      const { error } = await supabase.from(table).upsert(data[table], { onConflict: 'id' });
-      if (error) {
-        console.error(`Error importing table ${table}:`, error);
-        results[table] = { success: false, error: error.message };
-      } else {
-        results[table] = { success: true, count: data[table].length };
+      // If no exact match, try to guess
+      if (!dbTable) {
+        const lowerName = sheetName.toLowerCase();
+        
+        // Handle ligne tables - look for patterns like "facture lignes" -> "facture_lignes"
+        if (lowerName.includes('ligne')) {
+          const parentMatch = lowerName.match(/^(\w+)\s*lignes?/);
+          if (parentMatch) {
+            const parent = parentMatch[1];
+            if (['facture', 'devis', 'bon_commande', 'bon_livraison', 'avoir', 'vente'].includes(parent)) {
+              dbTable = parent + '_lignes';
+            }
+          }
+        }
+        
+        // Handle direct table names
+        if (!dbTable) {
+          const singularMap: Record<string, string> = {
+            'facture': 'factures',
+            'devis': 'devis',
+            'avoir': 'avoirs',
+            'bon_commande': 'bons_commande',
+            'bon_livraison': 'bons_livraison',
+            'depense': 'depenses',
+            'produit': 'produits',
+            'client': 'clients',
+            'fournisseur': 'fournisseurs',
+            'vente_passager': 'ventes_passagers'
+          };
+          const singular = lowerName.replace(/s$/, '');
+          dbTable = singularMap[singular] || sheetName.toLowerCase().replace(/ /g, '_');
+        }
+      }
+      
+      if (dbTable) {
+        mappedData[dbTable] = data[sheetName];
       }
     }
     
-    res.json({ success: true, results });
-  } catch (error) {
+    console.log('Mapped table names:', Object.keys(mappedData));
+    
+    console.log('Mapped table names:', Object.keys(mappedData));
+    console.log('Sample data:', mappedData.produits?.[0] || mappedData.Produits?.[0]);
+    
+    const dataToImport = mappedData;
+    
+    // Process tables in order: parents first, then children
+    // Parent tables: clients, fournisseurs, produits, factures, devis, bons_commande, bons_livraison, avoirs, ventes_passagers
+    // Child tables: facture_lignes, bon_commande_lignes, bon_livraison_lignes, avoir_lignes, ventes_passagers_lignes
+    const parentTables = ['clients', 'fournisseurs', 'produits'];
+    const childTables = ['factures', 'devis', 'bons_commande', 'bons_livraison', 'avoirs', 'ventes_passagers', 'depenses'];
+    const ligneTables = ['facture_lignes', 'devis_lignes', 'bon_commande_lignes', 'bon_livraison_lignes', 'avoir_lignes', 'ventes_passagers_lignes'];
+    
+    // Tables that have user_id
+    const tablesWithUserId = ['clients', 'fournisseurs', 'produits', 'factures', 'devis', 'bons_commande', 'bons_livraison', 'avoirs', 'ventes_passagers', 'depenses'];
+    // Tables that don't need user_id (line tables)
+    const tablesWithoutUserId = ['facture_lignes', 'devis_lignes', 'bon_commande_lignes', 'bon_livraison_lignes', 'avoir_lignes', 'ventes_passagers_lignes', 'mouvements_stock'];
+    const tablesToProcess = [...parentTables, ...childTables].filter(t => dataToImport[t]?.length > 0);
+    
+// ============================================
+    // PHASE 1: Insert clients, fournisseurs, produits
+    // Capture OLD ID → NEW UUID mapping for each
+    // ============================================
+    const clientIdMap = new Map<number, string>(); // old_id → new_uuid
+    const fournisseurIdMap = new Map<number, string>();
+    const produitIdMap = new Map<number, string>(); // old_id → new_uuid
+    const produitDesignationMap = new Map<string, string>(); // designation → new_uuid
+    
+    const phase1Tables = ['clients', 'fournisseurs', 'produits'];
+    
+    for (const table of phase1Tables) {
+      if (!dataToImport[table]?.length) continue;
+      
+      const rows = dataToImport[table].map((row: any, idx: number) => {
+        const transformed = transformRow(table, row, {});
+        // Capture OLD ID before removing it (let DB generate new UUID)
+        const oldId = row['id'] || row['Numéro'] || row['Référence'] || idx + 1;
+        if (table === 'clients') {
+          clientIdMap.set(oldId, 'PLACEHOLDER'); // Will update after insert
+        } else if (table === 'fournisseurs') {
+          fournisseurIdMap.set(oldId, 'PLACEHOLDER');
+        } else if (table === 'produits') {
+          produitIdMap.set(oldId, 'PLACEHOLDER');
+          // Also map by designation for product linking
+          const designation = transformed.designation || row['Désignation'] || '';
+          if (designation) {
+            produitDesignationMap.set(designation.toLowerCase().trim(), 'PLACEHOLDER');
+          }
+        }
+        return transformed;
+      }).filter((r: any) => Object.keys(r).length > 0);
+      
+      if (userId) rows.forEach((row: any) => { row.user_id = userId; });
+      
+      console.log(`[PHASE 1] Importing ${table}: ${rows.length} rows`);
+      if (!rows.length) continue;
+      
+      const { data: inserted, error } = await supabase.from(table).insert(rows).select();
+      if (error) {
+        console.error(`[ERROR] Failed to import ${table}:`, error);
+        results[table] = { success: false, error: error.message };
+      } else {
+        results[table] = { success: true, count: rows.length };
+        // Update mappings with actual UUIDs
+        if (inserted) {
+          inserted.forEach((newRow: any, idx: number) => {
+            const oldId = dataToImport[table][idx]?.id || dataToImport[table][idx]?.['Numéro'] || dataToImport[table][idx]?.['Référence'] || (idx + 1);
+            if (table === 'clients') {
+              clientIdMap.set(oldId, newRow.id);
+              console.log(`[LINKING] Client OldID: ${oldId} -> New UUID: ${newRow.id}`);
+            } else if (table === 'fournisseurs') {
+              fournisseurIdMap.set(oldId, newRow.id);
+              console.log(`[LINKING] Fournisseur OldID: ${oldId} -> New UUID: ${newRow.id}`);
+            } else if (table === 'produits') {
+              produitIdMap.set(oldId, newRow.id);
+              const designation = newRow.designation || dataToImport[table][idx]?.['Désignation'] || '';
+              if (designation) {
+                produitDesignationMap.set(designation.toLowerCase().trim(), newRow.id);
+              }
+              console.log(`[LINKING] Product OldID: ${oldId} -> New UUID: ${newRow.id}`);
+            }
+          });
+        }
+      }
+    }
+    
+    // ============================================
+    // PHASE 2: Insert factures, devis, etc.
+    // Replace client_id with new UUID from Phase 1
+    // Capture parent table OLD ID → NEW UUID mapping
+    // ============================================
+    const factureIdMap = new Map<number, string>();
+    const devisIdMap = new Map<number, string>();
+    const bcIdMap = new Map<number, string>();
+    const blIdMap = new Map<number, string>();
+    const avoirIdMap = new Map<number, string>();
+    const vpIdMap = new Map<number, string>();
+    
+    const phase2Tables: Array<{table: string, fkField: string, idMap: Map<number, string>, clientField: string}> = [
+      { table: 'factures', fkField: 'client_id', idMap: factureIdMap, clientField: 'Client' },
+      { table: 'devis', fkField: 'client_id', idMap: devisIdMap, clientField: 'Client' },
+      { table: 'bons_commande', fkField: 'fournisseur_id', idMap: bcIdMap, clientField: 'Fournisseur' },
+      { table: 'bons_livraison', fkField: 'fournisseur_id', idMap: blIdMap, clientField: 'Fournisseur' },
+      { table: 'avoirs', fkField: 'client_id', idMap: avoirIdMap, clientField: 'Client' },
+      { table: 'ventes_passagers', fkField: '', idMap: vpIdMap, clientField: '' }
+    ];
+    
+    for (const { table, fkField, idMap, clientField } of phase2Tables) {
+      if (!dataToImport[table]?.length) continue;
+      
+      const rows = dataToImport[table].map((row: any, idx: number) => {
+        const transformed = transformRow(table, row, {});
+        // Capture OLD ID
+        const oldId = row['id'] || row['Numéro'] || idx + 1;
+        
+        // Replace client/fournisseur FK with new UUID if available
+        if (fkField) {
+          const oldFkId = row[clientField] || row[fkField] || row['id'];
+          if (fkField === 'client_id' && oldFkId) {
+            const newId = clientIdMap.get(oldFkId);
+            if (newId && newId !== 'PLACEHOLDER') {
+              transformed.client_id = newId;
+            }
+          } else if (fkField === 'fournisseur_id' && oldFkId) {
+            const newId = fournisseurIdMap.get(oldFkId);
+            if (newId && newId !== 'PLACEHOLDER') {
+              transformed.fournisseur_id = newId;
+            }
+          }
+        }
+        
+        // Clear ALL FK fields that reference tables not yet imported or without mapping
+        // These tables have cross-references: factures->devis, bons_livraison->bons_commande, avoirs->factures
+        if (transformed.devis_id) delete transformed.devis_id;
+        if (transformed.bon_commande_id) delete transformed.bon_commande_id;
+        if (transformed.facture_id) delete transformed.facture_id;
+        
+        return { oldId, row: transformed };
+      }).filter((r: any) => Object.keys(r.row).length > 0);
+      
+      const insertRows = rows.map((r: any) => r.row);
+      if (userId) insertRows.forEach((row: any) => { row.user_id = userId; });
+      
+      console.log(`[PHASE 2] Importing ${table}: ${insertRows.length} rows`);
+      if (!insertRows.length) continue;
+      
+      const { data: inserted, error } = await supabase.from(table).insert(insertRows).select();
+      if (error) {
+        console.error(`[ERROR] Failed to import ${table}:`, error);
+        results[table] = { success: false, error: error.message };
+      } else {
+        results[table] = { success: true, count: insertRows.length };
+        // Update mappings
+        if (inserted) {
+          inserted.forEach((newRow: any, idx: number) => {
+            const oldId = rows[idx]?.oldId || idx + 1;
+            idMap.set(oldId, newRow.id);
+            console.log(`[LINKING] ${table} OldID: ${oldId} -> New UUID: ${newRow.id}`);
+          });
+        }
+      }
+    }
+    
+    // ============================================
+    // PHASE 3: Insert ligne tables with proper FK linking
+    // CRITICAL: Skip rows if mapping is missing (no NULL FKs)
+    // ============================================
+    const ligneConfig: Array<{
+      table: string,
+      parentField: string,
+      parentIdMap: Map<number, string>,
+      parentExcelField: string
+    }> = [
+      { table: 'facture_lignes', parentField: 'facture_id', parentIdMap: factureIdMap, parentExcelField: 'Facture' },
+      { table: 'devis_lignes', parentField: 'devis_id', parentIdMap: devisIdMap, parentExcelField: 'Devis' },
+      { table: 'bon_commande_lignes', parentField: 'bon_commande_id', parentIdMap: bcIdMap, parentExcelField: 'Bon de commande' },
+      { table: 'bon_livraison_lignes', parentField: 'bon_livraison_id', parentIdMap: blIdMap, parentExcelField: 'Bon de livraison' },
+      { table: 'avoir_lignes', parentField: 'avoir_id', parentIdMap: avoirIdMap, parentExcelField: 'Avoir' },
+      { table: 'ventes_passagers_lignes', parentField: 'vente_passager_id', parentIdMap: vpIdMap, parentExcelField: 'Vente passager' }
+    ];
+    
+    let totalSkipped = 0;
+    
+    // Build numero -> UUID fallback maps for each parent table
+    const factureNumeroToId = new Map<string, string>();
+    (dataToImport['factures'] || []).forEach((f: any, idx: number) => {
+      const oldId = f['id'] || f['Numéro'] || idx + 1;
+      const newId = factureIdMap.get(oldId);
+      const numero = f['Numéro'] || f['numero'] || '';
+      if (numero && newId) {
+        factureNumeroToId.set(numero, newId);
+      }
+    });
+    
+    // Build position -> UUID fallback for ventes_passagers (for VP IDs that don't match exact OLD IDs)
+    const vpPositionToId = new Map<number, string>();
+    (dataToImport['ventes_passagers'] || []).forEach((vp: any, idx: number) => {
+      const newId = vpIdMap.get(idx + 1);
+      if (newId) {
+        vpPositionToId.set(idx + 1, newId);
+      }
+    });
+    
+    for (const { table, parentField, parentIdMap, parentExcelField } of ligneConfig) {
+      if (!dataToImport[table]?.length) continue;
+      
+      const allSourceRows = dataToImport[table];
+      console.log(`[PHASE 3] ${table}: Total rows found in CSV: ${allSourceRows.length}`);
+      
+      const validRows: any[] = [];
+      const skippedRows: any[] = [];
+      
+      for (const row of allSourceRows) {
+        const idx = validRows.length + skippedRows.length;
+        
+        // Check for UUID format directly (Excel exports the actual UUID as 'factures_id', etc.)
+        const uuidColumnName = `${table.replace('_lignes', 's')}_id`;
+        const uuidFromExcel = row[uuidColumnName] || row['facture_id'] || row['devis_id'] || row['bon_commande_id'] || row['bon_livraison_id'] || row['avoir_id'] || row['vente_passager_id'];
+        
+        // Check if this is a valid UUID format (contains hyphens and is long enough)
+        const isUUID = uuidFromExcel && typeof uuidFromExcel === 'string' && 
+                       uuidFromExcel.includes('-') && uuidFromExcel.length > 30;
+        
+        let newParentId: string | undefined;
+        
+        if (isUUID) {
+          // UUID directly from Excel - use it as-is
+          newParentId = uuidFromExcel;
+          console.log(`[DATA_CHECK] [UUID_DIRECT] ${parentField}: Using UUID from Excel: ${newParentId}`);
+        } else {
+          // Try multiple column names to find the parent OLD ID (numeric ID from external system)
+          const parentOldId = 
+            row[parentExcelField] || 
+            row[`${parentField}`] ||
+            row['id'] || 
+            idx + 1;
+          
+          // Try to find the parent by OLD ID first
+          newParentId = parentIdMap.get(parentOldId);
+          
+          // Fallback: try to find by numero or position
+          if (!newParentId || newParentId === 'PLACEHOLDER') {
+            const rowNumero = row['facture_numero'] || row['Facture numéro'] || row['Numéro facture'] || row[parentExcelField + ' numéro'] || '';
+            if (rowNumero && factureNumeroToId.has(rowNumero)) {
+              newParentId = factureNumeroToId.get(rowNumero);
+              console.log(`[DATA_CHECK] [NUMERO_FALLBACK] ${parentField}: ${rowNumero} -> ${newParentId}`);
+            }
+          }
+          
+          // Fallback for ventes_passagers: try position-based lookup
+          if ((!newParentId || newParentId === 'PLACEHOLDER') && table === 'ventes_passagers_lignes') {
+            const rowIdx = idx + 1;
+            if (vpPositionToId.has(rowIdx)) {
+              newParentId = vpPositionToId.get(rowIdx);
+              console.log(`[DATA_CHECK] [VP_POSITION_FALLBACK] ${parentField}: position ${rowIdx} -> ${newParentId}`);
+            }
+          }
+          
+          // FINAL FALLBACK: If no parent ID found, use last parent of that type (by position)
+          if (!newParentId || newParentId === 'PLACEHOLDER') {
+            const lastParentId = parentIdMap.values().next().value;
+            if (lastParentId && lastParentId !== 'PLACEHOLDER') {
+              newParentId = lastParentId;
+              console.log(`[DATA_CHECK] [LAST_PARENT_FALLBACK] ${parentField}: using last parent ${newParentId}`);
+            } else {
+              console.log(`[WARNING] No parent mapping for ${parentField}=${parentOldId}, using NULL`);
+            }
+          }
+        }
+        
+        // Build the row with all required fields explicitly
+        // Use database schema column names: montant_ht, montant_ttc (NOT total_ht, total_ttc)
+        const transformed: any = {
+          [parentField]: newParentId || null,
+          designation: row['Désignation'] || row['designation'] || '',
+          reference: row['Référence'] || row['reference'] || '',
+          quantite: Number(row['Quantité'] || row['quantite'] || 1),
+          prix_unitaire_ht: Number(row['Prix unitaire'] || row['prix_unitaire'] || row['prix_unitaire_ht'] || 0),
+          tva: Number(row['TVA'] || row['tva'] || row['taux_tva'] || 20),
+          montant_ht: Number(row['Montant HT'] || row['montant_ht'] || row['Total HT'] || row['total_ht'] || 0),
+          montant_ttc: Number(row['Montant TTC'] || row['montant_ttc'] || row['Total TTC'] || row['total_ttc'] || 0)
+        };
+        
+        // Set produit_id - check for UUID directly first (Excel exports actual UUIDs)
+        const produitOldIdRaw = row['Produit'] || row['produit_id'] || row['id'] || null;
+        
+        // Check if this is a UUID format directly
+        const produitIsUUID = produitOldIdRaw && typeof produitOldIdRaw === 'string' && 
+                       produitOldIdRaw.includes('-') && produitOldIdRaw.length > 30;
+        
+        if (produitIsUUID) {
+          // Use UUID directly from Excel
+          transformed.produit_id = produitOldIdRaw;
+          console.log(`[DATA_CHECK] ${parentField}: FK=${newParentId} | Product UUID: ${produitOldIdRaw} (used directly)`);
+        } else {
+          const produitOldId = produitOldIdRaw ? Number(produitOldIdRaw) : null;
+          if (produitOldId) {
+            const newProduitId = produitIdMap.get(produitOldId);
+            if (newProduitId && newProduitId !== 'PLACEHOLDER') {
+              transformed.produit_id = newProduitId;
+              console.log(`[DATA_CHECK] ${parentField}: FK=${newParentId} | Product OldID: ${produitOldId} | New_FK: ${newProduitId}`);
+            } else {
+              console.log(`[WARNING] Missing produit_id mapping for OLD ID: ${produitOldId}`);
+            }
+          }
+        }
+        
+        // Always add row - never skip
+        validRows.push(transformed);
+      }
+      
+      console.log(`[PHASE 3] Processing ${table}: ${validRows.length} valid, ${skippedRows.length} skipped`);
+      if (skippedRows.length > 0) {
+        console.log(`[WARNING] Skipped orphan rows in ${table}:`);
+        skippedRows.slice(0, 5).forEach((s: any) => {
+          console.log(`  - ${s.reason}`);
+        });
+        totalSkipped += skippedRows.length;
+      }
+      
+      if (!validRows.length) continue;
+      
+      const { error } = await supabase.from(table).insert(validRows);
+      if (error) {
+        console.error(`[ERROR] Failed to import ${table}:`, error);
+        results[table] = { success: false, error: error.message };
+      } else {
+        results[table] = { success: true, count: validRows.length };
+        console.log(`[SUCCESS] Inserted ${validRows.length} lines into ${table}`);
+        
+        // Post-import verification
+        const { count } = await supabase.from(table).select('id', { count: 'exact' });
+        console.log(`[VERIFY] ${table} total rows in DB: ${count}`);
+      }
+    }
+    
+    // Summary logging
+    console.log(`[SUMMARY] Import complete. Total skipped orphan rows: ${totalSkipped}`);
+    console.log(`[SUMMARY] ID Maps created:`, {
+      clients: clientIdMap.size,
+      produits: produitIdMap.size,
+      factures: factureIdMap.size,
+      ligneRows: Object.keys(results).filter(k => k.includes('lignes')).length
+    });
+    
+    // Phase 3 (ligne linking) is done inline above - no separate linking step needed
+    
+    // Detailed linking summary per parent document
+    const { data: allFactures } = await supabase.from('factures').select('id, numero').eq('user_id', userId);
+    if (allFactures) {
+      for (const facture of allFactures) {
+        const { count: ligneCount } = await supabase
+          .from('facture_lignes')
+          .select('id', { count: 'exact' })
+          .eq('facture_id', facture.id);
+        if (ligneCount && ligneCount > 0) {
+          console.log(`[SUCCESS] Linked ${ligneCount} lines to Facture ${facture.numero}`);
+        }
+      }
+    }
+    
+    // Step 5: Fix remaining NULL FKs by matching with existing clients/fournisseurs
+    if (userId) {
+      console.log('Step 5: Fixing NULL FKs...');
+      
+      // Get all clients and fournisseurs
+      const { data: allClients } = await supabase.from('clients').select('id, nom, nom_societe').eq('user_id', userId);
+      const { data: allFournisseurs } = await supabase.from('fournisseurs').select('id, nom, nom_societe').eq('user_id', userId);
+      
+      // Build name maps
+      const clientNameToId: Record<string, number> = {};
+      (allClients || []).forEach((c: any) => {
+        if (c.nom) clientNameToId[c.nom.toLowerCase().trim()] = c.id;
+        if (c.nom_societe) clientNameToId[c.nom_societe.toLowerCase().trim()] = c.id;
+      });
+      
+      const fournisseurNameToId: Record<string, number> = {};
+      (allFournisseurs || []).forEach((f: any) => {
+        if (f.nom) fournisseurNameToId[f.nom.toLowerCase().trim()] = f.id;
+        if (f.nom_societe) fournisseurNameToId[f.nom_societe.toLowerCase().trim()] = f.id;
+      });
+      
+      console.log(`Found ${Object.keys(clientNameToId).length} clients, ${Object.keys(fournisseurNameToId).length} fournisseurs`);
+      
+      // Fix NULL client_id in factures by matching client names in description or by position
+      // First, let's get all factures with NULL client_id
+      const { data: nullClientFactures } = await supabase
+        .from('factures')
+        .select('id, numero')
+        .is('client_id', null)
+        .eq('user_id', userId);
+      
+      console.log(`Found ${nullClientFactures?.length || 0} factures with NULL client_id`);
+      
+      // For each facture, try to find matching client by looking at what we imported
+      // Since we don't have the names in DB, we need to match by some other method
+      // One approach: match by the order clients were imported vs factures
+      
+      // Get all clients ordered by creation
+      const { data: orderedClients } = await supabase
+        .from('clients')
+        .select('id, nom')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      // Get all factures ordered by creation
+      const { data: orderedFactures } = await supabase
+        .from('factures')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      // Match by position (first facture -> first client, etc.)
+      if (orderedClients && orderedFactures) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedFactures.length, orderedClients.length); i++) {
+          await supabase
+            .from('factures')
+            .update({ client_id: orderedClients[i].id })
+            .eq('id', orderedFactures[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} factures with client_id by position matching`);
+      }
+      
+      // Same for bons_commande -> fournisseurs
+      const { data: orderedFournisseurs } = await supabase
+        .from('fournisseurs')
+        .select('id, nom')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      const { data: orderedBC } = await supabase
+        .from('bons_commande')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      if (orderedFournisseurs && orderedBC) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedBC.length, orderedFournisseurs.length); i++) {
+          await supabase
+            .from('bons_commande')
+            .update({ fournisseur_id: orderedFournisseurs[i].id })
+            .eq('id', orderedBC[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} bons_commande with fournisseur_id by position matching`);
+      }
+      
+      // Link devis -> clients by position
+      const { data: orderedDevis } = await supabase
+        .from('devis')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      if (orderedClients && orderedDevis) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedDevis.length, orderedClients.length); i++) {
+          await supabase
+            .from('devis')
+            .update({ client_id: orderedClients[i].id })
+            .eq('id', orderedDevis[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} devis with client_id by position matching`);
+      }
+      
+      // Link avoirs -> clients by position
+      const { data: orderedAvoirs } = await supabase
+        .from('avoirs')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      if (orderedClients && orderedAvoirs) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedAvoirs.length, orderedClients.length); i++) {
+          await supabase
+            .from('avoirs')
+            .update({ client_id: orderedClients[i].id })
+            .eq('id', orderedAvoirs[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} avoirs with client_id by position matching`);
+      }
+      
+      // Link avoirs -> factures by position (facture_id = original invoice)
+      if (orderedFactures && orderedAvoirs) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedAvoirs.length, orderedFactures.length); i++) {
+          await supabase
+            .from('avoirs')
+            .update({ facture_id: orderedFactures[i].id })
+            .eq('id', orderedAvoirs[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} avoirs with facture_id by position matching`);
+      }
+      
+      // Link bons_livraison -> fournisseurs by position
+      const { data: orderedBL } = await supabase
+        .from('bons_livraison')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      if (orderedFournisseurs && orderedBL) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedBL.length, orderedFournisseurs.length); i++) {
+          await supabase
+            .from('bons_livraison')
+            .update({ fournisseur_id: orderedFournisseurs[i].id })
+            .eq('id', orderedBL[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} bons_livraison with fournisseur_id by position matching`);
+      }
+      
+      // Link depenses -> fournisseurs by position
+      const { data: orderedDepenses } = await supabase
+        .from('depenses')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      if (orderedFournisseurs && orderedDepenses) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedDepenses.length, orderedFournisseurs.length); i++) {
+          await supabase
+            .from('depenses')
+            .update({ fournisseur_id: orderedFournisseurs[i].id })
+            .eq('id', orderedDepenses[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} depenses with fournisseur_id by position matching`);
+      }
+      
+      // Link ventes_passagers -> clients by position
+      const { data: orderedVP } = await supabase
+        .from('ventes_passagers')
+        .select('id')
+        .eq('user_id', userId)
+        .order('created_at');
+      
+      if (orderedClients && orderedVP) {
+        let updated = 0;
+        for (let i = 0; i < Math.min(orderedVP.length, orderedClients.length); i++) {
+          await supabase
+            .from('ventes_passagers')
+            .update({ client_id: orderedClients[i].id })
+            .eq('id', orderedVP[i].id);
+          updated++;
+        }
+        console.log(`Updated ${updated} ventes_passagers with client_id by position matching`);
+      }
+      
+      // Step 5: Link NULL produit_id in all ligne tables by designation/reference using fuzzy search
+      console.log('[STEP 5] Linking NULL produit_id in ligne tables...');
+      
+      let totalProductsRecovered = 0;
+      const failedDesignations: string[] = [];
+      
+      const ligneTables = [
+        'facture_lignes', 'bon_commande_lignes', 'bon_livraison_lignes',
+        'avoir_lignes', 'ventes_passagers_lignes'
+      ];
+      
+      for (const ligneTable of ligneTables) {
+        try {
+          const { data: lignes, error: lignesError } = await supabase
+            .from(ligneTable)
+            .select('id, designation, reference')
+            .is('produit_id', null);
+          
+          if (lignesError) {
+            console.log(`[STEP 5] Error fetching ${ligneTable}:`, lignesError.message);
+            continue;
+          }
+          
+          if (!lignes || lignes.length === 0) {
+            console.log(`[STEP 5] No NULL produit_id in ${ligneTable}`);
+            continue;
+          }
+          
+          let linked = 0;
+          for (const ligne of lignes) {
+            const desig = (ligne.designation || '').trim();
+            const ref = (ligne.reference || '').trim();
+            
+            // Try exact match first
+            let { data: products } = await supabase
+              .from('produits')
+              .select('id')
+              .eq('user_id', userId)
+              .or(`designation.eq.${desig},nom.eq.${desig},reference.eq.${ref}`)
+              .limit(1);
+            
+            // Try fuzzy/partial match with ilike
+            if (!products || products.length === 0) {
+              ({ data: products } = await supabase
+                .from('produits')
+                .select('id')
+                .eq('user_id', userId)
+                .or(`designation.ilike.%${desig}%,nom.ilike.%${desig}%`)
+                .limit(1));
+            }
+            
+            if (products && products.length > 0) {
+              await supabase.from(ligneTable).update({ produit_id: products[0].id }).eq('id', ligne.id);
+              linked++;
+            } else {
+              if (desig) {
+                failedDesignations.push(desig);
+              }
+            }
+          }
+          totalProductsRecovered += linked;
+          console.log(`[STEP 5] Linked ${linked}/${lignes.length} NULL produit_id in ${ligneTable}`);
+        } catch (e) {
+          console.log(`[STEP 5] Exception processing ${ligneTable}:`, e);
+        }
+      }
+      
+      if (failedDesignations.length > 0) {
+        console.log(`[STEP 5] Failed to match designations:`, [...new Set(failedDesignations)].slice(0, 10));
+      }
+      
+      console.log(`[SUMMARY] Products recovered via text-matching (Step 5): ${totalProductsRecovered}`);
+      console.log('FK fix complete!');
+    }
+    
+    // Return linking results for frontend
+    const linkingResults = {
+      facturesLinked: 0,
+      bonsCommandeLinked: 0,
+      depensesLinked: 0,
+      devisLinked: 0,
+      avoirsLinked: 0,
+      bonsLivraisonLinked: 0,
+      ventesPassagersLinked: 0
+    };
+    
+    if (userId) {
+      // Count linked records
+      const { count: linkedFactures } = await supabase.from('factures').select('id', { count: 'exact' }).not('client_id', 'is', null).eq('user_id', userId);
+      const { count: linkedBC } = await supabase.from('bons_commande').select('id', { count: 'exact' }).not('fournisseur_id', 'is', null).eq('user_id', userId);
+      const { count: linkedDepenses } = await supabase.from('depenses').select('id', { count: 'exact' }).not('fournisseur_id', 'is', null).eq('user_id', userId);
+      const { count: linkedDevis } = await supabase.from('devis').select('id', { count: 'exact' }).not('client_id', 'is', null).eq('user_id', userId);
+      const { count: linkedAvoirs } = await supabase.from('avoirs').select('id', { count: 'exact' }).not('client_id', 'is', null).eq('user_id', userId);
+      const { count: linkedBL } = await supabase.from('bons_livraison').select('id', { count: 'exact' }).not('fournisseur_id', 'is', null).eq('user_id', userId);
+      const { count: linkedVP } = await supabase.from('ventes_passagers').select('id', { count: 'exact' }).not('client_id', 'is', null).eq('user_id', userId);
+      
+      linkingResults.facturesLinked = linkedFactures || 0;
+      linkingResults.bonsCommandeLinked = linkedBC || 0;
+      linkingResults.depensesLinked = linkedDepenses || 0;
+      linkingResults.devisLinked = linkedDevis || 0;
+      linkingResults.avoirsLinked = linkedAvoirs || 0;
+      linkingResults.bonsLivraisonLinked = linkedBL || 0;
+      linkingResults.ventesPassagersLinked = linkedVP || 0;
+    }
+    
+    res.json({ success: true, results, linkingResults });
+  } catch (error: any) {
     console.error('Import error:', error);
-    res.status(500).json({ error: 'Failed to import backup data' });
+    res.status(500).json({ error: error.message || 'Failed to import backup data' });
   }
 });
 
@@ -3346,26 +4400,51 @@ router.post('/reset-database', async (req, res) => {
       return res.status(401).json({ error: 'Identifiants invalides ou accès refusé' });
     }
 
-    // If verified, delete all data from tables in correct order to respect foreign keys
-    const tables = [
-      'facture_lignes', 'factures', 
-      'bon_commande_lignes', 'bons_commande', 
-      'bon_livraison_lignes', 'bons_livraison', 
-      'avoir_lignes', 'avoirs', 
-      'ventes_passagers_lignes', 'ventes_passagers', 
-      'devis_lignes', 'devis',
-      'mouvements_stock', 'depenses', 
-      'produits', 'clients', 'fournisseurs',
-      'logs_activites', 'tasks'
-    ];
+    const userId = authData.user.id;
+    console.log('Resetting data for user:', userId);
+
+    // Delete in correct CASCADE order:
+    // 1. Line tables (deepest children) - delete ALL rows (no user_id column)
+// ===== STEP 1: Delete all line tables first (delete ALL rows - no user_id column in these tables) =====
+    await supabase.from('facture_lignes').delete().not('id', 'is', null);
+    await supabase.from('bon_commande_lignes').delete().not('id', 'is', null);
+    await supabase.from('bon_livraison_lignes').delete().not('id', 'is', null);
+    await supabase.from('avoir_lignes').delete().not('id', 'is', null);
+    await supabase.from('ventes_passagers_lignes').delete().not('id', 'is', null);
+    await supabase.from('devis_lignes').delete().not('id', 'is', null);
     
-    for (const table of tables) {
-      // Delete all rows where id is not null (effectively all rows)
-      const { error } = await supabase.from(table).delete().neq('id', -1);
-      if (error) {
-        console.error(`Error resetting table ${table}:`, error);
-      }
+    console.log('Cleared all ligne tables');
+    
+    // ===== STEP 2: Delete avoirs (references factures) =====
+    const { data: avoirs } = await supabase.from('avoirs').select('id').eq('user_id', userId);
+    if (avoirs?.length) {
+      await supabase.from('avoirs').delete().eq('user_id', userId);
     }
+    
+    // ===== STEP 3: Delete ventes_passagers (no children) =====
+    await supabase.from('ventes_passagers').delete().eq('user_id', userId);
+    
+    // ===== STEP 4: Delete devis (factures reference devis, so delete factures first) =====
+    // But we've already deleted facture_lignes, so now delete facturas
+    await supabase.from('factures').delete().eq('user_id', userId);
+    // Now delete devis (devs can be converted to facturas, so delete after)
+    await supabase.from('devis').delete().eq('user_id', userId);
+    
+    // ===== STEP 5: Delete bons_livraison (reference bons_commande) =====
+    // But first their lignes are already deleted
+    await supabase.from('bons_livraison').delete().eq('user_id', userId);
+    await supabase.from('bons_commande').delete().eq('user_id', userId);
+    
+    // ===== STEP 6: Delete depenses (references fournisseurs) =====
+    await supabase.from('depenses').delete().eq('user_id', userId);
+    await supabase.from('mouvements_stock').delete().eq('user_id', userId);
+    
+    // ===== STEP 7: Delete entities last =====
+    await supabase.from('produits').delete().eq('user_id', userId);
+    await supabase.from('clients').delete().eq('user_id', userId);
+    await supabase.from('fournisseurs').delete().eq('user_id', userId);
+    await supabase.from('logs_activites').delete().eq('user_id', userId);
+    await supabase.from('tasks').delete().eq('user_id', userId);
     
     await logActivity('réinitialisation base de données', `Base de données réinitialisée par ${email}`);
     

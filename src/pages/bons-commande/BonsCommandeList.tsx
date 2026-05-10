@@ -257,13 +257,15 @@ const fetchEntreprise = async () => {
 
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from('bons_commande')
-        .update({ statut: newStatus })
-        .eq('id', id)
-        .eq('user_id', user?.id);
-      
-      if (error) throw error;
+      const res = await fetch(`/api/bons-commande/${id}/statut`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut: newStatus }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erreur lors de la mise à jour');
+      }
       toast.success('Statut mis à jour');
       fetchBons();
     } catch (error) {

@@ -26,20 +26,22 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface Produit {
-  id: number;
-  reference: string;
-  nom: string;
-  marque?: string;
-  barcode?: string;
-  prixAchatHt: number;
-  prixVenteHt: number;
-  prixVenteTtc: number;
-  tauxTva: number;
-  stockActuel: number;
-  stockMin: number;
-  unite: string;
-}
+ interface Produit {
+   id: number;
+   reference: string;
+   nom: string;
+   marque?: string;
+   barcode?: string;
+   prixAchatHt: number;
+   prixVenteHt: number;
+   prixVenteTtc: number;
+   tauxTva: number;
+   stockActuel: number;
+   stockMin: number;
+   unite: string;
+   imageUrl?: string;
+   image_url?: string;
+ }
 
 export function ProduitsList() {
   const { user } = useAuth();
@@ -51,23 +53,24 @@ export function ProduitsList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [produitToDelete, setProduitToDelete] = useState<number | null>(null);
 
-  const mapProduit = (p: any) => ({
-    ...p,
-    id: p.id,
-    reference: p.reference || '',
-    nom: p.designation || p.nom || '',
-    designation: p.designation || p.nom || '',
-    marque: p.marque || '',
-    barcode: p.barcode || '',
-    prixVenteHt: Number(p.prix_vente_ht || 0),
-    prixAchatHt: Number(p.prix_achat_ht || 0),
-    prixVenteTtc: Number(p.prix_vente_ttc || 0),
-    prixAchatTtc: Number(p.prix_achat_ttc || 0),
-    tauxTva: Number(p.taux_tva || 20),
-    stockActuel: Number(p.stock_actuel || 0),
-    stockMin: Number(p.stock_min || 0),
-    unite: p.unite || '',
-  });
+   const mapProduit = (p: any) => ({
+     ...p,
+     id: p.id,
+     reference: p.reference || '',
+     nom: p.designation || p.nom || '',
+     designation: p.designation || p.nom || '',
+     marque: p.marque || '',
+     barcode: p.barcode || '',
+     prixVenteHt: Number(p.prix_vente_ht || 0),
+     prixAchatHt: Number(p.prix_achat_ht || 0),
+     prixVenteTtc: Number(p.prix_vente_ttc || 0),
+     prixAchatTtc: Number(p.prix_achat_ttc || 0),
+     tauxTva: Number(p.taux_tva || 20),
+     stockActuel: Number(p.stock_actuel || 0),
+     stockMin: Number(p.stock_min || 0),
+     unite: p.unite || '',
+     imageUrl: p.image_url || p.imageUrl || undefined,
+   });
 
   const fetchProduits = async () => {
     if (!user?.id) {
@@ -231,19 +234,20 @@ export function ProduitsList() {
 
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
         <Table>
-          <TableHeader className="bg-slate-50/50">
-            <TableRow className="hover:bg-transparent border-slate-200">
-              <TableHead className="w-[120px] font-semibold text-slate-700">Référence</TableHead>
-              <TableHead className="font-semibold text-slate-700">Produit / Marque</TableHead>
-              <TableHead className="font-semibold text-slate-700">Code-barres</TableHead>
-              <TableHead className="text-right font-semibold text-slate-700">Prix Achat</TableHead>
-              <TableHead className="text-right font-semibold text-slate-700">Prix Vente HT</TableHead>
-              <TableHead className="text-right font-semibold text-slate-700">TVA</TableHead>
-              <TableHead className="text-right font-semibold text-slate-700">Prix TTC</TableHead>
-              <TableHead className="text-right font-semibold text-slate-700">Stock</TableHead>
-              <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
+           <TableHeader className="bg-slate-50/50">
+             <TableRow className="hover:bg-transparent border-slate-200">
+               <TableHead className="w-[80px] font-semibold text-slate-700">Image</TableHead>
+               <TableHead className="w-[120px] font-semibold text-slate-700">Référence</TableHead>
+               <TableHead className="font-semibold text-slate-700">Produit / Marque</TableHead>
+               <TableHead className="font-semibold text-slate-700">Code-barres</TableHead>
+               <TableHead className="text-right font-semibold text-slate-700">Prix Achat</TableHead>
+               <TableHead className="text-right font-semibold text-slate-700">Prix Vente HT</TableHead>
+               <TableHead className="text-right font-semibold text-slate-700">TVA</TableHead>
+               <TableHead className="text-right font-semibold text-slate-700">Prix TTC</TableHead>
+               <TableHead className="text-right font-semibold text-slate-700">Stock</TableHead>
+               <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+             </TableRow>
+           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
@@ -261,17 +265,35 @@ export function ProduitsList() {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredProduits.map((produit) => (
-                <TableRow key={produit.id} className="hover:bg-slate-50/50 transition-colors border-slate-100">
-                  <TableCell className="font-mono text-xs text-slate-500">{produit.reference}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-slate-900">{produit.designation || '-'}</span>
-                      {produit.marque && (
-                        <span className="text-xs text-slate-500 italic">{produit.marque}</span>
-                      )}
-                    </div>
-                  </TableCell>
+             filteredProduits.map((produit) => (
+                 <TableRow key={produit.id} className="hover:bg-slate-50/50 transition-colors border-slate-100">
+                   <TableCell>
+                     {produit.imageUrl ? (
+                       <img
+                         src={produit.imageUrl}
+                         alt={produit.designation || ''}
+                         className="w-12 h-12 rounded-lg object-cover border border-slate-200"
+                         onError={(e) => {
+                           (e.target as HTMLImageElement).style.display = 'none';
+                         }}
+                       />
+                     ) : (
+                       <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center border border-dashed border-slate-200">
+                         <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                         </svg>
+                       </div>
+                     )}
+                   </TableCell>
+                   <TableCell className="font-mono text-xs text-slate-500">{produit.reference}</TableCell>
+                   <TableCell>
+                     <div className="flex flex-col">
+                       <span className="font-medium text-slate-900">{produit.designation || '-'}</span>
+                       {produit.marque && (
+                         <span className="text-xs text-slate-500 italic">{produit.marque}</span>
+                       )}
+                     </div>
+                   </TableCell>
                   <TableCell className="font-mono text-xs text-slate-400">{produit.barcode || '-'}</TableCell>
                   <TableCell className="text-right text-slate-600">{formatCurrency(produit.prixAchatHt)}</TableCell>
                   <TableCell className="text-right text-slate-600">{formatCurrency(produit.prixVenteHt)}</TableCell>

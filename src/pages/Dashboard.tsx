@@ -1,31 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
-  ArrowUpRight, 
-  ArrowDownRight, 
   DollarSign, 
   CreditCard, 
   Activity, 
   FileText, 
   Users, 
   Package, 
-  ShoppingCart, 
   TrendingUp, 
-  AlertTriangle, 
-  PieChart, 
   Stethoscope,
-  Pill,
   ShieldCheck,
-  Clock,
   ChevronRight,
-  Plus,
   Receipt,
   Building2,
-  HeartPulse
+  HeartPulse,
+  ClipboardList,
+  Plus,
+  ShoppingCart,
+  AlertTriangle,
+  Pill,
+  PieChart
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +47,7 @@ interface Stats {
   monthlyData: any[];
   lowStockProduits: any[];
   recentFactures: any[];
+  bonsCommandeCount: number;
 }
 
 interface KPICardProps {
@@ -57,68 +55,22 @@ interface KPICardProps {
   value: string;
   subtitle: string;
   icon: React.ElementType;
-  trend?: string;
-  trendUp?: boolean;
-  color: string;
-  gradient: string;
 }
 
-function KPICard({ title, value, subtitle, icon: Icon, trend, trendUp, color, gradient }: KPICardProps) {
+function KPICard({ title, value, subtitle, icon: Icon }: KPICardProps) {
   return (
-    <Card className={cn(
-      "relative overflow-hidden border-0 shadow-lg transition-all duration-500 hover:shadow-xl hover:-translate-y-1",
-      "group"
-    )}>
-      {/* Background Gradient */}
-      <div className={cn("absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity", gradient)} />
-      
-      {/* Icon Background */}
-      <div className={cn("absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity")}>
-        <Icon className="h-24 w-24" style={{ color }} />
-      </div>
-      
-      <CardHeader className="relative pb-2">
-        <div className="flex items-center justify-between">
-          <CardDescription className="text-[11px] uppercase tracking-widest font-bold opacity-70">
-            {title}
-          </CardDescription>
-          <div 
-            className="p-2 rounded-xl shadow-md"
-            style={{ 
-              backgroundColor: `${color}15`,
-              color 
-            }}
-          >
-            <Icon className="h-5 w-5" />
-          </div>
-        </div>
+    <Card className="border border-border/50 shadow-sm">
+      <CardHeader className="pb-2">
+        <CardDescription className="text-xs font-medium text-muted-foreground">
+          {title}
+        </CardDescription>
       </CardHeader>
-      
-      <CardContent className="relative">
-        <CardTitle className="text-3xl font-black tracking-tight mb-2">
+      <CardContent>
+        <CardTitle className="text-2xl font-bold mb-1">
           {value}
         </CardTitle>
-        
-        <div className="flex items-center justify-between">
-          {trend && (
-            <div className={cn(
-              "flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full",
-              trendUp ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
-            )}>
-              {trendUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              <span>{trend}</span>
-            </div>
-          )}
-          
-          <p className="text-xs text-muted-foreground font-medium">{subtitle}</p>
-        </div>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
       </CardContent>
-      
-      {/* Bottom Accent Line */}
-      <div 
-        className="absolute bottom-0 left-0 right-0 h-1 opacity-60 group-hover:opacity-100 transition-opacity"
-        style={{ backgroundColor: color }}
-      />
     </Card>
   );
 }
@@ -137,18 +89,18 @@ const [stats, setStats] = useState<Stats | null>(null);
     
     const fetchStats = async () => {
       try {
-        const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, avoirRes, bcRes, blRes, dvRes] = await Promise.all([
-          supabase.from('factures').select('*').eq('user_id', user.id),
-          supabase.from('ventes_passagers').select('*').eq('user_id', user.id),
-          supabase.from('depenses').select('*').eq('user_id', user.id),
+        const now = new Date();
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString();
+
+        const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes] = await Promise.all([
+          supabase.from('factures').select('*').eq('user_id', user.id).gte('date_emission', sixMonthsAgo),
+          supabase.from('ventes_passagers').select('*').eq('user_id', user.id).gte('date', sixMonthsAgo),
+          supabase.from('depenses').select('*').eq('user_id', user.id).gte('date_depense', sixMonthsAgo),
           supabase.from('produits').select('*').eq('user_id', user.id),
           supabase.from('clients').select('*').eq('user_id', user.id),
           supabase.from('fournisseurs').select('*').eq('user_id', user.id),
           supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5),
-          supabase.from('avoirs').select('*').eq('user_id', user.id),
-          supabase.from('bons_commande').select('*').eq('user_id', user.id),
-          supabase.from('bons_livraison').select('*').eq('user_id', user.id),
-          supabase.from('devis').select('*').eq('user_id', user.id)
+          supabase.from('bons_commande').select('*').eq('user_id', user.id)
         ]);
 
         const factures = (factRes.data || []);
@@ -158,10 +110,7 @@ const [stats, setStats] = useState<Stats | null>(null);
         const clients = (cliRes.data || []);
         const fournisseurs = (fourRes.data || []);
         const recentFacturesRaw = (recentRes.data || []);
-        const avoirs = (avoirRes.data || []);
         const bonsCommande = (bcRes.data || []);
-        const bonsLivraison = (blRes.data || []);
-        const devis = (dvRes.data || []);
 
         const allFactures = [...factures, ...ventesPassagers];
         const validFact = allFactures.filter((f: any) => f.statut !== 'annulée');
@@ -169,15 +118,20 @@ const [stats, setStats] = useState<Stats | null>(null);
         const resteAPayerFact = allFactures.filter((f: any) => f.statut === 'reste_a_payer');
         const brouillonFact = allFactures.filter((f: any) => f.statut === 'brouillon');
 
+        const bonsCommandeValides = bonsCommande.filter((b: any) => ['confirmé', 'livré', 'livrée'].includes(b.statut));
+
         const totalRevenue = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
-        const totalDepenses = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_ttc || 0), 0);
+        const totalDepenses = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_ttc || 0), 0)
+          + bonsCommandeValides.reduce((sum: number, b: any) => sum + Number(b.montant_ttc || 0), 0);
         const unpaidRevenue = resteAPayerFact.reduce((sum: number, f: any) => sum + Number(f.reste_a_payer || 0), 0);
 
         const totalTvaCollectee = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_tva || 0), 0);
-        const totalTvaDeductible = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_tva || 0), 0);
+        const totalTvaDeductible = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_tva || 0), 0)
+          + bonsCommandeValides.reduce((sum: number, b: any) => sum + Number(b.montant_tva || 0), 0);
         const tvaNet = totalTvaCollectee - totalTvaDeductible;
 
-        const totalCOGS = allFactures.reduce((sum: number, f: any) => sum + Number(f.cogs || 0), 0);
+        const totalCOGS = allFactures.reduce((sum: number, f: any) => sum + Number(f.cogs || 0), 0)
+          + bonsCommandeValides.reduce((sum: number, b: any) => sum + Number(b.montant_ht || 0), 0);
         const ventesHT = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_ht || 0), 0);
         const profit = totalRevenue - totalDepenses - totalCOGS;
 
@@ -222,6 +176,7 @@ const [stats, setStats] = useState<Stats | null>(null);
           totalCOGS,
           stockValueHT,
           monthlyData,
+          bonsCommandeCount: bonsCommande.filter((b: any) => ['confirmé', 'livré'].includes(b.statut)).length,
           lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
           recentFactures: recentFacturesRaw
         });
@@ -256,31 +211,20 @@ const [stats, setStats] = useState<Stats | null>(null);
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700">
-      {/* Premium Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5">
-              <Stethoscope className="h-6 w-6 text-primary" />
-            </div>
-            <h1 className="text-3xl font-black tracking-tight text-foreground">
-              Tableau de Bord
-            </h1>
-          </div>
-          <p className="text-muted-foreground ml-1">
-            Bienvenue sur ParaCare - Votre système de gestion parapharmaceutique
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Tableau de Bord</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Bienvenue sur ParaGestion
           </p>
         </div>
-        
-        {/* Stock Value Card */}
-        <div className="flex items-center gap-4 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-4 rounded-2xl border border-primary/10 shadow-sm">
-          <div className="p-3 rounded-xl bg-primary/10">
-            <Package className="h-6 w-6 text-primary" />
-          </div>
+        <div className="flex items-center gap-3 text-right">
+          <Package className="h-5 w-5 text-muted-foreground" />
           <div>
-            <p className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Valeur du Stock (HT)</p>
-            <p className="text-2xl font-black text-primary">
+            <p className="text-xs text-muted-foreground">Valeur du Stock (HT)</p>
+            <p className="text-lg font-bold text-foreground">
               {stats ? formatCurrency(stats.stockValueHT) : formatCurrency(0)}
             </p>
           </div>
@@ -288,49 +232,64 @@ const [stats, setStats] = useState<Stats | null>(null);
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KPICard
           title="Chiffre d'affaires"
           value={stats ? formatCurrency(stats.totalRevenue) : formatCurrency(0)}
           subtitle="Revenus totaux TTC"
           icon={DollarSign}
-          trend="+12.5%"
-          trendUp={true}
-          color="oklch(0.52 0.15 195)"
-          gradient="bg-gradient-to-br from-primary/20 to-transparent"
         />
-        
         <KPICard
           title="Créances Clients"
           value={stats ? formatCurrency(stats.unpaidRevenue) : formatCurrency(0)}
           subtitle="Factures en attente"
           icon={CreditCard}
-          trend="En attente"
-          trendUp={false}
-          color="oklch(0.75 0.12 85)"
-          gradient="bg-gradient-to-br from-amber-500/20 to-transparent"
         />
-        
         <KPICard
           title="Dépenses Totales"
           value={stats ? formatCurrency(stats.totalDepenses) : formatCurrency(0)}
           subtitle="Sorties mensuelles"
           icon={Activity}
-          trend="Mensuel"
-          trendUp={false}
-          color="oklch(0.55 0.2 25)"
-          gradient="bg-gradient-to-br from-red-500/20 to-transparent"
         />
-        
         <KPICard
           title="Bénéfice Net"
           value={stats ? formatCurrency(stats.profit) : formatCurrency(0)}
           subtitle="Marge bénéficiaire"
           icon={ShieldCheck}
-          trend={stats?.profit && stats.profit > 0 ? "Rentable" : "Déficit"}
-          trendUp={stats?.profit && stats.profit > 0}
-          color="oklch(0.65 0.12 155)"
-          gradient="bg-gradient-to-br from-emerald-500/20 to-transparent"
+        />
+      </div>
+
+      {/* Summary Counts Row */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+        <KPICard
+          title="Bons de Commande"
+          value={stats ? String(stats.bonsCommandeCount) : "0"}
+          subtitle="Confirmés / Livrés"
+          icon={ClipboardList}
+        />
+        <KPICard
+          title="Clients"
+          value={stats ? String(stats.clientsCount) : "0"}
+          subtitle="Total clients"
+          icon={Users}
+        />
+        <KPICard
+          title="Fournisseurs"
+          value={stats ? String(stats.fournisseursCount) : "0"}
+          subtitle="Total fournisseurs"
+          icon={Building2}
+        />
+        <KPICard
+          title="Produits"
+          value={stats ? String(stats.produitsCount) : "0"}
+          subtitle="Articles en stock"
+          icon={Package}
+        />
+        <KPICard
+          title="Factures"
+          value={stats ? String(stats.facturesCount) : "0"}
+          subtitle="Payées + Attente + Brouillon"
+          icon={FileText}
         />
       </div>
 
@@ -441,12 +400,12 @@ const [stats, setStats] = useState<Stats | null>(null);
                     key={facture.id} 
                     className="flex items-center gap-4 p-3 rounded-xl hover:bg-muted/50 transition-all duration-200 group cursor-pointer"
                   >
-                    <div className={cn(
-                      "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-110 shadow-sm",
-                      facture.statut === 'payée' ? "bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-600" :
-                      facture.statut === 'reste_a_payer' ? "bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600" :
-                      "bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600"
-                    )}>
+                      <div className={cn(
+                        "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-110 shadow-sm",
+                        facture.statut === 'payée' ? "bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-600" :
+                        facture.statut === 'reste_a_payer' ? "bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600" :
+                        "bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600"
+                      )}>
                       <FileText className="h-5 w-5" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -461,14 +420,14 @@ const [stats, setStats] = useState<Stats | null>(null);
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black text-foreground">{formatCurrency(facture.montant_ttc)}</p>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-[10px] h-5 px-2 font-bold border-0",
-                          facture.statut === 'payée' ? "bg-emerald-100 text-emerald-700" :
-                          facture.statut === 'reste_a_payer' ? "bg-blue-100 text-blue-700" :
-                          "bg-amber-100 text-amber-700"
-                        )}
+                       <Badge 
+                         variant="outline" 
+                          className={cn(
+                            "text-[10px] h-5 px-2 font-bold border-0",
+                            facture.statut === 'payée' ? "bg-emerald-100 text-emerald-700" :
+                            facture.statut === 'reste_a_payer' ? "bg-blue-100 text-blue-700" :
+                            "bg-amber-100 text-amber-700"
+                          )}
                       >
                         {facture.statut === 'payée' ? 'Payée' : 
                          facture.statut === 'reste_a_payer' ? 'Partiel' : 'En attente'}
@@ -513,13 +472,13 @@ const [stats, setStats] = useState<Stats | null>(null);
                 <Link 
                   key={action.label} 
                   to={action.link} 
-                  className={cn(
-                    "flex flex-col items-center gap-3 p-4 rounded-2xl border border-transparent",
-                    "hover:border-border hover:bg-muted/30 transition-all duration-300 group"
-                  )}
+                    className={cn(
+                      "flex flex-col items-center gap-3 p-4 rounded-2xl border border-transparent",
+                      "hover:border-border hover:bg-muted/30 transition-all duration-300 group"
+                    )}
                 >
-                  <div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110", action.bg)}>
-                    <action.icon className={cn("h-6 w-6", `text-${action.color}`)} />
+                    <div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110", action.bg)}>
+                      <action.icon className={cn("h-6 w-6", `text-${action.color}`)} />
                   </div>
                   <span className="text-xs font-bold text-muted-foreground text-center group-hover:text-foreground transition-colors">
                     {action.label}
@@ -633,46 +592,12 @@ const [stats, setStats] = useState<Stats | null>(null);
                     : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
                 )}>
                   {(stats?.tvaNet || 0) > 0 ? "À Payer" : "Crédit"}
-                </Badge>
-              </div>
-              <p className={cn(
-                "text-2xl font-black",
-                (stats?.tvaNet || 0) > 0 ? "text-red-600" : "text-emerald-600"
-              )}>
-                {stats ? Math.abs(stats.tvaNet).toFixed(2) : '0.00'} <span className="text-sm font-medium text-muted-foreground">MAD</span>
-              </p>
-              <p className="text-xs text-muted-foreground">Calculé sur la période en cours</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Clients', value: stats?.clientsCount || 0, icon: Users, color: 'primary' },
-          { label: 'Produits', value: stats?.produitsCount || 0, icon: Package, color: 'emerald-500' },
-          { label: 'Factures', value: stats?.facturesCount || 0, icon: FileText, color: 'amber-500' },
-          { label: 'Fournisseurs', value: stats?.fournisseursCount || 0, icon: Building2, color: 'purple-500' },
-        ].map((stat, i) => (
-          <Link 
-            key={stat.label} 
-            to={stat.label === 'Clients' ? '/clients' : stat.label === 'Produits' ? '/produits' : stat.label === 'Factures' ? '/factures' : '/fournisseurs'}
-            className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-card to-muted/30 border border-border/50 hover:border-primary/20 hover:shadow-md transition-all duration-300 group"
-          >
-            <div className={cn(
-              "p-2.5 rounded-xl",
-              `bg-${stat.color}/10`
-            )}>
-              <stat.icon className={cn("h-5 w-5", `text-${stat.color}`)} />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-foreground">{stat.value}</p>
-              <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
+                 </Badge>
+               </div>
+             </div>
+           </div>
+         </CardContent>
+       </Card>
+     </div>
+   );
 }

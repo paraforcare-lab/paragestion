@@ -292,7 +292,7 @@ const totalExpenses = depenses.reduce((sum: number, d: any) => sum + Number(d.mo
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#267E54] to-[#1e6643] p-8 text-white shadow-2xl">
         <div className="relative z-10">
           <Badge className="bg-white/20 hover:bg-white/30 text-white border-none mb-4">
-            <Sparkles className="mr-1 h-3 w-3" /> Bienvenue sur ParaCare
+            <Sparkles className="mr-1 h-3 w-3" /> Bienvenue sur ParaGestion
           </Badge>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">Bonjour !</h1>
           <p className="text-white/80 text-lg max-w-xl">

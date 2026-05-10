@@ -25,10 +25,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function ImportExport() {
+  const { user } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
+  const [linkingMessage, setLinkingMessage] = useState('');
   const [isComptableExporting, setIsComptableExporting] = useState(false);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -68,7 +73,21 @@ export function ImportExport() {
     }
   };
 
+  const STORAGE_KEY = 'sf_params_modified';
+
+  function checkParamsModified(): boolean {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(STORAGE_KEY) !== null;
+  }
+
   const handleFullBackupExport = async () => {
+    if (checkParamsModified()) {
+      toast.warning(
+        'Modifications non enregistrées',
+        { description: 'Veuillez enregistrer vos paramètres avant d\'exporter.' }
+      );
+      return;
+    }
     setIsExporting(true);
     try {
       const response = await fetch('/api/backup/data');
@@ -112,16 +131,50 @@ export function ImportExport() {
           });
 
           // Send to backend
+          if (!user?.id) {
+            toast.error('Veuillez vous reconnecter avant d\'importer');
+            setIsImporting(false);
+            return;
+          }
+          
+          console.log('Importing with user:', user.id);
+          
+          // Show linking progress popup while waiting for response
+          setIsLinking(true);
+          setLinkingMessage('Importation en cours...');
+          setIsImporting(false);
+          
           const response = await fetch('/api/backup/import', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(backupData),
+            headers: { 
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ...backupData, user_id: user?.id }),
           });
+          
+          setLinkingMessage('Liaison des clients et fournisseurs...');
 
           if (!response.ok) throw new Error('Erreur lors de l\'importation');
           const result = await response.json();
           
-          toast.success('Sauvegarde restaurée avec succès');
+          setIsLinking(false);
+          
+          // Build success message from results
+          const successCounts = Object.entries(result.results || {})
+            .filter(([_, r]: [string, any]) => r.success)
+            .map(([table, r]: [string, any]) => `${table}: ${r.count} ligne(s)`)
+            .join(', ');
+          
+          const errorTables = Object.entries(result.results || {})
+            .filter(([_, r]: [string, any]) => !r.success)
+            .map(([table, r]: [string, any]) => `${table}: ${r.error}`)
+            .join(', ');
+          
+          if (errorTables) {
+            toast.warning('Import partiel', { description: `Importé: ${successCounts}. Erreurs: ${errorTables}` });
+          } else {
+            toast.success('Sauvegarde restaurée avec succès', { description: successCounts || 'Aucune donnée importée' });
+          }
           console.log('Import results:', result.results);
         } catch (error) {
           console.error(error);
@@ -141,6 +194,13 @@ export function ImportExport() {
   };
 
   const handleComptableExport = async () => {
+    if (checkParamsModified()) {
+      toast.warning(
+        'Modifications non enregistrées',
+        { description: 'Veuillez enregistrer vos paramètres avant d\'exporter.' }
+      );
+      return;
+    }
     setIsComptableExporting(true);
     try {
       const response = await fetch('/api/backup/data');
@@ -222,6 +282,28 @@ export function ImportExport() {
   };
 
   return (
+    <>
+      {/* Linking Progress Dialog */}
+      <Dialog open={isLinking} onOpenChange={setIsLinking}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-[#267E54]" />
+              Liaison en cours
+            </DialogTitle>
+            <DialogDescription>
+              {linkingMessage || 'Veuillez patienter pendant que nous lions les clients et fournisseurs...'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-8">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-12 w-12 border-4 border-[#267E54]/30 border-t-[#267E54] rounded-full animate-spin" />
+              <p className="text-sm text-muted-foreground">Cette opération peut prendre quelques secondes...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6 md:space-y-8">
       <div className="flex flex-col space-y-2">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Import / Export</h1>
@@ -509,7 +591,9 @@ export function ImportExport() {
             </Button>
           </DialogFooter>
         </DialogContent>
-      </Dialog>
+</Dialog>
       </div>
     );
-  }
+    </>
+  );
+}

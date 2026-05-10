@@ -52,6 +52,7 @@ const navigationGroups = [
       { name: 'Devis', href: '/devis', icon: FileCheck },
       { name: 'Ventes Passagers', href: '/ventes-passagers', icon: ShoppingCart },
       { name: 'Avoirs', href: '/avoirs', icon: Receipt },
+      { name: 'Bons de Livraison', href: '/bons-livraison', icon: Truck },
     ]
   },
   {
@@ -59,7 +60,6 @@ const navigationGroups = [
     title: 'Achats',
     items: [
       { name: 'Bons de Commande', href: '/bons-commande', icon: ClipboardList },
-      { name: 'Bons de Livraison', href: '/bons-livraison', icon: Truck },
       { name: 'Dépenses', href: '/depenses', icon: DollarSign },
     ]
   },
@@ -103,15 +103,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
   const [showTopShadow, setShowTopShadow] = useState(false);
   const [showBottomShadow, setShowBottomShadow] = useState(false);
   
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() => {
-    const saved = localStorage.getItem('sidebar-groups-collapsed');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  useEffect(() => {
-    localStorage.setItem('sidebar-groups-collapsed', JSON.stringify(collapsedGroups));
-  }, [collapsedGroups]);
-
   const handleScroll = () => {
     if (scrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
@@ -125,14 +116,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
     window.addEventListener('resize', handleScroll);
     return () => window.removeEventListener('resize', handleScroll);
   }, []);
-
-  const toggleGroup = (groupId: string) => {
-    setCollapsedGroups(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
-    setTimeout(handleScroll, 300);
-  };
 
   const handleSignOut = async () => {
     try {
@@ -197,7 +180,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             </div>
             {!isCollapsed && (
               <div className="flex flex-col leading-none animate-in fade-in slide-in-from-left-2 duration-300">
-                <span className="text-xl font-black text-foreground">Para<span className="text-primary">Care</span></span>
+                <span className="text-xl font-black text-foreground">Para<span className="text-primary">Gestion</span></span>
                 <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest mt-1">Management</span>
               </div>
             )}
@@ -217,63 +200,46 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             onScroll={handleScroll}
             className="flex-1 overflow-y-auto py-4 px-3 sidebar-scroll"
           >
-            <nav className="space-y-6">
-              {navigationGroups.map((group) => {
-                const isGroupCollapsed = collapsedGroups[group.id];
-                return (
-                  <div key={group.id} className="space-y-1">
-                    {!isCollapsed && (
-                      <button
-                        onClick={() => toggleGroup(group.id)}
-                        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest hover:text-primary transition-colors group"
-                      >
-                        <span>{group.title}</span>
-                        {isGroupCollapsed ? (
-                          <ChevronDown className="h-3 w-3" />
-                        ) : (
-                          <ChevronUp className="h-3 w-3" />
-                        )}
-                      </button>
-                    )}
-                    
-                    {(!isGroupCollapsed || isCollapsed) && (
-                      <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                        {group.items.map((item) => {
-                          const isActive = location.pathname === item.href || 
-                                          (item.href !== '/' && location.pathname.startsWith(item.href));
-                          return (
-                            <Link
-                              key={item.name}
-                              to={item.href}
-                              onClick={onMobileClose}
-                              title={isCollapsed ? item.name : undefined}
-                              className={cn(
-                                isActive 
-                                  ? 'bg-gradient-to-r from-primary/10 to-primary/5 text-primary font-bold border-l-[3px] border-primary' 
-                                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
-                                'group flex items-center rounded-xl px-3 py-2.5 text-sm transition-all duration-200 relative',
-                                isCollapsed ? "justify-center" : ""
-                              )}
-                            >
-                              <item.icon
-                                className={cn(
-                                  isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-primary',
-                                  isCollapsed ? "h-6 w-6" : "mr-3 h-5 w-5",
-                                  'flex-shrink-0 transition-all duration-200 group-hover:scale-110'
-                                )}
-                                aria-hidden="true"
-                              />
-                              {!isCollapsed && <span className="truncate">{item.name}</span>}
-                              
-
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
+            <nav className="space-y-5">
+              {navigationGroups.map((group) => (
+                <div key={group.id} className="space-y-1">
+                  {!isCollapsed && (
+                    <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground/40 uppercase tracking-wider">
+                      {group.title}
+                    </div>
+                  )}
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const isActive = location.pathname === item.href || 
+                                      (item.href !== '/' && location.pathname.startsWith(item.href));
+                      return (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          onClick={onMobileClose}
+                          title={isCollapsed ? item.name : undefined}
+                          className={cn(
+                            isActive 
+                              ? 'bg-primary/10 text-primary font-semibold' 
+                              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+                            'group flex items-center rounded-lg px-3 py-2 text-sm transition-all',
+                            isCollapsed ? "justify-center" : ""
+                          )}
+                        >
+                          <item.icon
+                            className={cn(
+                              isActive ? 'text-primary' : 'text-muted-foreground',
+                              isCollapsed ? "h-5 w-5" : "mr-3 h-4 w-4",
+                              'flex-shrink-0'
+                            )}
+                          />
+                          {!isCollapsed && <span className="truncate">{item.name}</span>}
+                        </Link>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </nav>
           </div>
           
