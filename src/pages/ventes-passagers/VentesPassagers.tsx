@@ -8,10 +8,10 @@ import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { ProductSelector } from '@/components/ui/ProductSelector';
 
 interface VentePassager {
   id: string;
@@ -24,19 +24,24 @@ interface VentePassager {
 }
 
 interface Produit {
-  id: string;
-  nom: string;
-  designation?: string;
-  reference: string;
-  prixVenteHt: number;
-  prix_vente_ht?: number;
-  tauxTva: number;
-  tva?: number;
-  stockActuel: number;
-  stock_actuel?: number;
-  prixAchatHt: number;
-  prix_achat_ht?: number;
-}
+   id: number | string;
+   nom?: string;
+   designation?: string;
+   reference?: string;
+   prixVenteHt: number;
+   prix_vente_ht?: number;
+   prixVenteTtc?: number;
+   prix_vente_ttc?: number;
+   tauxTva: number;
+   tva?: number;
+   stockActuel: number;
+   stock_actuel?: number;
+   prixAchatHt?: number;
+   prix_achat_ht?: number;
+   marque?: string;
+   imageUrl?: string;
+   image_url?: string;
+ }
 
 export default function VentesPassagers() {
   const { user } = useAuth();
@@ -46,23 +51,22 @@ export default function VentesPassagers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const mapProduit = (p: any) => ({
-    ...p,
-    id: p.id,
-    reference: p.reference || '',
-    designation: p.designation || p.nom || '',
-    marque: p.marque || '',
-    prixVenteHt: Number(p.prix_vente_ht || p.prixVenteHt || 0),
-    prixVenteTtc: Number(p.prix_vente_ttc || 0),
-    prixAchatHt: Number(p.prix_achat_ht || p.prixAchatHt || 0),
-    tauxTva: Number(p.taux_tva || p.tva || 20),
-    stockActuel: Number(p.stock_actuel || p.stockActuel || 0),
-  });
+   const mapProduit = (p: any) => ({
+     ...p,
+     id: p.id,
+     reference: p.reference || '',
+     designation: p.designation || p.nom || '',
+     marque: p.marque || '',
+     prixVenteHt: Number(p.prix_vente_ht || p.prixVenteHt || 0),
+     prixVenteTtc: Number(p.prix_vente_ttc || 0),
+     prixAchatHt: Number(p.prix_achat_ht || p.prixAchatHt || 0),
+     tauxTva: Number(p.taux_tva || p.tva || 20),
+     stockActuel: Number(p.stock_actuel || p.stockActuel || 0),
+     imageUrl: p.image_url || p.imageUrl || undefined,
+   });
 
   // New Vente State
-  const [selectedProduitId, setSelectedProduitId] = useState('');
-  const [quantite, setQuantite] = useState(1);
-  const [panier, setPanier] = useState<any[]>([]);
+   const [panier, setPanier] = useState<any[]>([]);
 
   useEffect(() => {
     if (user?.id) {
@@ -123,65 +127,7 @@ export default function VentesPassagers() {
     }
   };
 
-  const addToPanier = () => {
-    if (!selectedProduitId) {
-      toast.error('Veuillez sélectionner un produit');
-      return;
-    }
 
-    const selectedId = Number(selectedProduitId);
-    const produit = produits.find(p => Number(p.id) === selectedId);
-    
-    if (!produit) {
-      console.error('Product not found:', { selectedProduitId, produits });
-      toast.error('Produit non trouvé');
-      return;
-    }
-
-    const stock = Number(produit.stockActuel ?? 0);
-    if (stock <= 0) {
-      toast.error('Stock insuffisant');
-      return;
-    }
-
-    const existingIndex = panier.findIndex(item => Number(item.produitId) === selectedId);
-    if (existingIndex >= 0) {
-      const existing = panier[existingIndex];
-      const newQte = existing.quantite + quantite;
-      const newMht = existing.prixUnitaireHt * newQte;
-      const newMtva = newMht * (existing.tva / 100);
-      const newMttc = newMht + newMtva;
-      
-      setPanier(panier.map((item, idx) => 
-        idx === existingIndex 
-          ? { ...item, quantite: newQte, montantHt: newMht, montantTva: newMtva, montantTtc: newMttc }
-          : item
-      ));
-    } else {
-      const puHt = Number(produit.prixVenteHt ?? 0);
-      const tvaRate = Number(produit.tauxTva ?? 20);
-      const mht = puHt * quantite;
-      const mtva = mht * (tvaRate / 100);
-      const mttc = mht + mtva;
-
-      console.log('Adding to panier:', { produit, puHt, tvaRate, mht, mtva, mttc });
-
-      setPanier([...panier, {
-        produitId: produit.id,
-        designation: produit.designation || 'Produit',
-        quantite,
-        prixUnitaireHt: puHt,
-        tva: tvaRate,
-        montantHt: mht,
-        montantTva: mtva,
-        montantTtc: mttc,
-        prixAchatHt: Number(produit.prixAchatHt ?? 0)
-      }]);
-    }
-    setSelectedProduitId('');
-    setQuantite(1);
-    toast.success('Produit ajouté au panier');
-  };
 
   const removeFromPanier = (index: number) => {
     setPanier(panier.filter((_, i) => i !== index));
@@ -353,57 +299,60 @@ export default function VentesPassagers() {
             </DialogHeader>
             
             <div className="space-y-6 py-4">
-              {/* Product Selection */}
-              <div className="grid grid-cols-12 gap-4 items-end">
-                <div className="col-span-5 space-y-2">
-                  <Label className="text-sm font-semibold">Produit</Label>
-                  <Select value={selectedProduitId} onValueChange={setSelectedProduitId}>
-                    <SelectTrigger className="h-12 rounded-xl">
-                      <SelectValue placeholder="Sélectionner un produit" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {produits.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground">Aucun produit disponible</div>
-                      ) : (
-                        produits.map(p => {
-                          const stock = Number(p.stockActuel ?? 0);
-                          const prix = Number(p.prixVenteHt ?? 0);
-                          const disabled = stock <= 0;
-                          return (
-                            <SelectItem key={p.id} value={p.id?.toString() || ''} disabled={disabled}>
-                              <div className="flex items-center justify-between w-full gap-4">
-                                <span className={disabled ? 'text-muted-foreground' : ''}>{p.designation || 'Produit'}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatCurrency(prix)} HT {disabled ? '| Stock: 0' : `| Stock: ${stock}`}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          );
-                        })
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label className="text-sm font-semibold">Quantité</Label>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    value={quantite} 
-                    onChange={(e) => setQuantite(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="h-12 rounded-xl text-center font-bold"
-                  />
-                </div>
-                <div className="col-span-5">
-                  <Button 
-                    onClick={addToPanier} 
-                    className="w-full h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary text-white font-bold rounded-xl"
-                  >
-                    <Plus className="mr-2 h-5 w-5" />
-                    Ajouter au panier
-                  </Button>
-                </div>
-              </div>
+               {/* Product Selection - New Component */}
+               <div className="flex items-center justify-center">
+                 <ProductSelector
+                   produits={produits}
+                   onSelect={(produit, qte) => {
+                     const puHt = Number(produit.prixVenteHt ?? 0);
+                     const tvaRate = Number(produit.tauxTva ?? 20);
+                     const mht = puHt * qte;
+                     const mtva = mht * (tvaRate / 100);
+                     const mttc = mht + mtva;
+
+                     const existingIndex = panier.findIndex(item => Number(item.produitId) === Number(produit.id));
+                     if (existingIndex >= 0) {
+                       const existing = panier[existingIndex];
+                       const newQte = existing.quantite + qte;
+                       const newMht = existing.prixUnitaireHt * newQte;
+                       const newMtva = newMht * (existing.tva / 100);
+                       const newMttc = newMht + newMtva;
+                       
+                       setPanier(panier.map((item, idx) => 
+                         idx === existingIndex 
+                           ? { ...item, quantite: newQte, montantHt: newMht, montantTva: newMtva, montantTtc: newMttc }
+                           : item
+                       ));
+                     } else {
+                       setPanier([...panier, {
+                         produitId: produit.id,
+                         designation: produit.designation || 'Produit',
+                         quantite: qte,
+                         prixUnitaireHt: puHt,
+                         tva: tvaRate,
+                         montantHt: mht,
+                         montantTva: mtva,
+                         montantTtc: mttc,
+                         prixAchatHt: Number(produit.prixAchatHt ?? 0)
+                       }]);
+                     }
+                     toast.success(`${produit.designation || 'Produit'} ajouté au panier`);
+                   }}
+                   trigger={
+                     <Button className="w-full h-14 bg-gradient-to-r from-primary to-primary/90 hover:from-primary hover:to-primary/80 text-white font-bold rounded-xl shadow-md text-lg">
+                       <ShoppingCart className="mr-3 h-5 w-5" />
+                       Sélectionner un produit
+                     </Button>
+                   }
+                 />
+               </div>
+               
+               {/* Info text */}
+               <div className="text-center">
+                 <p className="text-xs text-muted-foreground">
+                   💡 Cherchez par nom, référence ou marque. Les produits sans image affichent un icône.
+                 </p>
+               </div>
 
               {/* Cart */}
               <div className="rounded-2xl border border-border/50 bg-white shadow-sm overflow-hidden">
