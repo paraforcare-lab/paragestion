@@ -247,36 +247,55 @@ export function ImageUpload({
     console.log('isLocalhost:', isLocalhost());
     console.log('URL:', window.location.href);
     
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      typeof navigator !== 'undefined' ? navigator.userAgent : ''
+    );
+
+    const videoConstraints = {
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+      facingMode: isMobile ? 'environment' : 'user',
+    };
+
     try {
-      console.log('Requesting camera access with simple constraints...');
+      console.log('Requesting camera access...');
+      console.log('Is mobile:', isMobile);
+      console.log('Constraints:', videoConstraints);
       
       let stream: MediaStream | null = null;
       
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: videoConstraints,
           audio: false,
         });
-        console.log('Camera access granted with simple constraints!');
-      } catch (simpleError: any) {
-        console.log('Simple constraints failed:', simpleError.name, simpleError.message);
-        console.log('Trying with user-facing camera...');
+        console.log('Camera access granted with preferred constraints!');
+      } catch (preferredError: any) {
+        console.log('Preferred constraints failed:', preferredError.name, preferredError.message);
+        console.log('Trying with simple constraints...');
         
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user' },
+            video: true,
             audio: false,
           });
-          console.log('Camera access granted with user-facing camera!');
-        } catch (userError: any) {
-          console.log('User-facing camera failed:', userError.name, userError.message);
-          console.log('Trying with environment camera...');
+          console.log('Camera access granted with simple constraints!');
+        } catch (simpleError: any) {
+          console.log('Simple constraints failed:', simpleError.name, simpleError.message);
           
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' },
-            audio: false,
-          });
-          console.log('Camera access granted with environment camera!');
+          const alternativeFacing = isMobile ? 'user' : 'environment';
+          console.log(`Trying with facingMode: ${alternativeFacing}...`);
+          
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: alternativeFacing },
+              audio: false,
+            });
+            console.log(`Camera access granted with facingMode: ${alternativeFacing}!`);
+          } catch (alternativeError: any) {
+            console.log('Alternative facing mode failed:', alternativeError.name, alternativeError.message);
+            throw alternativeError;
+          }
         }
       }
       
@@ -289,10 +308,38 @@ export function ImageUpload({
       setCameraError(null);
       
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play()
-          .then(() => console.log('Video playback started'))
-          .catch(playError => console.log('Video play error:', playError));
+        const video = videoRef.current;
+        
+        video.muted = true;
+        video.playsInline = true;
+        video.autoPlay = true;
+        
+        const startPlayback = () => {
+          video.play()
+            .then(() => console.log('Video playback started successfully'))
+            .catch(playError => {
+              console.error('Video play error:', playError);
+              console.log('Will retry playback on user interaction...');
+            });
+        };
+        
+        video.onloadedmetadata = () => {
+          console.log('Video metadata loaded, dimensions:', video.videoWidth, 'x', video.videoHeight);
+          startPlayback();
+        };
+        
+        video.onerror = (e) => {
+          console.error('Video element error:', e);
+        };
+        
+        video.srcObject = stream;
+        
+        setTimeout(() => {
+          if (video && video.readyState < 1) {
+            console.log('Metadata not loaded after timeout, trying direct play...');
+            startPlayback();
+          }
+        }, 1000);
       }
     } catch (error: any) {
       console.error('=== CAMERA ERROR ===');
