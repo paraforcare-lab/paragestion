@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -96,6 +96,7 @@ export function Parametres() {
   const [isSaving, setIsSaving] = useState(false);
   const [parametresId, setParametresId] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
   
   const form = useForm<ParametresFormValues>({
     resolver: zodResolver(parametresSchema),
@@ -124,6 +125,14 @@ export function Parametres() {
       activerDroitTimbre: true,
     },
   });
+
+  const errors = form.formState.errors;
+
+  const tabErrors = useMemo(() => ({
+    general: ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].some(f => errors[f]),
+    fiscal: ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].some(f => errors[f]),
+    personalisation: ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut'].some(f => errors[f]),
+  }), [errors]);
 
   const STORAGE_KEY = 'sf_params_modified';
 
@@ -196,6 +205,21 @@ export function Parametres() {
     fetchParametres();
   }, [form, user]);
 
+  const onInvalid = (formErrors: any) => {
+    const fieldNames = Object.keys(formErrors)
+    const tabs: string[] = []
+    if (fieldNames.some(f => ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].includes(f))) tabs.push('Informations')
+    if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].includes(f))) tabs.push('Fiscalité')
+    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut'].includes(f))) tabs.push('Personnalisation')
+
+    const first = tabs[0]
+    if (first === 'Informations') setActiveTab('general')
+    else if (first === 'Fiscalité') setActiveTab('fiscal')
+    else if (first === 'Personnalisation') setActiveTab('personalisation')
+
+    toast.error(`Validation échouée dans : ${tabs.join(', ')}. Corrigez les champs en rouge.`)
+  }
+
   async function onSubmit(data: ParametresFormValues) {
     if (!user?.id) {
       toast.error('Vous devez être connecté pour enregistrer les paramètres');
@@ -264,6 +288,7 @@ export function Parametres() {
 
       localStorage.removeItem(STORAGE_KEY);
       setIsModified(false);
+      form.reset(result);
       toast.success('Paramètres enregistrés avec succès');
     } catch (err: any) {
       console.error('Error saving parametres:', err);
@@ -302,7 +327,7 @@ export function Parametres() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
           {isModified && (
             <div className="bg-amber-50 border border-amber-200 rounded-[6px] p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -311,35 +336,38 @@ export function Parametres() {
                 </div>
                 <div>
                   <p className="font-semibold text-amber-800">Modifications non enregistrées</p>
-                  <p className="text-sm text-amber-600">Veuillez enregistrer vos changements avant d'exporter</p>
+                  <p className="text-sm text-amber-600">Veuillez enregistrer vos modifications</p>
                 </div>
               </div>
-                <Button type="submit" size="sm" className="bg-amber-500 hover:bg-amber-600 text-white rounded-[4px]">
-                Enregistrer
+              <Button type="submit" size="sm" disabled={isSaving} className="bg-amber-500 hover:bg-amber-600 text-white rounded-[4px]">
+                {isSaving ? 'Enregistrement...' : 'Enregistrer'}
               </Button>
             </div>
           )}
           <div className="bg-muted/50 p-4 md:p-6 rounded-[6px] space-y-4 md:space-y-6">
-            <Tabs defaultValue="general" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 rounded-[6px]">
-                <TabsTrigger 
-                  value="general" 
-                  className="rounded-[4px] data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-indigo-600 font-semibold"
+                <TabsTrigger
+                  value="general"
+                  className="rounded-[4px] data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-indigo-600 font-semibold relative"
                 >
+                  {tabErrors.general && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />}
                   <Building2 className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">Informations</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="fiscal" 
-                  className="rounded-[4px] data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-indigo-600 font-semibold"
+                <TabsTrigger
+                  value="fiscal"
+                  className="rounded-[4px] data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-indigo-600 font-semibold relative"
                 >
+                  {tabErrors.fiscal && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />}
                   <FileText className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">Fiscalité</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="personalisation" 
-                  className="rounded-[4px] data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-indigo-600 font-semibold"
+                <TabsTrigger
+                  value="personalisation"
+                  className="rounded-[4px] data-[state=active]:bg-white data-[state=active]:shadow-none data-[state=active]:text-indigo-600 font-semibold relative"
                 >
+                  {tabErrors.personalisation && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full" />}
                   <Palette className="h-4 w-4 mr-2" />
                   <span className="hidden md:inline">Personnalisation</span>
                 </TabsTrigger>
