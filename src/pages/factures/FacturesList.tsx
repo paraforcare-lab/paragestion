@@ -1,0 +1,915 @@
+import React, { useEffect, useState, useRef, useMemo } from 'react'
+import {
+  Plus, Search, FileEdit, Trash2, FileText, Download, CheckCircle,
+  Clock, AlertCircle, Ban, Receipt, DollarSign, ArrowLeft,
+  ArrowUpRight, ChevronLeft, ChevronRight, Send, CalendarDays, Filter
+} from 'lucide-react';
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { formatCurrency } from '@/lib/utils'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { FactureForm } from '@/components/forms/FactureForm'
+import { FactureDocument } from '@/components/documents/FactureDocument'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { toast } from 'sonner'
+import { useReactToPrint } from 'react-to-print'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+
+interface Facture {
+  id: number;
+  numero: string;
+  client: { nom: string; nomSociete?: string; email?: string };
+  clientId?: number;
+  dateEmission: string;
+  dateEcheance?: string;
+  montantHt: number;
+  montantTva: number;
+  montantTtc: number;
+  statut: string;
+  resteAPayer: number;
+  modePaiement?: string;
+  lignes?: any[];
+}
+
+interface StatutOption {
+  value: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  bgColor: string;
+}
+
+const statusOptions: StatutOption[] = [
+  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-sky-700', bgColor: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
+  { value: 'en_attente', label: 'En attente', icon: Clock, color: 'text-rose-700', bgColor: 'bg-rose-50 text-rose-700 border border-rose-200/50' },
+  { value: 'reste_a_payer', label: 'Reste à payer', icon: AlertCircle, color: 'text-orange-700', bgColor: 'bg-orange-50 text-orange-700 border border-orange-200/50' },
+  { value: 'payée', label: 'Payée', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+  { value: 'annulée', label: 'Annulée', icon: Ban, color: 'text-red-700', bgColor: 'bg-red-50 text-red-700 border border-red-200/50' },
+];
+
+const ITEMS_PER_PAGE = 10;
+
+export function FacturesList() {
+  const { user } = useAuth();
+  const [factures, setFactures] = useState<Facture[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingFacture, setEditingFacture] = useState<Facture | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [factureToDelete, setFactureToDelete] = useState<number | null>(null);
+
+  const [printingFacture, setPrintingFacture] = useState<any>(null);
+  const [entreprise, setEntreprise] = useState<any>(null);
+  const printRef = useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: printingFacture ? `Facture_${printingFacture.numero}` : 'Facture',
+    onAfterPrint: () => setPrintingFacture(null),
+  });
+
+  const mapFacture = (f: any) => ({
+    ...f,
+    numero: f.numero,
+    clientId: f.client_id,
+    client: f.client,
+    dateEmission: f.date_emission,
+    dateEcheance: f.date_echeance,
+    montantHt: f.montant_ht,
+    montantTva: f.montant_tva,
+    montantTtc: f.montant_ttc,
+    statut: f.statut,
+    resteAPayer: f.reste_a_payer,
+    modePaiement: f.mode_paiement,
+  });
+
+  const fetchFactures = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('factures')
+        .select('*, client:clients(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const mapped = (data || []).map((f: any) => ({
+        ...f,
+        clientId: f.client_id,
+        client: f.client,
+        dateEmission: f.date_emission,
+        dateEcheance: f.date_echeance,
+        montantHt: f.montant_ht,
+        montantTva: f.montant_tva,
+        montantTtc: f.montant_ttc,
+        statut: f.statut,
+        resteAPayer: f.reste_a_payer,
+        modePaiement: f.mode_paiement,
+      }));
+
+      setFactures(mapped);
+    } catch (error) {
+      console.error('Failed to fetch factures', error);
+      toast.error('Erreur lors du chargement des factures');
+      setFactures([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchEntreprise = async () => {
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('parametres')
+        .select('*')
+        .eq('user_id', String(user.id))
+        .single();
+
+      if (!data) {
+        console.log('No parametres found');
+        setEntreprise(null);
+        return;
+      }
+
+      if (error && error.code !== 'PGRST116') {
+        console.warn('Error fetching parametres:', error);
+      }
+
+      if (data) {
+        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png' || !data.logo_url.startsWith('http')
+          ? ''
+          : data.logo_url;
+        setEntreprise({
+          nomEntreprise: data.nom_societe || data.nom || '',
+          adresse: data.adresse || '',
+          ville: data.ville || '',
+          telephone: data.telephone || '',
+          email: data.email || '',
+          ice: data.ice || '',
+          logoUrl: cleanLogoUrl,
+          couleurPrincipale: data.couleur_principale || '#267E54'
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to fetch entreprise:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchFactures();
+      fetchEntreprise();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (printingFacture && printRef.current) {
+      handlePrint();
+    }
+  }, [printingFacture, handlePrint]);
+
+  const handleDelete = async () => {
+    if (!factureToDelete) return;
+
+    try {
+      const { error } = await supabase.from('factures').delete().eq('id', factureToDelete);
+      if (error) throw error;
+      toast.success('Facture supprimée avec succès');
+      fetchFactures();
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    } finally {
+      setDeleteConfirmOpen(false);
+      setFactureToDelete(null);
+    }
+  };
+
+  const handleEdit = async (facture: Facture) => {
+    try {
+      const [factureResult, clientResult, lignesResult, allProductsResult] = await Promise.all([
+        supabase.from('factures').select('*').eq('id', facture.id).single(),
+        supabase.from('clients').select('*').eq('id', facture.clientId).single(),
+        supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre'),
+        supabase.from('produits').select('*').eq('user_id', user?.id).order('nom')
+      ]);
+
+      const { data: factureData, error: fError } = factureResult;
+      if (fError) throw fError;
+
+      const { data: clientData } = clientResult;
+      const { data: lignesData } = lignesResult;
+      const { data: allProductsData } = allProductsResult;
+
+      const produitsMap: any = {};
+      (allProductsData || []).forEach((p: any) => {
+        produitsMap[p.id] = p;
+      });
+
+      (lignesData || []).forEach((l: any) => {
+        if (l.produit_id && !produitsMap[l.produit_id]) {
+          produitsMap[l.produit_id] = { id: l.produit_id, nom: l.designation };
+        }
+      });
+
+      const mappedLignes = (lignesData || []).map((l: any) => {
+        const produit = produitsMap[l.produit_id];
+        return {
+          id: l.id,
+          produitId: String(l.produit_id || ''),
+          produit: produit,
+          reference: l.reference || produit?.reference || '',
+          designation: l.designation || l.description || produit?.nom || produit?.designation || '',
+          quantite: l.quantite || 1,
+          prixUnitaireHt: Number(l.prix_unitaire_ht || l.prix_unitaire || produit?.prix_vente_ht || 0),
+          tva: Number(l.tva || produit?.taux_tva || produit?.tva || 20),
+          montantHt: Number(l.montant_ht || 0),
+          montantTtc: Number(l.montant_ttc || 0),
+        };
+      });
+
+      const mappedData = {
+        ...factureData,
+        client: clientData,
+        clientId: String(factureData?.client_id || ''),
+        dateEmission: factureData?.date_emission?.split('T')[0] || new Date().toISOString().split('T')[0],
+        dateEcheance: factureData?.date_echeance?.split('T')[0] || '',
+        montantHt: Number(factureData?.montant_ht || 0),
+        montantTva: Number(factureData?.montant_tva || 0),
+        montantTtc: Number(factureData?.montant_ttc || 0),
+        statut: factureData?.statut || 'brouillon',
+        resteAPayer: Number(factureData?.reste_a_payer || 0),
+        modePaiement: factureData?.mode_paiement || 'Virement',
+        notes: factureData?.notes || '',
+        conditionsPaiement: factureData?.conditions_paiement || '',
+        lignes: mappedLignes,
+      };
+
+      setEditingFacture(mappedData);
+      setShowForm(true);
+    } catch (error) {
+      console.error('Error loading facture:', error);
+      toast.error('Erreur lors du chargement de la facture');
+    }
+  };
+
+  const handleMarkAsPaid = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('factures')
+        .update({ statut: 'payée', reste_a_payer: 0 })
+        .eq('id', id)
+        .eq('user_id', user?.id);
+      if (error) throw error;
+      toast.success('Facture marquée comme payée');
+      fetchFactures();
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour');
+    }
+  };
+
+  const handleAnnuler = async (facture: Facture) => {
+    try {
+      const { data: factureData, error: fetchError } = await supabase
+        .from('factures')
+        .select('*, client:clients(*)')
+        .eq('id', facture.id)
+        .single();
+
+      if (fetchError || !factureData) throw new Error('Facture non trouvée');
+
+      const { data: lignesData } = await supabase
+        .from('facture_lignes')
+        .select('*')
+        .eq('facture_id', facture.id)
+        .order('ordre');
+
+      const year = new Date().getFullYear();
+      const { count } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
+      const randomNum = String((count || 0) + 1).padStart(4, '0');
+      const numeroAvoir = `AV-${year}-${randomNum}`;
+
+      const { data: avoirData, error: avoirError } = await supabase
+        .from('avoirs')
+        .insert([{
+          user_id: user?.id,
+          numero: numeroAvoir,
+          facture_id: factureData.id,
+          client_id: factureData.client_id,
+          date_emission: new Date().toISOString(),
+          montant_ht: factureData.montant_ht,
+          montant_tva: factureData.montant_tva,
+          montant_ttc: factureData.montant_ttc,
+          statut: 'émis',
+          notes: `Avoir pour annulation de la facture ${factureData.numero}`,
+        }])
+        .select()
+        .single();
+
+      if (avoirError) throw avoirError;
+
+      if (lignesData && lignesData.length > 0) {
+        const lignesPayload = lignesData.map((l: any, index: number) => ({
+          avoir_id: avoirData.id,
+          produit_id: l.produit_id,
+          designation: l.description || l.designation || '',
+          quantite: l.quantite,
+          prix_unitaire_ht: l.prix_unitaire_ht || l.prix_unitaire || 0,
+          tva: l.tva,
+          montant_ht: l.montant_ht,
+          montant_ttc: l.montant_ttc,
+          ordre: index,
+        }));
+
+        const { error: lignesError } = await supabase.from('avoir_lignes').insert(lignesPayload);
+        if (lignesError) throw lignesError;
+      }
+
+      const { error: updateError } = await supabase
+        .from('factures')
+        .update({ statut: 'annulée' })
+        .eq('id', facture.id)
+        .eq('user_id', user?.id);
+
+      if (updateError) throw updateError;
+
+      toast.success(`Facture annulée. Avoir ${numeroAvoir} créé avec succès !`);
+      fetchFactures();
+    } catch (error: any) {
+      console.error('Error cancelling facture:', error);
+      toast.error(error.message || 'Erreur lors de l\'annulation de la facture');
+    }
+  };
+
+  const handleDownload = async (facture: Facture) => {
+    try {
+      toast.info('Préparation du PDF...');
+
+      const [factureResult, allProductsResult] = await Promise.all([
+        supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single(),
+        supabase.from('produits').select('*').eq('user_id', user?.id).order('nom')
+      ]);
+
+      const { data: factureData, error } = factureResult;
+      if (error) throw error;
+
+      const { data: allProductsData } = allProductsResult;
+
+      const { data: lignesData } = await supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre');
+
+      const produitsMap: any = {};
+      (allProductsData || []).forEach((p: any) => {
+        produitsMap[p.id] = p;
+      });
+
+      const mappedLignes = (lignesData || []).map((l: any) => {
+        const produit = produitsMap[l.produit_id];
+        return {
+          ...l,
+          designation: l.designation || l.description || produit?.nom || produit?.designation || '',
+          reference: l.reference || produit?.reference || '',
+        };
+      });
+
+      const mappedFacture = {
+        ...factureData,
+        numero: factureData.numero,
+        clientId: factureData.client_id,
+        client: factureData.client,
+        dateEmission: factureData.date_emission,
+        dateEcheance: factureData.date_echeance,
+        montantHt: factureData.montant_ht,
+        montantTva: factureData.montant_tva,
+        montantTtc: factureData.montant_ttc,
+        statut: factureData.statut,
+        resteAPayer: factureData.reste_a_payer,
+        modePaiement: factureData.mode_paiement,
+        lignes: mappedLignes,
+      };
+      setPrintingFacture(mappedFacture);
+    } catch (error) {
+      toast.error('Erreur lors du chargement des détails de la facture');
+    }
+  };
+
+  const handleStatusChange = async (id: number, newStatut: string) => {
+    try {
+      const { data: facture } = await supabase.from('factures').select('statut').eq('id', id).single();
+
+      if (facture?.statut === 'annulée' && newStatut !== 'annulée') {
+        const { data: avoir } = await supabase.from('avoirs').select('id').eq('facture_id', id).single();
+        if (avoir) {
+          await supabase.from('avoir_lignes').delete().eq('avoir_id', avoir.id);
+          await supabase.from('avoirs').delete().eq('id', avoir.id);
+        }
+      }
+
+      const updateData: any = { statut: newStatut };
+      if (newStatut === 'payée') {
+        updateData.reste_a_payer = 0;
+      }
+      const { error } = await supabase
+        .from('factures')
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', user?.id);
+      if (error) throw error;
+      toast.success('Statut mis à jour');
+      fetchFactures();
+    } catch (error) {
+      toast.error('Erreur lors de la mise à jour du statut');
+    }
+  };
+
+  const openNewForm = () => {
+    setEditingFacture(null);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingFacture(null);
+  };
+
+  const getStatusConfig = (statut: string) => {
+    return statusOptions.find(s => s.value === statut) || statusOptions[0];
+  };
+
+  const filteredFactures = useMemo(() => {
+    let filtered = factures.filter((facture) =>
+      facture.numero?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      facture.client?.nom?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      facture.client?.nomSociete?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(f => f.statut === statusFilter);
+    }
+
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      let cutoff: Date;
+      switch (timeFilter) {
+        case '30days':
+          cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'thisMonth':
+          cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'thisYear':
+          cutoff = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          cutoff = new Date(0);
+      }
+      filtered = filtered.filter(f => new Date(f.dateEmission) >= cutoff);
+    }
+
+    return filtered;
+  }, [factures, searchQuery, statusFilter, timeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFactures.length / ITEMS_PER_PAGE));
+  const paginatedFactures = filteredFactures.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  const totalFactures = factures.length;
+  const facturesPayees = factures.filter(f => f.statut === 'payée').length;
+  const facturesEnAttente = factures.filter(f => ['en_attente', 'reste_a_payer'].includes(f.statut)).length;
+  const totalMontant = filteredFactures.reduce((sum, f) => sum + (f.montantTtc || 0), 0);
+  const totalResteAPayer = filteredFactures.reduce((sum, f) => sum + (f.resteAPayer || 0), 0);
+
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const last30Factures = factures.filter(f => new Date(f.dateEmission) >= thirtyDaysAgo);
+  const drafted30 = last30Factures.filter(f => f.statut === 'brouillon');
+  const sent30 = last30Factures.filter(f => f.statut === 'en_attente');
+  const paid30 = last30Factures.filter(f => f.statut === 'payée');
+  const total30Amount = last30Factures.reduce((sum, f) => sum + (f.montantTtc || 0), 0);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, timeFilter]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Supprimer la facture"
+        description="Êtes-vous sûr de vouloir supprimer cette facture ? Cette action est irréversible."
+      />
+
+      <div style={{ display: 'none' }}>
+        {printingFacture && (
+          <FactureDocument ref={printRef} facture={printingFacture} entreprise={entreprise} />
+        )}
+      </div>
+
+      {showForm ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={closeForm}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                {editingFacture ? 'Modifier la facture' : 'Nouvelle Facture'}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {editingFacture ? `Modification de la facture ${editingFacture.numero}` : 'Créez une nouvelle facture'}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-[6px] border border-slate-200 bg-white p-6">
+            <FactureForm
+              initialData={editingFacture}
+              onSuccess={() => {
+                closeForm();
+                fetchFactures();
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-rose-50 border border-rose-200/50">
+                <Receipt className="h-5 w-5 text-rose-500" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Factures</h2>
+                <p className="text-sm text-muted-foreground">Gérez vos factures et suivez les paiements</p>
+              </div>
+            </div>
+            <Button
+              onClick={openNewForm}
+              className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle Facture
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3 space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    type="search"
+                    placeholder="Rechercher par numéro ou client..."
+                    className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-10 w-[140px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
+                    <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
+                    <SelectValue placeholder="Statut" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    {statusOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={timeFilter} onValueChange={setTimeFilter}>
+                  <SelectTrigger className="h-10 w-[150px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
+                    <CalendarDays className="h-3.5 w-3.5 text-slate-400 mr-2" />
+                    <SelectValue placeholder="Période" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes les périodes</SelectItem>
+                    <SelectItem value="30days">30 derniers jours</SelectItem>
+                    <SelectItem value="thisMonth">Ce mois</SelectItem>
+                    <SelectItem value="thisYear">Cette année</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-slate-100">
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-48 text-center">
+                          <div className="flex flex-col items-center justify-center gap-3">
+                            <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                            <p className="text-sm text-muted-foreground font-medium">Chargement des factures...</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : paginatedFactures.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-48 text-center">
+                          <div className="flex flex-col items-center justify-center gap-3">
+                            <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
+                              <Receipt className="h-8 w-8 text-slate-300" />
+                            </div>
+                            <p className="text-sm text-slate-500 font-medium">
+                              {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
+                                ? 'Aucune facture trouvée'
+                                : 'Aucune facture créée'}
+                            </p>
+                            {!searchQuery && statusFilter === 'all' && timeFilter === 'all' && (
+                              <Button
+                                variant="outline"
+                                className="mt-1 rounded-[4px] text-sm"
+                                onClick={openNewForm}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Créer votre première facture
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedFactures.map((facture) => {
+                        const status = getStatusConfig(facture.statut);
+                        const StatusIcon = status.icon;
+                        const clientInitial = (facture.client?.nom || '?').charAt(0).toUpperCase();
+
+                        return (
+                          <TableRow
+                            key={facture.id}
+                            className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                          >
+                            <TableCell className="px-4 py-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar size="sm" className="h-8 w-8 border border-slate-200">
+                                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${facture.client?.nom}`} />
+                                  <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-600">
+                                    {clientInitial}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-800">
+                                    {facture.client?.nom || facture.client?.nomSociete || '-'}
+                                  </p>
+                                  <p className="text-xs text-slate-400">
+                                    {facture.client?.email || facture.numero}
+                                  </p>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-4 py-4">
+                              <span className="text-sm font-mono font-medium text-slate-700">{facture.numero}</span>
+                            </TableCell>
+                            <TableCell className="px-4 py-4">
+                              <span className="text-sm text-slate-500">
+                                {format(new Date(facture.dateEmission), 'dd MMM yyyy', { locale: fr })}
+                              </span>
+                            </TableCell>
+                            <TableCell className="px-4 py-4 text-right">
+                              <span className="text-sm font-bold text-slate-800">{formatCurrency(facture.montantTtc)}</span>
+                              <ArrowUpRight className="h-3 w-3 text-slate-400 inline-block ml-1 -mt-0.5" />
+                            </TableCell>
+                            <TableCell className="px-4 py-4 text-center">
+                              <Select
+                                value={facture.statut}
+                                onValueChange={(val) => handleStatusChange(facture.id, val)}
+                              >
+                                <SelectTrigger className="h-auto w-auto mx-auto bg-transparent border-none shadow-none focus:ring-0 p-0">
+                                  <SelectValue>
+                                    <span className={cn(
+                                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                                      status.bgColor
+                                    )}>
+                                      <StatusIcon className={cn("h-3 w-3", status.color)} />
+                                      {status.label}
+                                    </span>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {statusOptions.map(opt => {
+                                    const OptIcon = opt.icon;
+                                    return (
+                                      <SelectItem key={opt.value} value={opt.value}>
+                                        <div className="flex items-center gap-2">
+                                          <OptIcon className={cn("h-4 w-4", opt.color)} />
+                                          <span>{opt.label}</span>
+                                        </div>
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="px-4 py-4 text-right">
+                              <div className="flex justify-end gap-0.5">
+                                {!['payée', 'reste_a_payer'].includes(facture.statut) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-[4px]"
+                                    onClick={() => handleMarkAsPaid(facture.id)}
+                                    title="Marquer comme payée"
+                                  >
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                                  onClick={() => handleDownload(facture)}
+                                  title="Télécharger PDF"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                                  onClick={() => handleEdit(facture)}
+                                  title="Modifier"
+                                >
+                                  <FileEdit className="h-4 w-4" />
+                                </Button>
+                                {facture.statut === 'brouillon' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                                    onClick={() => {
+                                      setFactureToDelete(facture.id);
+                                      setDeleteConfirmOpen(true);
+                                    }}
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                ) : facture.statut !== 'annulée' ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                                    onClick={() => handleAnnuler(facture)}
+                                    title="Annuler la facture (créer un avoir)"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+
+                {!isLoading && paginatedFactures.length > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+                    <p className="text-xs text-slate-400">
+                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFactures.length)} sur {filteredFactures.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        disabled={currentPage === 1}
+                        onClick={() => handlePageChange(currentPage - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <Button
+                          key={page}
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                            page === currentPage
+                              ? "bg-slate-100 text-slate-800"
+                              : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                          )}
+                          onClick={() => handlePageChange(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        disabled={currentPage === totalPages}
+                        onClick={() => handlePageChange(currentPage + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            <div className="lg:col-span-1">
+              <Card className="border border-slate-200 shadow-none rounded-[6px]">
+                <CardHeader className="px-4 py-4 border-b border-slate-100">
+                  <CardTitle className="text-sm font-semibold text-slate-700">30 Derniers Jours</CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 py-4 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-sky-50 border border-sky-200/50 shrink-0">
+                      <FileText className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-500">Brouillon</p>
+                      <p className="text-sm font-bold text-slate-800">{drafted30.length} facture{drafted30.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-600">
+                      {formatCurrency(drafted30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-rose-50 border border-rose-200/50 shrink-0">
+                      <Send className="h-4 w-4 text-rose-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-500">Envoyé</p>
+                      <p className="text-sm font-bold text-slate-800">{sent30.length} facture{sent30.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-600">
+                      {formatCurrency(sent30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0">
+                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-slate-500">Payée</p>
+                      <p className="text-sm font-bold text-slate-800">{paid30.length} facture{paid30.length !== 1 ? 's' : ''}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-slate-600">
+                      {formatCurrency(paid30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-slate-800">Total</p>
+                      <p className="text-base font-bold text-rose-500">{formatCurrency(total30Amount)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,479 @@
+import React, { useEffect, useState, useMemo } from 'react'
+import {
+  Plus, Search, FileEdit, Trash2, Truck, Building2, User,
+  ChevronLeft, ChevronRight, Mail, Phone, MapPin
+} from 'lucide-react';
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner'
+import { FournisseurForm } from '@/components/forms/FournisseurForm'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+
+interface Fournisseur {
+  id: number;
+  code: string;
+  nom: string;
+  nomSociete?: string;
+  type: string;
+  email: string;
+  telephone: string;
+  ice: string | null;
+  adresse?: string;
+  ville?: string;
+}
+
+const ITEMS_PER_PAGE = 10;
+
+export function FournisseursList() {
+  const { user } = useAuth();
+  const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingFournisseur, setEditingFournisseur] = useState<Fournisseur | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [fournisseurToDelete, setFournisseurToDelete] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const fetchFournisseurs = async () => {
+    if (!user?.id) {
+      setFournisseurs([]);
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const result = await supabase
+        .from('fournisseurs')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (result.error) {
+        toast.error('Error: ' + result.error.message);
+        setFournisseurs([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setFournisseurs(result.data || []);
+    } catch (error: any) {
+      console.error('Catch error:', error);
+      setFournisseurs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchFournisseurs();
+    }
+  }, [user?.id]);
+
+  const handleDelete = async () => {
+    if (!fournisseurToDelete || !user?.id) return;
+    try {
+      const { error } = await supabase
+        .from('fournisseurs')
+        .delete()
+        .eq('id', fournisseurToDelete)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      toast.success('Fournisseur supprimé avec succès');
+      fetchFournisseurs();
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    } finally {
+      setDeleteConfirmOpen(false);
+      setFournisseurToDelete(null);
+    }
+  };
+
+  const handleEdit = (fournisseur: Fournisseur) => {
+    setEditingFournisseur(fournisseur);
+    setIsDialogOpen(true);
+  };
+
+  const openNewForm = () => {
+    setEditingFournisseur(null);
+    setIsDialogOpen(true);
+  };
+
+  const filteredFournisseurs = useMemo(() => {
+    if (!searchQuery.trim()) return fournisseurs;
+    const query = searchQuery.toLowerCase();
+    return fournisseurs.filter((fournisseur) => {
+      const nom = fournisseur.nom || fournisseur.nomSociete || '';
+      return (
+        nom.toLowerCase().includes(query) ||
+        (fournisseur.code && fournisseur.code.toLowerCase().includes(query)) ||
+        (fournisseur.email && fournisseur.email.toLowerCase().includes(query)) ||
+        (fournisseur.telephone && fournisseur.telephone.includes(query))
+      );
+    });
+  }, [fournisseurs, searchQuery]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredFournisseurs.length / ITEMS_PER_PAGE));
+  const paginatedFournisseurs = filteredFournisseurs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const fournisseursCount = fournisseurs.length;
+  const entreprisesCount = fournisseurs.filter(f => f.type === 'entreprise').length;
+  const particuliersCount = fournisseurs.filter(f => f.type !== 'entreprise').length;
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title="Supprimer le fournisseur"
+        description="Êtes-vous sûr de vouloir supprimer ce fournisseur ? Cette action est irréversible."
+      />
+
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-sky-50 border border-sky-200/50">
+            <Truck className="h-5 w-5 text-sky-500" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Fournisseurs</h2>
+            <p className="text-sm text-muted-foreground">
+              Gérez vos partenaires et fournisseurs
+            </p>
+          </div>
+        </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingFournisseur(null);
+        }}>
+          <DialogTrigger render={
+            <Button
+              onClick={openNewForm}
+              className="bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Nouveau Fournisseur
+            </Button>
+          } />
+          <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20">
+            <div className="flex flex-col h-full">
+              <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm">
+                <div className="max-w-7xl mx-auto w-full">
+                  <DialogTitle className="text-2xl font-black text-foreground">
+                    {editingFournisseur ? 'Modifier le fournisseur' : 'Nouveau Fournisseur'}
+                  </DialogTitle>
+                  <DialogDescription className="mt-1 text-muted-foreground">
+                    {editingFournisseur
+                      ? `Modification du fournisseur ${editingFournisseur.nom || editingFournisseur.nomSociete}`
+                      : 'Ajoutez un nouveau fournisseur à votre base de données'}
+                  </DialogDescription>
+                </div>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-7xl mx-auto">
+                  <div className="rounded-[6px] border border-slate-200 bg-white p-8">
+                    <FournisseurForm
+                      initialData={editingFournisseur}
+                      onSuccess={() => {
+                        setIsDialogOpen(false);
+                        setEditingFournisseur(null);
+                        fetchFournisseurs();
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Column - Table */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Search */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Rechercher par nom, code ou email..."
+              className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* Table */}
+          <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-slate-100">
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[120px]">Code</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Fournisseur</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Type</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Contact</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">ICE</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="h-8 w-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
+                        <p className="text-sm text-muted-foreground font-medium">Chargement des fournisseurs...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedFournisseurs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
+                          <Truck className="h-8 w-8 text-slate-300" />
+                        </div>
+                        <p className="text-sm text-slate-500 font-medium">
+                          {searchQuery ? 'Aucun fournisseur trouvé' : 'Aucun fournisseur enregistré'}
+                        </p>
+                        {!searchQuery && (
+                          <Button
+                            variant="outline"
+                            className="rounded-[4px] text-sm"
+                            onClick={openNewForm}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Ajouter votre premier fournisseur
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedFournisseurs.map((fournisseur) => {
+                    const displayName = fournisseur.nom || fournisseur.nomSociete || '-';
+                    const initials = displayName.charAt(0).toUpperCase();
+
+                    return (
+                      <TableRow
+                        key={fournisseur.id}
+                        className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                      >
+                        <TableCell className="px-4 py-5">
+                          <span className="text-xs font-mono text-slate-500">
+                            {fournisseur.code || `F${fournisseur.id}`}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-5">
+                          <div className="flex items-center gap-2.5">
+                            <Avatar size="sm" className="h-7 w-7 border border-slate-200">
+                              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} />
+                              <AvatarFallback className="text-[10px] font-semibold bg-slate-100 text-slate-600">
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800">{displayName}</p>
+                              {(fournisseur.adresse || fournisseur.ville) && (
+                                <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                                  <MapPin className="h-3 w-3" />
+                                  {fournisseur.ville || fournisseur.adresse}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-5">
+                          <span className={cn(
+                            "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium",
+                            fournisseur.type === 'entreprise'
+                              ? "bg-sky-50 text-sky-700 border border-sky-200/50"
+                              : "bg-amber-50 text-amber-700 border border-amber-200/50"
+                          )}>
+                            {fournisseur.type === 'entreprise' ? (
+                              <Building2 className="h-3 w-3 mr-1" />
+                            ) : (
+                              <User className="h-3 w-3 mr-1" />
+                            )}
+                            {fournisseur.type === 'entreprise' ? 'Entreprise' : 'Particulier'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-5">
+                          <div className="space-y-0.5">
+                            {fournisseur.email && (
+                              <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                <Mail className="h-3 w-3 text-slate-400 shrink-0" />
+                                {fournisseur.email}
+                              </p>
+                            )}
+                            {fournisseur.telephone && (
+                              <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                                <Phone className="h-3 w-3 text-slate-400 shrink-0" />
+                                {fournisseur.telephone}
+                              </p>
+                            )}
+                            {!fournisseur.email && !fournisseur.telephone && (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-5">
+                          <span className="text-xs font-mono text-slate-400">
+                            {fournisseur.ice || '-'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-5 text-right">
+                          <div className="flex justify-end gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                              onClick={() => handleEdit(fournisseur)}
+                              title="Modifier"
+                            >
+                              <FileEdit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                              onClick={() => {
+                                setFournisseurToDelete(fournisseur.id);
+                                setDeleteConfirmOpen(true);
+                              }}
+                              title="Supprimer"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+
+            {!isLoading && paginatedFournisseurs.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+                <p className="text-xs text-slate-400">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFournisseurs.length)} sur {filteredFournisseurs.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                        page === currentPage
+                          ? "bg-slate-100 text-slate-800"
+                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                      )}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right Column - Summary */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="border border-slate-200 shadow-none rounded-[6px]">
+            <CardHeader className="px-4 py-4 border-b border-slate-100">
+              <CardTitle className="text-sm font-semibold text-slate-700">Aperçu des Fournisseurs</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 py-4 space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-sky-50 border border-sky-200/50 shrink-0">
+                  <Truck className="h-4 w-4 text-sky-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-500">Total fournisseurs</p>
+                  <p className="text-lg font-bold text-slate-800">{fournisseursCount}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-sky-500" />
+                    <span className="text-xs text-slate-500">Entreprises</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">{entreprisesCount}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs text-slate-500">Particuliers</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-700">{particuliersCount}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

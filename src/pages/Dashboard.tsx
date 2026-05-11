@@ -1,0 +1,579 @@
+import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { formatCurrency, cn } from '@/lib/utils'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { 
+  DollarSign, 
+  CreditCard, 
+  Activity, 
+  FileText, 
+  Users, 
+  Package, 
+  TrendingUp, 
+  Stethoscope,
+  ShieldCheck,
+  ChevronRight,
+  Receipt,
+  Building2,
+  HeartPulse,
+  ClipboardList,
+  Plus,
+  ShoppingCart,
+  AlertTriangle,
+  Pill,
+  PieChart
+} from 'lucide-react';
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+
+interface Stats {
+  clientsCount: number;
+  facturesCount: number;
+  produitsCount: number;
+  fournisseursCount: number;
+  totalRevenue: number;
+  unpaidRevenue: number;
+  totalDepenses: number;
+  profit: number;
+  totalTvaCollectee: number;
+  totalTvaDeductible: number;
+  tvaNet: number;
+  ventesHT: number;
+  totalCOGS: number;
+  stockValueHT: number;
+  monthlyData: any[];
+  lowStockProduits: any[];
+  recentFactures: any[];
+  bonsCommandeCount: number;
+}
+
+import { KPICard } from '@/components/ui/kpi-card'
+
+export function Dashboard() {
+  const { user } = useAuth();
+const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setStats(null);
+      setLoading(false);
+      return;
+    }
+    
+    const fetchStats = async () => {
+      try {
+        const now = new Date();
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString();
+
+        const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes] = await Promise.all([
+          supabase.from('factures').select('*').eq('user_id', user.id).gte('date_emission', sixMonthsAgo),
+          supabase.from('ventes_passagers').select('*').eq('user_id', user.id).gte('date', sixMonthsAgo),
+          supabase.from('depenses').select('*').eq('user_id', user.id).gte('date_depense', sixMonthsAgo),
+          supabase.from('produits').select('*').eq('user_id', user.id),
+          supabase.from('clients').select('*').eq('user_id', user.id),
+          supabase.from('fournisseurs').select('*').eq('user_id', user.id),
+          supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5),
+          supabase.from('bons_commande').select('*').eq('user_id', user.id)
+        ]);
+
+        const factures = (factRes.data || []);
+        const ventesPassagers = (vpRes.data || []);
+        const depenses = (depRes.data || []);
+        const produits = (prodRes.data || []);
+        const clients = (cliRes.data || []);
+        const fournisseurs = (fourRes.data || []);
+        const recentFacturesRaw = (recentRes.data || []);
+        const bonsCommande = (bcRes.data || []);
+
+        const allFactures = [...factures, ...ventesPassagers];
+        const validFact = allFactures.filter((f: any) => f.statut !== 'annulée');
+        const payeesFact = allFactures.filter((f: any) => f.statut === 'payée');
+        const resteAPayerFact = allFactures.filter((f: any) => f.statut === 'reste_a_payer');
+        const brouillonFact = allFactures.filter((f: any) => f.statut === 'brouillon');
+
+        const bonsCommandeValides = bonsCommande.filter((b: any) => ['confirmé', 'livré', 'livrée'].includes(b.statut));
+
+        const totalRevenue = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
+        const totalDepenses = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_ttc || 0), 0)
+          + bonsCommandeValides.reduce((sum: number, b: any) => sum + Number(b.montant_ttc || 0), 0);
+        const unpaidRevenue = resteAPayerFact.reduce((sum: number, f: any) => sum + Number(f.reste_a_payer || 0), 0);
+
+        const totalTvaCollectee = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_tva || 0), 0);
+        const totalTvaDeductible = depenses.reduce((sum: number, d: any) => sum + Number(d.montant_tva || 0), 0)
+          + bonsCommandeValides.reduce((sum: number, b: any) => sum + Number(b.montant_tva || 0), 0);
+        const tvaNet = totalTvaCollectee - totalTvaDeductible;
+
+        const totalCOGS = allFactures.reduce((sum: number, f: any) => sum + Number(f.cogs || 0), 0)
+          + bonsCommandeValides.reduce((sum: number, b: any) => sum + Number(b.montant_ht || 0), 0);
+        const ventesHT = validFact.reduce((sum: number, f: any) => sum + Number(f.montant_ht || 0), 0);
+        const profit = totalRevenue - totalDepenses - totalCOGS;
+
+        const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+        const monthlyData: any[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          const month = d.getMonth();
+          const year = d.getFullYear();
+          const monthRevenue = [
+            ...factures.filter((f: any) => new Date(f.date_emission).getMonth() === month && new Date(f.date_emission).getFullYear() === year),
+            ...ventesPassagers.filter((f: any) => new Date(f.date).getMonth() === month && new Date(f.date).getFullYear() === year)
+          ].reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0);
+          const monthExpense = depenses.filter((d: any) => new Date(d.date_depense).getMonth() === month && new Date(d.date_depense).getFullYear() === year).reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0);
+          monthlyData.push({
+            name: monthNames[month],
+            revenue: monthRevenue,
+            expenses: monthExpense
+          });
+        }
+
+        const stockValueHT = produits.reduce((sum: number, p: any) => {
+          const stock = Number(p.stock_actuel || 0);
+          const prixAchat = Number(p.prix_achat_ht || 0);
+          return sum + (stock * prixAchat);
+        }, 0);
+
+        setStats({
+          clientsCount: clients.length,
+          facturesCount: payeesFact.length + resteAPayerFact.length + brouillonFact.length,
+          produitsCount: produits.length,
+          fournisseursCount: fournisseurs.length,
+          totalRevenue,
+          unpaidRevenue,
+          totalDepenses,
+          profit,
+          totalTvaCollectee,
+          totalTvaDeductible,
+          tvaNet,
+          ventesHT,
+          totalCOGS,
+          stockValueHT,
+          monthlyData,
+          bonsCommandeCount: bonsCommande.filter((b: any) => ['confirmé', 'livré'].includes(b.statut)).length,
+          lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
+          recentFactures: recentFacturesRaw
+        });
+      } catch (error) {
+        console.error('Failed to fetch stats', error);
+        setStats(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [user?.id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="h-16 w-16 border-4 border-primary/20 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <HeartPulse className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <div className="space-y-2 text-center">
+            <p className="text-lg font-semibold text-foreground">Chargement des données...</p>
+            <p className="text-sm text-muted-foreground">Préparation de votre tableau de bord</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Tableau de Bord</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Bienvenue sur ParaGestion
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-right">
+          <Package className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="text-xs text-muted-foreground">Valeur du Stock (HT)</p>
+            <p className="text-lg font-bold text-foreground">
+              {stats ? formatCurrency(stats.stockValueHT) : formatCurrency(0)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Cards Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KPICard
+          title="Chiffre d'affaires"
+          value={stats ? formatCurrency(stats.totalRevenue) : formatCurrency(0)}
+          subtitle="Revenus totaux TTC"
+          icon={DollarSign}
+        />
+        <KPICard
+          title="Créances Clients"
+          value={stats ? formatCurrency(stats.unpaidRevenue) : formatCurrency(0)}
+          subtitle="Factures en attente"
+          icon={CreditCard}
+        />
+        <KPICard
+          title="Dépenses Totales"
+          value={stats ? formatCurrency(stats.totalDepenses) : formatCurrency(0)}
+          subtitle="Sorties mensuelles"
+          icon={Activity}
+        />
+        <KPICard
+          title="Bénéfice Net"
+          value={stats ? formatCurrency(stats.profit) : formatCurrency(0)}
+          subtitle="Marge bénéficiaire"
+          icon={ShieldCheck}
+        />
+      </div>
+
+      {/* Summary Counts Row */}
+      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+        <KPICard
+          title="Bons de Commande"
+          value={stats ? String(stats.bonsCommandeCount) : "0"}
+          subtitle="Confirmés / Livrés"
+          icon={ClipboardList}
+        />
+        <KPICard
+          title="Clients"
+          value={stats ? String(stats.clientsCount) : "0"}
+          subtitle="Total clients"
+          icon={Users}
+        />
+        <KPICard
+          title="Fournisseurs"
+          value={stats ? String(stats.fournisseursCount) : "0"}
+          subtitle="Total fournisseurs"
+          icon={Building2}
+        />
+        <KPICard
+          title="Produits"
+          value={stats ? String(stats.produitsCount) : "0"}
+          subtitle="Articles en stock"
+          icon={Package}
+        />
+        <KPICard
+          title="Factures"
+          value={stats ? String(stats.facturesCount) : "0"}
+          subtitle="Payées + Attente + Brouillon"
+          icon={FileText}
+        />
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid gap-6 lg:grid-cols-7">
+        {/* Revenue Chart */}
+        <Card className="lg:col-span-4 border border-slate-200 shadow-none rounded-[6px]">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Analyse des Flux
+              </CardTitle>
+              <CardDescription>Évolution mensuelle des recettes et dépenses</CardDescription>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-gradient-to-r from-primary to-primary/60" />
+                <span className="text-muted-foreground font-medium">Recettes</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-3 rounded-full bg-gradient-to-r from-red-400 to-red-500" />
+                <span className="text-muted-foreground font-medium">Dépenses</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <div className="h-[320px] w-full">
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={stats?.monthlyData || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="oklch(0.52 0.15 195)" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="oklch(0.52 0.15 195)" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="oklch(0.55 0.2 25)" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="oklch(0.55 0.2 25)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="oklch(0.92 0.01 250)" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: 'oklch(0.5 0.03 250)' }}
+                    dy={10}
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 12, fill: 'oklch(0.5 0.03 250)' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '4px', 
+                      border: '1px solid #E2E8F0',
+                      background: 'white'
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    name="Recettes" 
+                    stroke="oklch(0.52 0.15 195)" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorRevenue)" 
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="expenses" 
+                    name="Dépenses" 
+                    stroke="oklch(0.55 0.2 25)" 
+                    strokeWidth={3}
+                    fillOpacity={1} 
+                    fill="url(#colorExpenses)" 
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Invoices */}
+        <Card className="lg:col-span-3 border border-slate-200 shadow-none rounded-[6px]">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-primary" />
+                Factures Récentes
+              </CardTitle>
+              <CardDescription>Dernières transactions</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" className="text-primary font-semibold hover:bg-primary/5">
+              <Link to="/factures" className="flex items-center gap-1">
+                Tout voir
+                <ChevronRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats?.recentFactures && stats.recentFactures.length > 0 ? (
+                stats.recentFactures.map((facture, i) => (
+                  <div 
+                    key={facture.id} 
+                    className="flex items-center gap-4 p-3 rounded-[6px] hover:bg-muted/50 transition-all duration-200 group cursor-pointer"
+                  >
+                      <div className={cn(
+                        "h-11 w-11 rounded-[6px] flex items-center justify-center shrink-0",
+                        facture.statut === 'payée' ? "bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-600" :
+                        facture.statut === 'reste_a_payer' ? "bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600" :
+                        "bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600"
+                      )}>
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate text-foreground">
+                        {facture.client?.nom || 'Client Passager'}
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <span className="font-mono">{facture.numero}</span>
+                        <span>•</span>
+                        <span>{new Date(facture.date_emission).toLocaleDateString('fr-FR')}</span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-foreground">{formatCurrency(facture.montant_ttc)}</p>
+                       <Badge 
+                         variant="outline" 
+                          className={cn(
+                            "text-[10px] h-5 px-2 font-bold border-0",
+                            facture.statut === 'payée' ? "bg-emerald-100 text-emerald-700" :
+                            facture.statut === 'reste_a_payer' ? "bg-blue-100 text-blue-700" :
+                            "bg-amber-100 text-amber-700"
+                          )}
+                      >
+                        {facture.statut === 'payée' ? 'Payée' : 
+                         facture.statut === 'reste_a_payer' ? 'Partiel' : 'En attente'}
+                      </Badge>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-[8px] p-4 mb-3">
+                    <FileText className="h-8 w-8 text-primary/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">Aucune facture récente</p>
+                  <Link to="/factures" className="mt-2 text-xs text-primary font-semibold hover:underline">
+                    Créer votre première facture
+                  </Link>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Second Row */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Quick Actions */}
+        <Card className="border border-slate-200 shadow-none rounded-[6px]">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" />
+              Actions Rapides
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { label: 'Nouvelle Facture', icon: FileText, color: 'primary', bg: 'bg-primary/10', link: '/factures' },
+                { label: 'Vente Rapide', icon: ShoppingCart, color: 'emerald-500', bg: 'bg-emerald-50', link: '/ventes-passagers' },
+                { label: 'Nouvelle Dépense', icon: CreditCard, color: 'red-500', bg: 'bg-red-50', link: '/depenses' },
+                { label: 'Ajouter Client', icon: Users, color: 'amber-500', bg: 'bg-amber-50', link: '/clients' },
+              ].map((action) => (
+                <Link 
+                  key={action.label} 
+                  to={action.link} 
+                    className={cn(
+                      "flex flex-col items-center gap-3 p-4 rounded-[8px] border border-transparent",
+                      "hover:border-border hover:bg-muted/30 transition-all duration-200 group"
+                    )}
+                >
+                    <div className={cn("p-3 rounded-[6px]", action.bg)}>
+                      <action.icon className={cn("h-6 w-6", `text-${action.color}`)} />
+                  </div>
+                  <span className="text-xs font-bold text-muted-foreground text-center group-hover:text-foreground transition-colors">
+                    {action.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Stock Alerts */}
+        <Card className="border border-slate-200 shadow-none rounded-[6px]">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Alertes Stock
+            </CardTitle>
+            {stats?.lowStockProduits && stats.lowStockProduits.length > 0 && (
+              <Badge variant="destructive" className="bg-amber-500">
+                {stats.lowStockProduits.length} produit{stats.lowStockProduits.length > 1 ? 's' : ''}
+              </Badge>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats?.lowStockProduits && stats.lowStockProduits.length > 0 ? (
+                stats.lowStockProduits.slice(0, 4).map((produit) => (
+                  <div 
+                    key={produit.id} 
+                    className="flex items-center justify-between p-3 rounded-[6px] bg-gradient-to-r from-amber-50/50 to-transparent border border-amber-100 hover:from-amber-50 hover:border-amber-200 transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white p-2 rounded-[4px] border border-amber-100">
+                        <Pill className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{produit?.nom || '-'}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+                          Réf: {produit.reference}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-amber-600">
+                        {produit.stock_actuel} {produit.unite}
+                      </p>
+                      <p className="text-[10px] text-amber-500/70 font-semibold uppercase">Stock bas</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-[8px] p-4 mb-3">
+                    <ShieldCheck className="h-8 w-8 text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-semibold text-emerald-600">Stock optimal</p>
+                  <p className="text-xs text-muted-foreground">Tous vos produits sont bien approvisionnés</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* TVA Summary */}
+      <Card className="border border-slate-200 shadow-none rounded-[6px]">
+        <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-6 py-4 border-b border-primary/10 flex items-center gap-3">
+          <div className="p-2 rounded-[6px] bg-primary/10">
+            <PieChart className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-bold text-foreground">Récapitulatif Fiscal (TVA)</h3>
+            <p className="text-xs text-muted-foreground">TVA collectée, déductible et solde</p>
+          </div>
+        </div>
+        <CardContent className="p-6">
+          <div className="grid gap-8 md:grid-cols-3">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">TVA Collectée</p>
+                <div className="h-2 w-2 rounded-full bg-primary" />
+              </div>
+              <p className="text-2xl font-black text-foreground">
+                {stats ? Number(stats.totalTvaCollectee).toFixed(2) : '0.00'} <span className="text-sm font-medium text-muted-foreground">MAD</span>
+              </p>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full w-[70%]" />
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">TVA Déductible</p>
+                <div className="h-2 w-2 rounded-full bg-emerald-500" />
+              </div>
+              <p className="text-2xl font-black text-foreground">
+                {stats ? Number(stats.totalTvaDeductible).toFixed(2) : '0.00'} <span className="text-sm font-medium text-muted-foreground">MAD</span>
+              </p>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full w-[45%]" />
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Solde TVA</p>
+                <Badge className={cn(
+                  "font-bold",
+                  (stats?.tvaNet || 0) > 0 
+                    ? "bg-red-100 text-red-700 hover:bg-red-100" 
+                    : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                )}>
+                  {(stats?.tvaNet || 0) > 0 ? "À Payer" : "Crédit"}
+                 </Badge>
+               </div>
+             </div>
+           </div>
+         </CardContent>
+       </Card>
+     </div>
+   );
+}

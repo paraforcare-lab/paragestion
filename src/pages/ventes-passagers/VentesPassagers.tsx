@@ -1,0 +1,928 @@
+import React, { useEffect, useState, useMemo } from 'react'
+import {
+  Plus, Search, Trash2, ShoppingCart, Receipt, CreditCard, X,
+  ShoppingBag, CalendarDays, Filter, ChevronLeft, ChevronRight,
+  Printer, Eye, User, TrendingUp, DollarSign, FileSpreadsheet
+} from 'lucide-react';
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { formatCurrency } from '@/lib/utils'
+import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { ProductSelector } from '@/components/ui/ProductSelector'
+
+interface VentePassager {
+  id: string;
+  numero: string;
+  date: string;
+  montantHt: number;
+  montantTva: number;
+  montantTtc: number;
+  cogs?: number;
+  lignes: any[];
+}
+
+interface Produit {
+   id: number | string;
+   nom?: string;
+   designation?: string;
+   reference?: string;
+   prixVenteHt: number;
+   prix_vente_ht?: number;
+   prixVenteTtc?: number;
+   prix_vente_ttc?: number;
+   tauxTva: number;
+   tva?: number;
+   stockActuel: number;
+   stock_actuel?: number;
+   prixAchatHt?: number;
+   prix_achat_ht?: number;
+   marque?: string;
+   imageUrl?: string;
+   image_url?: string;
+ }
+
+const ITEMS_PER_PAGE = 10;
+
+export default function VentesPassagers() {
+  const { user } = useAuth();
+  const [ventes, setVentes] = useState<VentePassager[]>([]);
+  const [produits, setProduits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [detailVente, setDetailVente] = useState<VentePassager | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  const mapProduit = (p: any) => ({
+    ...p,
+    id: p.id,
+    reference: p.reference || '',
+    designation: p.designation || p.nom || '',
+    marque: p.marque || '',
+    prixVenteHt: Number(p.prix_vente_ht || p.prixVenteHt || 0),
+    prixVenteTtc: Number(p.prix_vente_ttc || 0),
+    prixAchatHt: Number(p.prix_achat_ht || p.prixAchatHt || 0),
+    tauxTva: Number(p.taux_tva || p.tva || 20),
+    stockActuel: Number(p.stock_actuel || p.stockActuel || 0),
+    imageUrl: p.image_url || p.imageUrl || undefined,
+  });
+
+  const [panier, setPanier] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchVentes();
+      fetchProduits();
+    }
+  }, [user?.id]);
+
+  const fetchVentes = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('ventes_passagers')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const mappedData = (data || []).map((v: any) => ({
+        ...v,
+        id: v.id,
+        numero: v.numero || '',
+        date: v.date || v.created_at,
+        montantHt: Number(v.montant_ht || v.montantHt || 0),
+        montantTva: Number(v.montant_tva || v.montantTva || 0),
+        montantTtc: Number(v.montant_ttc || v.montantTtc || 0),
+        cogs: Number(v.cogs || 0),
+      }));
+
+      setVentes(mappedData);
+    } catch (error) {
+      console.error('Error fetching sales:', error);
+      toast.error('Erreur lors du chargement des ventes');
+      setVentes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProduits = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('produits')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('designation');
+      if (error) throw error;
+      setProduits(Array.isArray(data) ? data.map(mapProduit) : []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast.error('Erreur lors du chargement des produits');
+      setProduits([]);
+    }
+  };
+
+  const removeFromPanier = (index: number) => {
+    setPanier(panier.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (panier.length === 0) {
+      toast.error('Le panier est vide');
+      return;
+    }
+
+    const totalHt = panier.reduce((sum, item) => sum + item.montantHt, 0);
+    const totalTva = panier.reduce((sum, item) => sum + item.montantTva, 0);
+    const totalTtc = panier.reduce((sum, item) => sum + item.montantTtc, 0);
+    const totalCogs = panier.reduce((sum, item) => sum + (Number(item.prixAchatHt || 0) * item.quantite), 0);
+
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = String(now.getHours()).padStart(2, '0');
+      const minute = String(now.getMinutes()).padStart(2, '0');
+      const second = String(now.getSeconds()).padStart(2, '0');
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      const numero = `VP-${year}${month}${day}${hour}${minute}${second}-${random}`;
+
+      const { data: venteData, error: venteError } = await supabase
+        .from('ventes_passagers')
+        .insert([{
+          user_id: user?.id,
+          numero: numero,
+          montant_ht: totalHt,
+          montant_tva: totalTva,
+          montant_ttc: totalTtc,
+          cogs: totalCogs,
+          date: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (venteError) throw venteError;
+
+      const lignesPayload = panier.map((item, index) => ({
+        vp_id: venteData.id,
+        produit_id: item.produitId,
+        designation: item.designation,
+        quantite: item.quantite,
+        prix_unitaire_ht: item.prixUnitaireHt,
+        tva: item.tva,
+        montant_ht: item.montantHt,
+        montant_ttc: item.montantTtc,
+        montant_tva: item.montantTva,
+        ordre: index,
+      }));
+
+      if (lignesPayload.length > 0) {
+        const { error: lignesError } = await supabase.from('ventes_passagers_lignes').insert(lignesPayload);
+        if (lignesError) throw lignesError;
+      }
+
+      for (const item of panier) {
+        try {
+          const { error: rpcError } = await supabase.rpc('decrement_stock', {
+            product_id: item.produitId,
+            amount: item.quantite
+          });
+          if (rpcError) {
+            const produit = produits.find(p => p.id === item.produitId);
+            if (produit) {
+              const newStock = (produit.stock_actuel || produit.stockActuel || 0) - item.quantite;
+              await supabase.from('produits').update({ stock_actuel: newStock }).eq('id', item.produitId);
+            }
+          }
+        } catch (e) {
+          const produit = produits.find(p => p.id === item.produitId);
+          if (produit) {
+            const newStock = (produit.stock_actuel || produit.stockActuel || 0) - item.quantite;
+            await supabase.from('produits').update({ stock_actuel: newStock }).eq('id', item.produitId);
+          }
+        }
+      }
+
+      toast.success('Vente enregistrée avec succès');
+      setIsDialogOpen(false);
+      setPanier([]);
+      fetchVentes();
+      fetchProduits();
+    } catch (error: any) {
+      console.error('Error:', error);
+      toast.error(error.message || 'Erreur lors de l\'enregistrement');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from('ventes_passagers').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Vente supprimée');
+      fetchVentes();
+    } catch (error) {
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
+  const handlePrint = (vente: VentePassager) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Veuillez autoriser les popups');
+      return;
+    }
+    printWindow.document.write(`
+      <html><head><title>Ticket ${vente.numero}</title>
+      <style>body{font-family:monospace;font-size:14px;padding:20px;max-width:300px;margin:auto}
+      h2{text-align:center;margin-bottom:16px}
+      table{width:100%;border-collapse:collapse;margin-top:12px}
+      th,td{text-align:left;padding:4px 0}
+      .total{font-weight:bold;font-size:16px;margin-top:12px;text-align:right;border-top:2px solid #000;padding-top:8px}
+      .footer{text-align:center;margin-top:20px;font-size:12px;color:#666}
+      </style></head><body>
+      <h2>Ticket de Vente</h2>
+      <p><strong>${vente.numero}</strong></p>
+      <p>${new Date(vente.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+      <table>
+        <tr><th>Total HT</th><td style="text-align:right">${formatCurrency(vente.montantHt)}</td></tr>
+        <tr><th>TVA</th><td style="text-align:right">${formatCurrency(vente.montantTva)}</td></tr>
+      </table>
+      <div class="total">Total TTC : ${formatCurrency(vente.montantTtc)}</div>
+      <div class="footer">Merci de votre visite!</div>
+      </body></html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const filteredVentes = useMemo(() => {
+    let filtered = ventes.filter(v => {
+      const searchLower = searchTerm.toLowerCase().trim();
+      if (!searchLower) return true;
+      const matchesNumero = (v.numero || '').toLowerCase().includes(searchLower);
+      const matchesDate = v.date && new Date(v.date).toLocaleDateString('fr-FR').includes(searchLower);
+      return matchesNumero || matchesDate;
+    });
+
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      let cutoff: Date;
+      switch (timeFilter) {
+        case 'today':
+          cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'thisWeek':
+          const weekAgo = new Date(now);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          cutoff = weekAgo;
+          break;
+        case 'thisMonth':
+          cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        default:
+          cutoff = new Date(0);
+      }
+      filtered = filtered.filter(v => new Date(v.date) >= cutoff);
+    }
+
+    return filtered;
+  }, [ventes, searchTerm, timeFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredVentes.length / ITEMS_PER_PAGE));
+  const paginatedVentes = filteredVentes.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, timeFilter]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleViewDetail = async (vente: VentePassager) => {
+    try {
+      const { data: lignes } = await supabase
+        .from('ventes_passagers_lignes')
+        .select('*')
+        .eq('vp_id', vente.id)
+        .order('ordre');
+      setDetailVente({ ...vente, lignes: lignes || [] });
+      setIsDetailOpen(true);
+    } catch {
+      toast.error('Erreur lors du chargement des détails');
+    }
+  };
+
+  const totalVentes = ventes.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayVentesList = ventes.filter(v => new Date(v.date) >= todayStart);
+  const todayCount = todayVentesList.length;
+  const todayRevenue = todayVentesList.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
+  const todayAvgBasket = todayCount > 0 ? todayRevenue / todayCount : 0;
+  const todayTva = todayVentesList.reduce((sum, v) => sum + (v.montantTva || 0), 0);
+
+  // Weekly sparkline data (last 7 days)
+  const weekDays: { label: string; total: number }[] = useMemo(() => {
+    const result: { label: string; total: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      const next = new Date(d);
+      next.setDate(next.getDate() + 1);
+      const dayTotal = ventes
+        .filter(v => {
+          const vd = new Date(v.date);
+          return vd >= d && vd < next;
+        })
+        .reduce((s, v) => s + (v.montantTtc || 0), 0);
+      result.push({
+        label: d.toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 3),
+        total: dayTotal,
+      });
+    }
+    return result;
+  }, [ventes]);
+
+  const maxSparkValue = Math.max(...weekDays.map(d => d.total), 1);
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
+            <ShoppingBag className="h-5 w-5 text-emerald-500" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Ventes Passagers</h2>
+            <p className="text-sm text-muted-foreground">Gérez vos ventes directes sans facture nominative</p>
+          </div>
+        </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger render={
+            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvelle Vente
+            </Button>
+          } />
+          <DialogContent className="max-w-4xl bg-gradient-to-br from-background to-muted/20">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
+                  <ShoppingCart className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-bold">Nouvelle Vente Passager</DialogTitle>
+                  <p className="text-sm text-muted-foreground">Ajoutez des produits au panier</p>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              <div className="flex items-center justify-center">
+                <ProductSelector
+                  produits={produits}
+                  onSelect={(produit, qte) => {
+                    const puHt = Number(produit.prixVenteHt ?? 0);
+                    const tvaRate = Number(produit.tauxTva ?? 20);
+                    const mht = puHt * qte;
+                    const mtva = mht * (tvaRate / 100);
+                    const mttc = mht + mtva;
+
+                    const existingIndex = panier.findIndex(item => Number(item.produitId) === Number(produit.id));
+                    if (existingIndex >= 0) {
+                      const existing = panier[existingIndex];
+                      const newQte = existing.quantite + qte;
+                      const newMht = existing.prixUnitaireHt * newQte;
+                      const newMtva = newMht * (existing.tva / 100);
+                      const newMttc = newMht + newMtva;
+
+                      setPanier(panier.map((item, idx) =>
+                        idx === existingIndex
+                          ? { ...item, quantite: newQte, montantHt: newMht, montantTva: newMtva, montantTtc: newMttc }
+                          : item
+                      ));
+                    } else {
+                      setPanier([...panier, {
+                        produitId: produit.id,
+                        designation: produit.designation || 'Produit',
+                        quantite: qte,
+                        prixUnitaireHt: puHt,
+                        tva: tvaRate,
+                        montantHt: mht,
+                        montantTva: mtva,
+                        montantTtc: mttc,
+                        prixAchatHt: Number(produit.prixAchatHt ?? 0)
+                      }]);
+                    }
+                    toast.success(`${produit.designation || 'Produit'} ajouté au panier`);
+                  }}
+                  trigger={
+                    <Button className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-[4px] shadow-none text-lg">
+                      <ShoppingCart className="mr-3 h-5 w-5" />
+                      Sélectionner un produit
+                    </Button>
+                  }
+                />
+              </div>
+
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">
+                  Cherchez par nom, référence ou marque.
+                </p>
+              </div>
+
+              {/* Cart Table */}
+              <div className="rounded-[6px] border border-slate-200 bg-white overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b border-slate-100">
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Désignation</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Qté</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">PU HT</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">TVA</TableHead>
+                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total TTC</TableHead>
+                      <TableHead className="w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {panier.map((item, index) => (
+                      <TableRow key={index} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                        <TableCell className="py-4 text-sm font-medium text-slate-800">{item.designation}</TableCell>
+                        <TableCell className="py-4 text-right font-bold text-sm">{item.quantite}</TableCell>
+                        <TableCell className="py-4 text-right text-sm text-slate-500">{formatCurrency(item.prixUnitaireHt)}</TableCell>
+                        <TableCell className="py-4 text-right text-sm text-slate-500">{item.tva}%</TableCell>
+                        <TableCell className="py-4 text-right font-bold text-sm text-emerald-600">{formatCurrency(item.montantTtc)}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                            onClick={() => removeFromPanier(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {panier.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <ShoppingCart className="h-10 w-10 text-slate-300" />
+                            <p className="text-sm text-slate-500 font-medium">Panier vide</p>
+                            <p className="text-xs text-slate-400">Ajoutez des produits ci-dessus</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Totals */}
+              {panier.length > 0 && (
+                <div className="flex justify-end">
+                  <div className="flex items-center gap-8 p-4 rounded-[6px] border border-emerald-100 bg-emerald-50/50">
+                    <div className="text-right">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total HT</p>
+                      <p className="text-base font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TVA</p>
+                      <p className="text-base font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
+                    </div>
+                    <div className="text-right border-l border-emerald-200 pl-8">
+                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Total TTC</p>
+                      <p className="text-xl font-black text-emerald-600">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTtc, 0))}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="rounded-[4px] h-10"
+              >
+                Annuler
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={panier.length === 0}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 shadow-none"
+              >
+                <CreditCard className="mr-2 h-4 w-4" />
+                Valider la vente
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Column - Table */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Search & Filters */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Rechercher par numéro ou date..."
+                className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={timeFilter} onValueChange={setTimeFilter}>
+              <SelectTrigger className="h-10 w-[150px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
+                <CalendarDays className="h-3.5 w-3.5 text-slate-400 mr-2" />
+                <SelectValue placeholder="Période" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes les périodes</SelectItem>
+                <SelectItem value="today">Aujourd'hui</SelectItem>
+                <SelectItem value="thisWeek">Cette semaine</SelectItem>
+                <SelectItem value="thisMonth">Ce mois</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sales Table */}
+          <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-slate-100">
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">N° Vente</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Détails</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+                        <p className="text-sm text-muted-foreground font-medium">Chargement des ventes...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedVentes.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-48 text-center">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
+                          <Receipt className="h-8 w-8 text-slate-300" />
+                        </div>
+                        <p className="text-sm text-slate-500 font-medium">
+                          {searchTerm || timeFilter !== 'all'
+                            ? 'Aucune vente trouvée'
+                            : 'Aucune vente enregistrée'}
+                        </p>
+                        {!searchTerm && timeFilter === 'all' && (
+                          <Button
+                            variant="outline"
+                            className="mt-1 rounded-[4px] text-sm"
+                            onClick={() => setIsDialogOpen(true)}
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Créer votre première vente
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  paginatedVentes.map((vente) => (
+                    <TableRow
+                      key={vente.id}
+                      className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                    >
+                      <TableCell className="px-4 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-slate-100 border border-slate-200">
+                            <User className="h-4 w-4 text-slate-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">Client de passage</p>
+                            <p className="text-xs text-slate-400">Vente comptoir</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-5">
+                        <span className="text-sm font-mono font-medium text-slate-700">{vente.numero}</span>
+                      </TableCell>
+                      <TableCell className="px-4 py-5">
+                        <span className="text-sm text-slate-500">
+                          {new Date(vente.date).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-5 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-sm font-bold text-slate-800">{formatCurrency(vente.montantTtc)}</span>
+                          <span className="text-[11px] text-slate-400">
+                            HT: {formatCurrency(vente.montantHt)} · TVA: {formatCurrency(vente.montantTva)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-4 py-5 text-center">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          Complétée
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-4 py-5 text-right">
+                        <div className="flex justify-end gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                            onClick={() => handlePrint(vente)}
+                            title="Imprimer le ticket"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                            onClick={() => handleViewDetail(vente)}
+                            title="Voir le détail"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                            onClick={() => handleDelete(vente.id?.toString())}
+                            title="Supprimer"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+            {!loading && paginatedVentes.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+                <p className="text-xs text-slate-400">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredVentes.length)} sur {filteredVentes.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                        page === currentPage
+                          ? "bg-slate-100 text-slate-800"
+                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                      )}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Right Column - Summary */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="border border-slate-200 shadow-none rounded-[6px]">
+            <CardHeader className="px-4 py-4 border-b border-slate-100">
+              <CardTitle className="text-sm font-semibold text-slate-700">Aujourd'hui au Comptoir</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 py-4 space-y-5">
+              {/* Today Count */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0">
+                  <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-500">Ventes du jour</p>
+                  <p className="text-lg font-bold text-slate-800">{todayCount} vente{todayCount !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+
+              {/* Today Revenue */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0">
+                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-slate-500">Chiffre d'affaires</p>
+                  <p className="text-lg font-bold text-emerald-600">{formatCurrency(todayRevenue)}</p>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-slate-100 pt-4 space-y-3">
+                {/* Average Basket */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-500">Panier moyen</p>
+                  <p className="text-sm font-bold text-slate-800">{formatCurrency(todayAvgBasket)}</p>
+                </div>
+                {/* TVA Collected */}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-500">TVA collectée</p>
+                  <p className="text-sm font-semibold text-slate-600">{formatCurrency(todayTva)}</p>
+                </div>
+              </div>
+
+              {/* Sparkline */}
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Tendance semaine</p>
+                <svg viewBox="0 0 200 60" className="w-full h-16">
+                  <defs>
+                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
+                      <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {(() => {
+                    const points = weekDays.map((d, i) => ({
+                      x: (i / (weekDays.length - 1)) * 180 + 10,
+                      y: 55 - (d.total / maxSparkValue) * 40,
+                    }));
+                    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+                    const areaPath = linePath + ` L${points[points.length - 1].x},55 L${points[0].x},55 Z`;
+                    return (
+                      <>
+                        <path d={areaPath} fill="url(#sparkGrad)" />
+                        <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        {points.map((p, i) => (
+                          <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#10B981" stroke="white" strokeWidth="1.5" />
+                        ))}
+                      </>
+                    );
+                  })()}
+                </svg>
+                <div className="flex justify-between mt-1">
+                  {weekDays.map((d, i) => (
+                    <span key={i} className="text-[10px] text-slate-400">{d.label}</span>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Detail Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
+                <Receipt className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">Détail de la vente</DialogTitle>
+                <p className="text-sm text-muted-foreground">{detailVente?.numero}</p>
+              </div>
+            </div>
+          </DialogHeader>
+          {detailVente && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
+                <CalendarDays className="h-4 w-4" />
+                {new Date(detailVente.date).toLocaleDateString('fr-FR', {
+                  day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                })}
+              </div>
+
+              {detailVente.lignes && detailVente.lignes.length > 0 && (
+                <div className="rounded-[6px] border border-slate-200 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-slate-100">
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase">Produit</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Qté</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">PU HT</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Total TTC</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailVente.lignes.map((l: any, i: number) => (
+                        <TableRow key={i} className="border-b border-slate-100 last:border-0">
+                          <TableCell className="py-3 text-sm">{l.designation || 'Produit'}</TableCell>
+                          <TableCell className="py-3 text-right text-sm font-medium">{l.quantite}</TableCell>
+                          <TableCell className="py-3 text-right text-sm text-slate-500">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
+                          <TableCell className="py-3 text-right text-sm font-bold">{formatCurrency(l.montant_ttc || 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              <div className="rounded-[6px] border border-slate-100 bg-slate-50/50 p-4 space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Total HT</span>
+                  <span className="font-medium text-slate-800">{formatCurrency(detailVente.montantHt)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">TVA</span>
+                  <span className="font-medium text-slate-800">{formatCurrency(detailVente.montantTva)}</span>
+                </div>
+                <div className="flex justify-between text-base font-bold pt-1.5 border-t border-slate-200">
+                  <span className="text-slate-800">Total TTC</span>
+                  <span className="text-emerald-600">{formatCurrency(detailVente.montantTtc)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDetailOpen(false)}
+              className="rounded-[4px] h-10"
+            >
+              Fermer
+            </Button>
+            {detailVente && (
+              <Button
+                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-[4px] h-10 shadow-none"
+                onClick={() => { handlePrint(detailVente); setIsDetailOpen(false); }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Imprimer le ticket
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
