@@ -563,12 +563,26 @@ const [stats, setStats] = useState<Stats | null>(null);
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Solde TVA</p>
                 <Badge className={cn(
                   "font-bold",
-                  (stats?.tvaNet || 0) > 0 
-                    ? "bg-red-100 text-red-700 hover:bg-red-100" 
+                  (stats?.tvaNet || 0) > 0
+                    ? "bg-red-100 text-red-700 hover:bg-red-100"
                     : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
                 )}>
                   {(stats?.tvaNet || 0) > 0 ? "À Payer" : "Crédit"}
                  </Badge>
+               </div>
+               <p className="text-2xl font-black text-[#0f172a]">
+                 {Number(stats?.tvaNet || 0).toFixed(2)} <span className="text-sm font-medium text-muted-foreground">MAD</span>
+               </p>
+               <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                 {stats && Number(stats.totalTvaCollectee) > 0 && (
+                   <div
+                     className="h-full rounded-full transition-all"
+                     style={{
+                       width: `${Math.min(Math.abs(Number(stats.tvaNet)) / Number(stats.totalTvaCollectee) * 100, 100)}%`,
+                       backgroundColor: (stats?.tvaNet || 0) > 0 ? '#267E54' : '#0ea5e9',
+                     }}
+                   />
+                 )}
                </div>
              </div>
            </div>
