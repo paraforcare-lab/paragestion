@@ -43,10 +43,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 mx-4"
+    <div className="min-h-screen flex flex-col mx-4"
       style={{ background: 'radial-gradient(ellipse at center, #f0fdfa 0%, #ffffff 70%)' }}
     >
-      <div className="w-full max-w-md bg-white rounded-2xl border border-slate-100 shadow-[0_20px_50px_rgba(8,112,184,0.07)] p-8 md:p-10">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-100 shadow-[0_20px_50px_rgba(8,112,184,0.07)] p-8 md:p-10">
         {/* Logo */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-[0_4px_12px_rgba(16,185,129,0.3)] mb-4">
@@ -163,6 +164,12 @@ export function LoginPage() {
           </div>
         </div>
       </div>
+
+      </div>
+
+      <p className="pb-6 text-center text-xs text-slate-400 font-light">
+        &copy; 2026 SmartGestion. All rights reserved.
+      </p>
     </div>
   )
 }
