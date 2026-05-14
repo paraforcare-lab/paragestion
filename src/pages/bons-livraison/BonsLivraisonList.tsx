@@ -140,7 +140,7 @@ export function BonsLivraisonList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,logo_url,couleur_principale')
+        .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,logo_url,couleur_principale,watermark_text')
         .eq('user_id', String(user.id))
         .single();
 

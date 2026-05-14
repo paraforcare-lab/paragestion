@@ -37,7 +37,13 @@ import {
   FileText, 
   Hash,
   Landmark,
-  CheckCircle2
+  CheckCircle2,
+  Sun,
+  Moon,
+  Monitor,
+  Upload,
+  ImageIcon,
+  Check
 } from 'lucide-react';
 
 interface ParametresFormValues {
@@ -64,6 +70,7 @@ interface ParametresFormValues {
   piedPageDefaut: string;
   activerDroitTimbre: boolean;
   watermarkText: string;
+  activerFiligrane: boolean;
 }
 
 const parametresSchema = z.object({
@@ -90,6 +97,7 @@ const parametresSchema = z.object({
   piedPageDefaut: z.string(),
   activerDroitTimbre: z.boolean(),
   watermarkText: z.string(),
+  activerFiligrane: z.boolean(),
 });
 
 export function Parametres() {
@@ -100,6 +108,12 @@ export function Parametres() {
   const [parametresId, setParametresId] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
+    return (localStorage.getItem('pg_theme') as 'light' | 'dark' | 'system') || 'system';
+  });
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<ParametresFormValues>({
     resolver: zodResolver(parametresSchema),
@@ -127,6 +141,7 @@ export function Parametres() {
       piedPageDefaut: '',
       activerDroitTimbre: true,
       watermarkText: 'ParaGestion',
+      activerFiligrane: true,
     },
   });
 
@@ -135,7 +150,7 @@ export function Parametres() {
   const tabErrors = useMemo(() => ({
     general: ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].some(f => errors[f]),
     fiscal: ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].some(f => errors[f]),
-    personalisation: ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText'].some(f => errors[f]),
+    personalisation: ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText', 'activerFiligrane'].some(f => errors[f]),
   }), [errors]);
 
   const STORAGE_KEY = 'sf_params_modified';
@@ -161,7 +176,7 @@ export function Parametres() {
         console.log('Fetching parametres for user:', user.id);
         const { data, error } = await supabase
           .from('parametres')
-          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
+          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,watermark_text,activer_filigrane,created_at,updated_at')
           .eq('user_id', user.id)
           .single();
         
@@ -178,17 +193,17 @@ export function Parametres() {
             nomSociete: data.nom_societe || data.nom || '',
             adresse: data.adresse || '',
             ville: data.ville || '',
-            codePostal: data.code_postale || data.codePostale || '',
+            codePostal: data.code_postale || '',
             telephone: data.telephone || '',
             email: data.email || '',
-            siteWeb: data.site_web || data.siteWeb || '',
+            siteWeb: data.site_web || '',
             ice: data.ice || '',
             rc: data.rc || '',
-            ifNumber: data.if_number || data.ifNumber || '',
-            tpPatente: data.tp_patente || data.tpPatente || '',
+            ifNumber: data.if_number || '',
+            tpPatente: data.tp_patente || '',
             cnss: data.cnss || '',
-            capitalSocial: data.capital_social || data.capitalSocial || '',
-            formeJuridique: data.forme_juridique || data.formeJuridique || '',
+            capitalSocial: data.capital_social || '',
+            formeJuridique: data.forme_juridique || '',
             banque: data.banque || '',
             rib: data.rib || '',
             swift: data.swift || '',
@@ -198,7 +213,9 @@ export function Parametres() {
             piedPageDefaut: data.pied_page_defaut || '',
             activerDroitTimbre: data.activer_droit_timbre !== undefined ? data.activer_droit_timbre : true,
             watermarkText: data.watermark_text || 'ParaGestion',
+            activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : JSON.parse(localStorage.getItem('pg_watermark') || 'true'),
           });
+          setLogoPreview(null);
         }
       } catch (error) {
         console.error('Failed to fetch parametres', error);
@@ -210,12 +227,48 @@ export function Parametres() {
     fetchParametres();
   }, [form, user]);
 
+  useEffect(() => {
+    const applyTheme = (mode: 'light' | 'dark' | 'system') => {
+      const root = document.documentElement;
+      if (mode === 'dark') {
+        root.classList.add('dark');
+      } else if (mode === 'light') {
+        root.classList.remove('dark');
+      } else {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        root.classList.toggle('dark', prefersDark);
+      }
+      localStorage.setItem('pg_theme', mode);
+    };
+
+    applyTheme(themeMode);
+
+    if (themeMode === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = (e: MediaQueryListEvent) => {
+        document.documentElement.classList.toggle('dark', e.matches);
+      };
+      mediaQuery.addEventListener('change', handler);
+      return () => mediaQuery.removeEventListener('change', handler);
+    }
+  }, [themeMode]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem('pg_watermark', JSON.stringify(form.watch('activerFiligrane')));
+    }
+  }, [form.watch('activerFiligrane'), isLoading]);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [form.watch('logoUrl'), logoPreview]);
+
   const onInvalid = (formErrors: any) => {
     const fieldNames = Object.keys(formErrors)
     const tabs: string[] = []
     if (fieldNames.some(f => ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].includes(f))) tabs.push('Informations')
     if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].includes(f))) tabs.push('Fiscalité')
-    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText'].includes(f))) tabs.push('Personnalisation')
+    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText', 'activerFiligrane'].includes(f))) tabs.push('Personnalisation')
 
     const first = tabs[0]
     if (first === 'Informations') setActiveTab('general')
@@ -260,7 +313,10 @@ export function Parametres() {
         pied_page_defaut: data.piedPageDefaut,
         activer_droit_timbre: data.activerDroitTimbre,
         watermark_text: data.watermarkText,
+        activer_filigrane: data.activerFiligrane,
       };
+
+      localStorage.setItem('pg_watermark', JSON.stringify(data.activerFiligrane));
 
       console.log('Saving parametres for user:', user.id);
       console.log('Record ID:', parametresId);
@@ -271,7 +327,7 @@ export function Parametres() {
           .from('parametres')
           .update(fields)
           .eq('id', parametresId)
-          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
+          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,watermark_text,activer_filigrane,created_at,updated_at')
           .single();
         result = response.data;
         error = response.error;
@@ -279,7 +335,7 @@ export function Parametres() {
         const response = await supabase
           .from('parametres')
           .insert([{ ...fields, user_id: user.id }])
-          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
+          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,watermark_text,activer_filigrane,created_at,updated_at')
           .single();
         result = response.data;
         error = response.error;
@@ -745,53 +801,239 @@ export function Parametres() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="couleurPrincipale"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-foreground font-semibold">Couleur Principale</FormLabel>
-                          <FormControl>
-                            <div className="flex gap-3">
-                              <Input 
-                                type="color" 
-                                className="w-14 h-11 p-1 rounded-lg cursor-pointer" 
-                                value={field.value || '#267E54'}
-                                onChange={(e) => field.onChange(e.target.value)}
-                              />
-                              <Input 
-                                className="flex-1 h-11 bg-white border-border/50 focus:border-primary font-mono uppercase" 
-                                {...field} 
-                              />
+                <CardContent className="pt-6 space-y-8">
+                  {/* Theme Selection Cards */}
+                  <div className="space-y-3">
+                    <FormLabel className="text-foreground font-semibold">Thème</FormLabel>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Light Mode */}
+                      <div
+                        onClick={() => setThemeMode('light')}
+                        className={`relative cursor-pointer rounded-[6px] border-2 p-4 transition-all hover:shadow-md ${
+                          themeMode === 'light'
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          <div className="h-20 rounded-[4px] bg-gradient-to-b from-white to-slate-50 border border-slate-200 flex items-center justify-center">
+                            <div className="w-full px-3 space-y-1.5">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="h-2 w-2 rounded-full bg-slate-300" />
+                                <div className="h-2 w-2 rounded-full bg-slate-300" />
+                                <div className="h-2 w-2 rounded-full bg-slate-300" />
+                                <div className="ml-auto h-2 w-8 rounded bg-slate-300" />
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-slate-200" />
+                              <div className="h-1.5 w-3/4 rounded-full bg-slate-200" />
+                              <div className="h-1.5 w-1/2 rounded-full bg-slate-200" />
+                              <div className="h-1.5 w-full rounded-full bg-slate-200" />
                             </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="logoUrl"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-foreground font-semibold">URL du Logo</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://example.com/logo.png" className="h-11 bg-white border-border/50 focus:border-primary" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Sun className="h-4 w-4 text-amber-500" />
+                              <span className="text-sm font-medium text-foreground">Light Mode</span>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                              themeMode === 'light' ? 'border-primary bg-primary' : 'border-slate-300'
+                            }`}>
+                              {themeMode === 'light' && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dark Mode */}
+                      <div
+                        onClick={() => setThemeMode('dark')}
+                        className={`relative cursor-pointer rounded-[6px] border-2 p-4 transition-all hover:shadow-md ${
+                          themeMode === 'dark'
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          <div className="h-20 rounded-[4px] bg-gradient-to-b from-slate-800 to-slate-900 border border-slate-700 flex items-center justify-center">
+                            <div className="w-full px-3 space-y-1.5">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="h-2 w-2 rounded-full bg-slate-600" />
+                                <div className="h-2 w-2 rounded-full bg-slate-600" />
+                                <div className="h-2 w-2 rounded-full bg-slate-600" />
+                                <div className="ml-auto h-2 w-8 rounded bg-slate-600" />
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-slate-700" />
+                              <div className="h-1.5 w-3/4 rounded-full bg-slate-700" />
+                              <div className="h-1.5 w-1/2 rounded-full bg-slate-700" />
+                              <div className="h-1.5 w-full rounded-full bg-slate-700" />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Moon className="h-4 w-4 text-indigo-400" />
+                              <span className="text-sm font-medium text-foreground">Dark Mode</span>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                              themeMode === 'dark' ? 'border-primary bg-primary' : 'border-slate-300'
+                            }`}>
+                              {themeMode === 'dark' && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* System Preferences */}
+                      <div
+                        onClick={() => setThemeMode('system')}
+                        className={`relative cursor-pointer rounded-[6px] border-2 p-4 transition-all hover:shadow-md ${
+                          themeMode === 'system'
+                            ? 'border-primary bg-primary/5 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="space-y-3">
+                          <div className="h-20 rounded-[4px] bg-gradient-to-b from-slate-100 to-slate-200 border border-slate-300 flex items-center justify-center">
+                            <div className="w-full px-3 space-y-1.5">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="h-2 w-2 rounded-full bg-slate-400" />
+                                <div className="h-2 w-2 rounded-full bg-slate-400" />
+                                <div className="h-2 w-2 rounded-full bg-slate-400" />
+                                <div className="ml-auto flex gap-1">
+                                  <div className="h-2 w-2 rounded-full bg-slate-400" />
+                                  <div className="h-2 w-2 rounded-full bg-slate-400" />
+                                </div>
+                              </div>
+                              <div className="h-1.5 w-full rounded-full bg-slate-300" />
+                              <div className="h-1.5 w-3/4 rounded-full bg-slate-300" />
+                              <div className="h-1.5 w-1/2 rounded-full bg-slate-300" />
+                              <div className="h-1.5 w-full rounded-full bg-slate-300" />
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="h-4 w-4 text-slate-500" />
+                              <span className="text-sm font-medium text-foreground">Système</span>
+                            </div>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                              themeMode === 'system' ? 'border-primary bg-primary' : 'border-slate-300'
+                            }`}>
+                              {themeMode === 'system' && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
-                    <p className="text-sm text-muted-foreground mb-3">Aperçu de la couleur:</p>
-                    <div 
-                      className="h-12 rounded-lg w-48"
-                      style={{ backgroundColor: form.watch('couleurPrincipale') || '#267E54' }}
-                    />
+                  <Separator />
+
+                  {/* Color Accent Picker */}
+                  <FormField
+                    control={form.control}
+                    name="couleurPrincipale"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-foreground font-semibold">Couleur d'accent</FormLabel>
+                        <FormControl>
+                          <div className="flex gap-3">
+                            <Input
+                              type="color"
+                              className="w-14 h-11 p-1 rounded-[6px] cursor-pointer"
+                              value={field.value || '#267E54'}
+                              onChange={(e) => field.onChange(e.target.value)}
+                            />
+                            <Input
+                              className="flex-1 h-11 bg-white border-border/50 focus:border-primary font-mono uppercase"
+                              {...field}
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Separator />
+
+                  {/* Logo Management */}
+                  <div className="space-y-3">
+                    <FormLabel className="text-foreground font-semibold">Logo</FormLabel>
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Logo Preview */}
+                      <div className="flex-shrink-0">
+                        <div className="w-36 h-36 rounded-[6px] border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center overflow-hidden">
+                          {(form.watch('logoUrl') || logoPreview) && !logoError ? (
+                            <img
+                              src={logoPreview || form.watch('logoUrl')}
+                              alt="Logo"
+                              className="w-full h-full object-contain p-2"
+                              onError={() => setLogoError(true)}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                              <ImageIcon className="h-10 w-10" />
+                              <span className="text-xs font-medium">No Logo</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Upload and URL Controls */}
+                      <div className="flex-1 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="h-10 rounded-[4px] border-slate-200"
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Modifier le logo
+                          </Button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => {
+                                  const dataUrl = ev.target?.result as string;
+                                  setLogoPreview(dataUrl);
+                                  form.setValue('logoUrl', dataUrl);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </div>
+
+                        <FormField
+                          control={form.control}
+                          name="logoUrl"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm text-muted-foreground">URL du logo</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="https://example.com/logo.png"
+                                  className="h-11 bg-white border-border/50 focus:border-primary"
+                                  {...field}
+                                  onChange={(e) => {
+                                    field.onChange(e.target.value);
+                                    setLogoPreview(null);
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -841,20 +1083,53 @@ export function Parametres() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="watermarkText"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-foreground font-semibold">Texte du filigrane (Watermark)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="ParaGestion" className="h-11 bg-white border-border/50 focus:border-primary" {...field} />
-                        </FormControl>
-                        <p className="text-sm text-muted-foreground">Ce texte apparaîtra en arrière-plan de tous vos documents PDF.</p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="activerFiligrane"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between p-4 rounded-[6px] border border-slate-200 bg-slate-50/30">
+                          <div className="space-y-0.5 flex-1">
+                            <FormLabel className="text-base font-semibold cursor-pointer">Filigrane</FormLabel>
+                            <p className="text-sm text-muted-foreground">
+                              Activer le filigrane sur les documents PDF
+                            </p>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="data-[state=checked]:bg-primary"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="watermarkText"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className={`text-foreground font-semibold ${!form.watch('activerFiligrane') ? 'text-muted-foreground' : ''}`}>
+                            Texte du filigrane
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="ParaGestion"
+                              className={`h-11 bg-white border-border/50 focus:border-primary transition-all ${
+                                !form.watch('activerFiligrane') ? 'opacity-50 cursor-not-allowed' : ''
+                              }`}
+                              disabled={!form.watch('activerFiligrane')}
+                              {...field}
+                            />
+                          </FormControl>
+                          <p className="text-sm text-muted-foreground">Ce texte apparaîtra en arrière-plan de tous vos documents PDF.</p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
 </Card>
               </TabsContent>

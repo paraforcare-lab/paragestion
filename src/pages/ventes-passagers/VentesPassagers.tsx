@@ -363,7 +363,7 @@ export default function VentesPassagers() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
+          <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50">
             <ShoppingBag className="h-5 w-5 text-emerald-500" />
           </div>
           <div>
@@ -374,7 +374,7 @@ export default function VentesPassagers() {
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger render={
-            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none">
+            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
               <Plus className="mr-2 h-4 w-4" />
               Nouvelle Vente
             </Button>
@@ -382,20 +382,20 @@ export default function VentesPassagers() {
           <DialogContent className="sm:max-w-[1000px] w-[95vw] !p-0 gap-0 max-h-[90vh] overflow-y-auto rounded-lg shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_20px_60px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08)]">
             <DialogHeader className="px-8 pt-8 pb-0">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-12 w-12 rounded-[14px] bg-emerald-50 border border-emerald-200/50 shrink-0">
+                <div className="flex items-center justify-center h-12 w-12 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
                   <ShoppingCart className="h-6 w-6 text-emerald-600" />
                 </div>
                 <div>
-                  <DialogTitle className="text-2xl font-bold text-slate-900">Nouvelle Vente Passager</DialogTitle>
-                  <p className="text-sm text-slate-500 mt-0.5">Ajoutez des produits au panier et finalisez la vente</p>
+                  <DialogTitle className="text-2xl font-bold dark:text-card-foreground text-slate-900">Nouvelle Vente Passager</DialogTitle>
+                  <p className="text-sm dark:text-muted-foreground text-slate-500 mt-0.5">Ajoutez des produits au panier et finalisez la vente</p>
                 </div>
               </div>
             </DialogHeader>
 
             <div className="px-8 py-8 space-y-8">
               {/* Section 1: Information de Vente */}
-              <div className="rounded-[6px] border border-slate-200 bg-white overflow-hidden">
-                <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white overflow-hidden">
+                <div className="flex items-center gap-2.5 px-6 py-4 border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
                   <ShoppingCart className="h-5 w-5 text-emerald-600" />
                   <span className="text-sm font-bold text-slate-800">Information de Vente</span>
                 </div>
@@ -438,7 +438,7 @@ export default function VentesPassagers() {
                       toast.success(`${produit.designation || 'Produit'} ajouté au panier`);
                     }}
                     trigger={
-                      <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] shadow-none text-base">
+                      <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm shadow-none text-base">
                         <ShoppingCart className="mr-2 h-5 w-5" />
                         Sélectionner un produit
                       </Button>
@@ -451,8 +451,8 @@ export default function VentesPassagers() {
               </div>
 
               {/* Section 2: Panier */}
-              <div className="rounded-[6px] border border-slate-200 bg-white overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
                   <div className="flex items-center gap-2.5">
                     <Package className="h-5 w-5 text-emerald-600" />
                     <span className="text-sm font-bold text-slate-800">Panier <span className="text-slate-400 font-normal">({panier.length} article{panier.length !== 1 ? 's' : ''})</span></span>
@@ -460,29 +460,29 @@ export default function VentesPassagers() {
                 </div>
 
                 <div className="p-6">
-                  <div className="rounded-[4px] border border-slate-200 overflow-hidden">
+                  <div className="rounded-sm dark:border-white/10 border border-slate-200 overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow className="border-b border-slate-100 bg-slate-50/30">
-                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">Désignation</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Qté</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">PU HT</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">TVA</TableHead>
-                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Total TTC</TableHead>
+                        <TableRow className="border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/30">
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4">Désignation</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Qté</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">PU HT</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">TVA</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Total TTC</TableHead>
                           <TableHead className="w-14 px-5 py-4"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {panier.map((item, index) => (
-                          <TableRow key={index} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors last:border-0">
+                          <TableRow key={index} className="border-b dark:border-white/10 border-slate-100 last:border-0">
                             <TableCell className="px-5 py-4">
-                              <p className="text-sm font-medium text-slate-800">{item.designation}</p>
+                              <p className="text-sm font-medium dark:text-card-foreground text-slate-800">{item.designation}</p>
                             </TableCell>
                             <TableCell className="px-5 py-4 text-right">
-                              <span className="inline-flex items-center justify-center min-w-[32px] h-7 px-2.5 rounded-[6px] bg-slate-100 text-sm font-bold text-slate-700">{item.quantite}</span>
+                              <span className="inline-flex items-center justify-center min-w-[32px] h-7 px-2.5 rounded-sm dark:bg-slate-800 bg-slate-100 text-sm font-bold dark:text-card-foreground text-slate-700">{item.quantite}</span>
                             </TableCell>
-                            <TableCell className="px-5 py-4 text-right text-sm text-slate-500 font-medium">{formatCurrency(item.prixUnitaireHt)}</TableCell>
-                            <TableCell className="px-5 py-4 text-right text-sm text-slate-500">{item.tva}%</TableCell>
+                            <TableCell className="px-5 py-4 text-right text-sm dark:text-muted-foreground text-slate-500 font-medium">{formatCurrency(item.prixUnitaireHt)}</TableCell>
+                            <TableCell className="px-5 py-4 text-right text-sm dark:text-muted-foreground text-slate-500">{item.tva}%</TableCell>
                             <TableCell className="px-5 py-4 text-right">
                               <span className="text-sm font-bold text-emerald-600">{formatCurrency(item.montantTtc)}</span>
                             </TableCell>
@@ -525,16 +525,16 @@ export default function VentesPassagers() {
 
                 {/* Totals */}
                 {panier.length > 0 && (
-                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                  <div className="px-6 py-4 border-t dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
                     <div className="flex justify-end">
                       <div className="flex items-center gap-8">
                         <div className="text-right">
-                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total HT</p>
-                          <p className="text-lg font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
+                          <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">Total HT</p>
+                          <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">TVA</p>
-                          <p className="text-lg font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
+                          <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">TVA</p>
+                          <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
                         </div>
                         <div className="text-right border-l border-emerald-200 pl-8">
                           <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Total TTC</p>
@@ -547,18 +547,18 @@ export default function VentesPassagers() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-slate-200 bg-slate-50/50">
+            <div className="flex items-center justify-end gap-3 px-8 py-5 border-t dark:border-white/10 border-slate-200 dark:bg-card bg-slate-50/50">
               <Button
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
-                className="h-10 px-5 rounded-[4px] border-slate-300 text-slate-600 font-semibold text-sm shadow-none"
+                className="h-10 px-5 rounded-sm dark:border-white/10 dark:text-muted-foreground border-slate-300 text-slate-600 font-semibold text-sm shadow-none"
               >
                 Annuler
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={panier.length === 0}
-                className="h-10 px-5 rounded-[4px] bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-none"
+                className="h-10 px-5 rounded-sm bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-none"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 Valider la vente
@@ -574,18 +574,18 @@ export default function VentesPassagers() {
           {/* Search & Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
               <Input
                 type="text"
                 placeholder="Rechercher par numéro ou date..."
-                className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+                className="pl-9 h-10 dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <Select value={timeFilter} onValueChange={setTimeFilter}>
-              <SelectTrigger className="h-10 w-[150px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                <CalendarDays className="h-3.5 w-3.5 text-slate-400 mr-2" />
+              <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                 <SelectValue placeholder="Période" />
               </SelectTrigger>
               <SelectContent>
@@ -598,16 +598,16 @@ export default function VentesPassagers() {
           </div>
 
           {/* Sales Table */}
-          <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+          <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-slate-100">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">N° Vente</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Détails</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                <TableRow className="border-b dark:border-white/5 border-slate-100">
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">N° Vente</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Détails</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -624,10 +624,10 @@ export default function VentesPassagers() {
                   <TableRow>
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
-                        <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
-                          <Receipt className="h-8 w-8 text-slate-300" />
+                        <div className="dark:bg-white/5 dark:border-white/10 bg-slate-50 rounded-sm p-4 border border-slate-100">
+                          <Receipt className="h-8 w-8 dark:text-muted-foreground text-slate-300" />
                         </div>
-                        <p className="text-sm text-slate-500 font-medium">
+                        <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                           {searchTerm || timeFilter !== 'all'
                             ? 'Aucune vente trouvée'
                             : 'Aucune vente enregistrée'}
@@ -635,7 +635,7 @@ export default function VentesPassagers() {
                         {!searchTerm && timeFilter === 'all' && (
                           <Button
                             variant="outline"
-                            className="mt-1 rounded-[4px] text-sm"
+                            className="mt-1 rounded-sm text-sm"
                             onClick={() => setIsDialogOpen(true)}
                           >
                             <Plus className="mr-2 h-4 w-4" />
@@ -649,24 +649,24 @@ export default function VentesPassagers() {
                   paginatedVentes.map((vente) => (
                     <TableRow
                       key={vente.id}
-                      className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                      className="border-b dark:border-white/5 border-slate-100"
                     >
                       <TableCell className="px-4 py-5">
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center justify-center h-8 w-8 rounded-full bg-slate-100 border border-slate-200">
-                            <User className="h-4 w-4 text-slate-400" />
+                          <div className="flex items-center justify-center h-8 w-8 rounded-full dark:bg-slate-800 dark:border-white/10 bg-slate-100 border border-slate-200">
+                            <User className="h-4 w-4 dark:text-muted-foreground text-slate-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-slate-800">Client de passage</p>
-                            <p className="text-xs text-slate-400">Vente comptoir</p>
+                            <p className="text-sm font-semibold dark:text-card-foreground text-slate-800">Client de passage</p>
+                            <p className="text-xs dark:text-muted-foreground text-slate-400">Vente comptoir</p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="px-4 py-5">
-                        <span className="text-sm font-mono font-medium text-slate-700">{vente.numero}</span>
+                        <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{vente.numero}</span>
                       </TableCell>
                       <TableCell className="px-4 py-5">
-                        <span className="text-sm text-slate-500">
+                        <span className="text-sm dark:text-muted-foreground text-slate-500">
                           {new Date(vente.date).toLocaleDateString('fr-FR', {
                             day: '2-digit',
                             month: 'short',
@@ -678,14 +678,14 @@ export default function VentesPassagers() {
                       </TableCell>
                       <TableCell className="px-4 py-5 text-right">
                         <div className="flex flex-col items-end gap-0.5">
-                          <span className="text-sm font-bold text-slate-800">{formatCurrency(vente.montantTtc)}</span>
-                          <span className="text-[11px] text-slate-400">
+                          <span className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(vente.montantTtc)}</span>
+                          <span className="text-[11px] dark:text-muted-foreground text-slate-400">
                             HT: {formatCurrency(vente.montantHt)} · TVA: {formatCurrency(vente.montantTva)}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="px-4 py-5 text-center">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200/50">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                           Complétée
                         </span>
@@ -695,7 +695,7 @@ export default function VentesPassagers() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                            className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                             onClick={() => handlePrint(vente)}
                             title="Imprimer le ticket"
                           >
@@ -704,7 +704,7 @@ export default function VentesPassagers() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                            className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                             onClick={() => handleViewDetail(vente)}
                             title="Voir le détail"
                           >
@@ -713,7 +713,7 @@ export default function VentesPassagers() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                            className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                             onClick={() => handleDelete(vente.id?.toString())}
                             title="Supprimer"
                           >
@@ -728,15 +728,15 @@ export default function VentesPassagers() {
             </Table>
 
             {!loading && paginatedVentes.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                <p className="text-xs text-slate-400">
+              <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
+                <p className="text-xs dark:text-muted-foreground text-slate-400">
                   {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredVentes.length)} sur {filteredVentes.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
@@ -748,10 +748,10 @@ export default function VentesPassagers() {
                       variant="ghost"
                       size="sm"
                       className={cn(
-                        "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                        "h-8 min-w-[32px] rounded-sm text-sm font-medium",
                         page === currentPage
-                          ? "bg-slate-100 text-slate-800"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                          ? "dark:bg-white/10 dark:text-card-foreground bg-slate-100 text-slate-800"
+                          : "dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                       )}
                       onClick={() => handlePageChange(page)}
                     >
@@ -761,7 +761,7 @@ export default function VentesPassagers() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
@@ -775,50 +775,50 @@ export default function VentesPassagers() {
 
         {/* Right Column - Summary */}
         <div className="lg:col-span-1 space-y-4">
-          <Card className="border border-slate-200 shadow-none rounded-[6px]">
-            <CardHeader className="px-4 py-4 border-b border-slate-100">
-              <CardTitle className="text-sm font-semibold text-slate-700">Aujourd'hui au Comptoir</CardTitle>
+          <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
+            <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
+              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">Aujourd'hui au Comptoir</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               {/* Today Count */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0">
-                  <ShoppingBag className="h-4 w-4 text-emerald-600" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
+                  <ShoppingBag className="h-4 w-4 dark:text-primary text-emerald-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Ventes du jour</p>
-                  <p className="text-lg font-bold text-slate-800">{todayCount} vente{todayCount !== 1 ? 's' : ''}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Ventes du jour</p>
+                  <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{todayCount} vente{todayCount !== 1 ? 's' : ''}</p>
                 </div>
               </div>
 
               {/* Today Revenue */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0">
-                  <DollarSign className="h-4 w-4 text-emerald-600" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
+                  <DollarSign className="h-4 w-4 dark:text-primary text-emerald-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Chiffre d'affaires</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Chiffre d'affaires</p>
                   <p className="text-lg font-bold text-emerald-600">{formatCurrency(todayRevenue)}</p>
                 </div>
               </div>
 
               {/* Divider */}
-              <div className="border-t border-slate-100 pt-4 space-y-3">
+              <div className="border-t dark:border-white/5 border-slate-100 pt-4 space-y-3">
                 {/* Average Basket */}
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500">Panier moyen</p>
-                  <p className="text-sm font-bold text-slate-800">{formatCurrency(todayAvgBasket)}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Panier moyen</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(todayAvgBasket)}</p>
                 </div>
                 {/* TVA Collected */}
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500">TVA collectée</p>
-                  <p className="text-sm font-semibold text-slate-600">{formatCurrency(todayTva)}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">TVA collectée</p>
+                  <p className="text-sm font-semibold dark:text-muted-foreground text-slate-600">{formatCurrency(todayTva)}</p>
                 </div>
               </div>
 
               {/* Sparkline */}
-              <div className="border-t border-slate-100 pt-4">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Tendance semaine</p>
+              <div className="border-t dark:border-white/5 border-slate-100 pt-4">
+                <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider mb-3">Tendance semaine</p>
                 <svg viewBox="0 0 200 60" className="w-full h-16">
                   <defs>
                     <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
@@ -846,7 +846,7 @@ export default function VentesPassagers() {
                 </svg>
                 <div className="flex justify-between mt-1">
                   {weekDays.map((d, i) => (
-                    <span key={i} className="text-[10px] text-slate-400">{d.label}</span>
+                    <span key={i} className="text-[10px] dark:text-muted-foreground text-slate-400">{d.label}</span>
                   ))}
                 </div>
               </div>
@@ -860,7 +860,7 @@ export default function VentesPassagers() {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
+          <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50">
                 <Receipt className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
@@ -879,23 +879,23 @@ export default function VentesPassagers() {
               </div>
 
               {detailVente.lignes && detailVente.lignes.length > 0 && (
-                <div className="rounded-[6px] border border-slate-200 overflow-hidden">
+                <div className="rounded-sm dark:border-white/10 border border-slate-200 overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-b border-slate-100">
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase">Produit</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Qté</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">PU HT</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Total TTC</TableHead>
+                      <TableRow className="border-b dark:border-white/10 border-slate-100">
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase">Produit</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">Qté</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">PU HT</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">Total TTC</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {detailVente.lignes.map((l: any, i: number) => (
-                        <TableRow key={i} className="border-b border-slate-100 last:border-0">
-                          <TableCell className="py-3 text-sm">{l.designation || 'Produit'}</TableCell>
-                          <TableCell className="py-3 text-right text-sm font-medium">{l.quantite}</TableCell>
-                          <TableCell className="py-3 text-right text-sm text-slate-500">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
-                          <TableCell className="py-3 text-right text-sm font-bold">{formatCurrency(l.montant_ttc || 0)}</TableCell>
+                        <TableRow key={i} className="border-b dark:border-white/10 border-slate-100 last:border-0">
+                          <TableCell className="py-3 text-sm dark:text-card-foreground">{l.designation || 'Produit'}</TableCell>
+                          <TableCell className="py-3 text-right text-sm font-medium dark:text-card-foreground">{l.quantite}</TableCell>
+                          <TableCell className="py-3 text-right text-sm dark:text-muted-foreground text-slate-500">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
+                          <TableCell className="py-3 text-right text-sm font-bold dark:text-card-foreground">{formatCurrency(l.montant_ttc || 0)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -903,17 +903,17 @@ export default function VentesPassagers() {
                 </div>
               )}
 
-              <div className="rounded-[6px] border border-slate-100 bg-slate-50/50 p-4 space-y-1.5">
+              <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-100 bg-slate-50/50 p-4 space-y-1.5">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Total HT</span>
-                  <span className="font-medium text-slate-800">{formatCurrency(detailVente.montantHt)}</span>
+                  <span className="dark:text-muted-foreground text-slate-500">Total HT</span>
+                  <span className="font-medium dark:text-card-foreground text-slate-800">{formatCurrency(detailVente.montantHt)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">TVA</span>
-                  <span className="font-medium text-slate-800">{formatCurrency(detailVente.montantTva)}</span>
+                  <span className="dark:text-muted-foreground text-slate-500">TVA</span>
+                  <span className="font-medium dark:text-card-foreground text-slate-800">{formatCurrency(detailVente.montantTva)}</span>
                 </div>
-                <div className="flex justify-between text-base font-bold pt-1.5 border-t border-slate-200">
-                  <span className="text-slate-800">Total TTC</span>
+                <div className="flex justify-between text-base font-bold pt-1.5 border-t dark:border-white/10 border-slate-200">
+                  <span className="dark:text-card-foreground text-slate-800">Total TTC</span>
                   <span className="text-emerald-600">{formatCurrency(detailVente.montantTtc)}</span>
                 </div>
               </div>
@@ -923,13 +923,13 @@ export default function VentesPassagers() {
             <Button
               variant="outline"
               onClick={() => setIsDetailOpen(false)}
-              className="rounded-[4px] h-10"
+              className="rounded-sm h-10 dark:border-white/10 dark:text-muted-foreground"
             >
               Fermer
             </Button>
             {detailVente && (
               <Button
-                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-[4px] h-10 shadow-none"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-sm h-10 shadow-none"
                 onClick={() => { handlePrint(detailVente); setIsDetailOpen(false); }}
               >
                 <Printer className="mr-2 h-4 w-4" />

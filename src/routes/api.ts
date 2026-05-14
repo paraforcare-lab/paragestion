@@ -431,49 +431,50 @@ const updateProductStock = async (
 
 const handleAvoirLogic = async (factureId: any, newStatut: string, oldStatut: string) => {
   if (newStatut === 'annulée' && oldStatut !== 'annulée') {
-    // Create Avoir
     const { data: existingAvoir } = await supabase.from('avoirs').select('id').eq('facture_id', factureId).single();
     if (!existingAvoir) {
       const { count: avoirCount } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
       const avoirNumero = `AVO/${new Date().getFullYear()}/${String((avoirCount || 0) + 1).padStart(5, '0')}`;
-      
+
       const { data: facture } = await supabase.from('factures').select('*').eq('id', factureId).single();
       const { data: factureLignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', factureId);
-      
+
       if (facture) {
         const avoirData = {
           numero: avoirNumero,
           facture_id: factureId,
           client_id: facture.client_id,
           date_emission: new Date().toISOString().split('T')[0],
-          montant_ht: -Number(facture.montant_ht || 0),
-          montant_tva: -Number(facture.montant_tva || 0),
-          montant_ttc: -Number(facture.montant_ttc || 0),
+          montant_ht: Number(facture.montant_ht || 0),
+          montant_tva: Number(facture.montant_tva || 0),
+          montant_ttc: Number(facture.montant_ttc || 0),
           notes: `Avoir pour annulation de la facture ${facture.numero}`,
-          statut: 'valide'
+          statut: 'Généré'
         };
-        
+
         const { data: newAvoir, error: avoirError } = await supabase.from('avoirs').insert([avoirData]).select().single();
+        if (avoirError) throw new Error(`Erreur lors de la création de l'avoir: ${avoirError.message}`);
+
         if (newAvoir && factureLignes) {
           const avoirLignesData = factureLignes.map(l => ({
             avoir_id: newAvoir.id,
             produit_id: l.produit_id,
             reference: l.reference,
             designation: l.designation,
-            quantite: -Number(l.quantite || 0),
+            quantite: Number(l.quantite || 0),
             prix_unitaire_ht: l.prix_unitaire_ht,
             tva: l.tva,
-            montant_ht: -Number(l.montant_ht || 0),
-            montant_ttc: -Number(l.montant_ttc || 0),
+            montant_ht: Number(l.montant_ht || 0),
+            montant_ttc: Number(l.montant_ttc || 0),
             ordre: l.ordre
           }));
-          await supabase.from('avoir_lignes').insert(avoirLignesData);
+          const { error: lignesError } = await supabase.from('avoir_lignes').insert(avoirLignesData);
+          if (lignesError) throw new Error(`Erreur lors de la création des lignes d'avoir: ${lignesError.message}`);
           await logActivity('création avoir', `Avoir ${avoirNumero} créé pour la facture ${facture.numero}`);
         }
       }
     }
   } else if (oldStatut === 'annulée' && (newStatut === 'payée' || newStatut === 'reste_a_payer')) {
-    // Delete Avoir
     const { data: avoir } = await supabase.from('avoirs').select('numero').eq('facture_id', factureId).single();
     if (avoir) {
       await supabase.from('avoirs').delete().eq('facture_id', factureId);
@@ -1357,6 +1358,13 @@ router.put('/factures/:id', async (req, res) => {
     if (factureData.notes !== undefined) updateData.notes = factureData.notes;
     if (factureData.conditionsPaiement !== undefined) updateData.conditions_paiement = factureData.conditionsPaiement;
 
+    const newStatut = updateData.statut;
+
+    // Avoir creation BEFORE status update (transactional integrity)
+    if (newStatut === 'annulée' && oldStatut && oldStatut !== 'annulée') {
+      await handleAvoirLogic(id, newStatut, oldStatut);
+    }
+
     const { error: updateError } = await supabase
       .from('factures')
       .update(updateData)
@@ -1368,7 +1376,6 @@ router.put('/factures/:id', async (req, res) => {
     }
 
     // Stock update logic
-    const newStatut = updateData.statut;
     if (newStatut && newStatut !== oldStatut) {
       const { data: currentLignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', id);
       if (currentLignes && currentLignes.length > 0) {
@@ -1409,8 +1416,8 @@ router.put('/factures/:id', async (req, res) => {
       }
     }
 
-    // Avoir logic
-    if (newStatut && newStatut !== oldStatut) {
+    // Avoir deletion (reverse case) after status update
+    if (oldStatut === 'annulée' && newStatut && newStatut !== 'annulée') {
       await handleAvoirLogic(id, newStatut, oldStatut);
     }
 
@@ -1492,6 +1499,11 @@ router.put('/factures/:id/statut', async (req, res) => {
     const oldStatut = oldFacture?.statut;
     const oldStockUpdated = oldFacture?.stock_updated;
 
+    // Avoir creation BEFORE status update (transactional integrity)
+    if (statut === 'annulée' && oldStatut && oldStatut !== 'annulée') {
+      await handleAvoirLogic(id, statut, oldStatut);
+    }
+
     const updatePayload: any = { statut };
     if (['payée', 'annulée'].includes(statut)) {
       updatePayload.reste_a_payer = 0;
@@ -1544,15 +1556,17 @@ router.put('/factures/:id/statut', async (req, res) => {
       }
     }
 
-    // Avoir logic
-    if (statut && statut !== oldStatut) {
-      await logActivity('changement de statut facture', `Facture ${oldFacture?.numero || id} : ${oldStatut} -> ${statut}`);
+    // Avoir deletion (reverse case) after status update
+    if (oldStatut === 'annulée' && statut && statut !== 'annulée') {
       await handleAvoirLogic(id, statut, oldStatut);
     }
 
+    await logActivity('changement de statut facture', `Facture ${oldFacture?.numero || id} : ${oldStatut} -> ${statut}`);
+
     res.json(toCamel(facture));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update facture status' });
+  } catch (error: any) {
+    console.error('Error updating facture status:', error);
+    res.status(500).json({ error: error.message || 'Failed to update facture status' });
   }
 });
 

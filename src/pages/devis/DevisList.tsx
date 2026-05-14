@@ -66,11 +66,11 @@ interface StatutOption {
 }
 
 const statusOptions: StatutOption[] = [
-  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-slate-700', bgColor: 'bg-slate-50 text-slate-700 border border-slate-200/50' },
-  { value: 'envoyé', label: 'Envoyé', icon: Send, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'accepté', label: 'Accepté', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'refusé', label: 'Refusé', icon: XCircle, color: 'text-red-700', bgColor: 'bg-red-50 text-red-700 border border-red-200/50' },
-  { value: 'converti', label: 'Converti', icon: ArrowRightLeft, color: 'text-violet-700', bgColor: 'bg-violet-50 text-violet-700 border border-violet-200/50' },
+  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-slate-700', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-700 border border-slate-200/50' },
+  { value: 'envoyé', label: 'Envoyé', icon: Send, color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
+  { value: 'accepté', label: 'Accepté', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+  { value: 'refusé', label: 'Refusé', icon: XCircle, color: 'text-red-700', bgColor: 'dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 bg-red-50 text-red-700 border border-red-200/50' },
+  { value: 'converti', label: 'Converti', icon: ArrowRightLeft, color: 'text-violet-700', bgColor: 'dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20 bg-violet-50 text-violet-700 border border-violet-200/50' },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -158,7 +158,7 @@ export function DevisList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift')
+        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,watermark_text')
         .eq('user_id', String(user.id))
         .single();
 
@@ -468,7 +468,7 @@ export function DevisList() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
+          <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50">
             <FileText className="h-5 w-5 text-emerald-500" />
           </div>
           <div>
@@ -481,14 +481,14 @@ export function DevisList() {
           if (!open) setEditingDevis(null);
         }}>
           <DialogTrigger render={
-            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none">
+            <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
               <Plus className="mr-2 h-4 w-4" />
               Nouveau Devis
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20">
             <div className="flex flex-col h-full">
-              <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm">
+              <DialogHeader className="px-8 py-6 border-b dark:border-white/10 border-border/50 dark:bg-card/50 bg-white/50 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
                     {editingDevis ? 'Modifier le devis' : 'Nouveau Devis'}
@@ -502,7 +502,7 @@ export function DevisList() {
               </DialogHeader>
               <div className="flex-1 overflow-y-auto p-8">
                 <div className="max-w-7xl mx-auto">
-                  <div className="rounded-[6px] border border-slate-200 bg-white p-8">
+                  <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-8">
                     <DevisForm
                       initialData={editingDevis}
                       onSuccess={() => {
@@ -524,18 +524,18 @@ export function DevisList() {
           {/* Search & Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
               <Input
                 type="search"
                 placeholder="Rechercher par numéro ou client..."
-                className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+                className="pl-9 h-10 dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 w-[140px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
+              <SelectTrigger className="h-10 w-[140px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
@@ -546,8 +546,8 @@ export function DevisList() {
               </SelectContent>
             </Select>
             <Select value={timeFilter} onValueChange={setTimeFilter}>
-              <SelectTrigger className="h-10 w-[150px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                <CalendarDays className="h-3.5 w-3.5 text-slate-400 mr-2" />
+              <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                 <SelectValue placeholder="Période" />
               </SelectTrigger>
               <SelectContent>
@@ -560,16 +560,16 @@ export function DevisList() {
           </div>
 
           {/* Table */}
-          <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+          <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-slate-100">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                <TableRow className="border-b dark:border-white/5 border-slate-100">
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -586,10 +586,10 @@ export function DevisList() {
                   <TableRow>
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
-                        <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
-                          <FileText className="h-8 w-8 text-slate-300" />
+                        <div className="dark:bg-white/5 dark:border-white/10 bg-slate-50 rounded-sm p-4 border border-slate-100">
+                          <FileText className="h-8 w-8 dark:text-muted-foreground text-slate-300" />
                         </div>
-                        <p className="text-sm text-slate-500 font-medium">
+                        <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                           {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
                             ? 'Aucun devis trouvé'
                             : 'Aucun devis créé'}
@@ -606,36 +606,36 @@ export function DevisList() {
                     return (
                       <TableRow
                         key={devis.id}
-                        className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                        className="border-b dark:border-white/5 border-slate-100"
                       >
                         <TableCell className="px-4 py-5">
                           <div className="flex items-center gap-3">
-                            <Avatar size="sm" className="h-8 w-8 border border-slate-200">
+                            <Avatar size="sm" className="h-8 w-8 dark:border-white/10 border border-slate-200">
                               <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${devis.client?.nom}`} />
-                              <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-600">
+                              <AvatarFallback className="text-xs font-semibold dark:bg-slate-800 dark:text-muted-foreground bg-slate-100 text-slate-600">
                                 {clientInitial}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-semibold text-slate-800">
+                              <p className="text-sm font-semibold dark:text-card-foreground text-slate-800">
                                 {devis.client?.nom || devis.client?.nomSociete || '-'}
                               </p>
-                              <p className="text-xs text-slate-400">
+                              <p className="text-xs dark:text-muted-foreground text-slate-400">
                                 {devis.client?.email || devis.numero}
                               </p>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium text-slate-700">{devis.numero}</span>
+                          <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{devis.numero}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm text-slate-500">
+                          <span className="text-sm dark:text-muted-foreground text-slate-500">
                             {format(new Date(devis.dateEmission), 'dd MMM yyyy', { locale: fr })}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold text-slate-800">{formatCurrency(devis.montantTtc)}</span>
+                          <span className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(devis.montantTtc)}</span>
                           {devis.statut === 'converti' && factureMap[devis.id] && (
                             <div className="text-[10px] text-violet-500 font-medium mt-0.5 flex items-center justify-end gap-1">
                               <ExternalLink className="h-3 w-3" />
@@ -680,7 +680,7 @@ export function DevisList() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-[4px]"
+                                className="h-8 w-8 dark:text-muted-foreground dark:hover:text-violet-400 dark:hover:bg-violet-500/10 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-sm"
                                 title="Convertir en facture"
                                 onClick={() => handleConvertToFacture(devis.id)}
                               >
@@ -690,7 +690,7 @@ export function DevisList() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                              className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                               onClick={() => handleDownload(devis)}
                               title="Télécharger PDF"
                             >
@@ -699,7 +699,7 @@ export function DevisList() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                              className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                               onClick={() => handleEdit(devis)}
                               title="Modifier"
                             >
@@ -709,7 +709,7 @@ export function DevisList() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                                className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                                 onClick={() => {
                                   setDevisToDelete(devis.id);
                                   setDeleteConfirmOpen(true);
@@ -722,7 +722,7 @@ export function DevisList() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                                className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                                 onClick={() => handleStatusChange(devis.id, 'refusé')}
                                 title="Refuser"
                               >
@@ -739,15 +739,15 @@ export function DevisList() {
             </Table>
 
             {!isLoading && paginatedDevis.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                <p className="text-xs text-slate-400">
+              <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
+                <p className="text-xs dark:text-muted-foreground text-slate-400">
                   {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredDevis.length)} sur {filteredDevis.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
@@ -759,10 +759,10 @@ export function DevisList() {
                       variant="ghost"
                       size="sm"
                       className={cn(
-                        "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                        "h-8 min-w-[32px] rounded-sm text-sm font-medium",
                         page === currentPage
-                          ? "bg-slate-100 text-slate-800"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                          ? "dark:bg-white/10 dark:text-card-foreground bg-slate-100 text-slate-800"
+                          : "dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                       )}
                       onClick={() => handlePageChange(page)}
                     >
@@ -772,7 +772,7 @@ export function DevisList() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
@@ -786,59 +786,59 @@ export function DevisList() {
 
         {/* Summary Sidebar */}
         <div className="lg:col-span-1">
-          <Card className="border border-slate-200 shadow-none rounded-[6px]">
-            <CardHeader className="px-4 py-4 border-b border-slate-100">
-              <CardTitle className="text-sm font-semibold text-slate-700">Statistiques Devis</CardTitle>
+          <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
+            <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
+              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">Statistiques Devis</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-amber-50 border border-amber-200/50 shrink-0">
-                  <Send className="h-4 w-4 text-amber-600" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-amber-50 border border-amber-200/50 shrink-0">
+                  <Send className="h-4 w-4 dark:text-primary text-amber-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">En attente</p>
-                  <p className="text-sm font-bold text-slate-800">{attente30.length} devis</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">En attente</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{attente30.length} devis</p>
                 </div>
-                <span className="text-sm font-semibold text-slate-600">
+                <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                   {formatCurrency(attente30.reduce((s, d) => s + (d.montantTtc || 0), 0))}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-violet-50 border border-violet-200/50 shrink-0">
-                  <ArrowRightLeft className="h-4 w-4 text-violet-600" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-violet-50 border border-violet-200/50 shrink-0">
+                  <ArrowRightLeft className="h-4 w-4 dark:text-primary text-violet-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Convertis</p>
-                  <p className="text-sm font-bold text-slate-800">{convertis30.length} devis</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Convertis</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{convertis30.length} devis</p>
                 </div>
-                <span className="text-sm font-semibold text-slate-600">
+                <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                   {formatCurrency(convertis30.reduce((s, d) => s + (d.montantTtc || 0), 0))}
                 </span>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-slate-50 border border-slate-200/50 shrink-0">
-                  <XCircle className="h-4 w-4 text-slate-500" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-slate-50 border border-slate-200/50 shrink-0">
+                  <XCircle className="h-4 w-4 dark:text-primary text-slate-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Expirés / Refusés</p>
-                  <p className="text-sm font-bold text-slate-800">{expires30.length} devis</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Expirés / Refusés</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{expires30.length} devis</p>
                 </div>
-                <span className="text-sm font-semibold text-slate-600">
+                <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                   {formatCurrency(expires30.reduce((s, d) => s + (d.montantTtc || 0), 0))}
                 </span>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 space-y-3">
+              <div className="pt-3 border-t dark:border-white/5 border-slate-100 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold text-slate-800">Total</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">Total</p>
                   <p className="text-base font-bold text-emerald-500">{formatCurrency(total30Montant)}</p>
                 </div>
-                <div className="flex items-center gap-2 rounded-[6px] bg-emerald-50 border border-emerald-100/50 px-3 py-2.5">
+                <div className="flex items-center gap-2 rounded-sm dark:bg-slate-900/40 dark:border-white/10 bg-emerald-50 border border-emerald-100/50 px-3 py-2.5">
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
                   <div className="flex-1">
-                    <p className="text-[11px] text-slate-500 font-medium">Taux de conversion</p>
+                    <p className="text-[11px] dark:text-muted-foreground text-slate-500 font-medium">Taux de conversion</p>
                     <p className="text-sm font-bold text-emerald-600">{conversionRate}%</p>
                   </div>
                 </div>
