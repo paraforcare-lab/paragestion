@@ -122,7 +122,7 @@ export function AvoirsList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('*')
+        .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,rc,if_number,logo_url,couleur_principale,capital_social,forme_juridique')
         .eq('user_id', String(user.id))
         .single();
 
@@ -132,7 +132,10 @@ export function AvoirsList() {
       }
 
       if (error && error.code !== 'PGRST116') throw error;
-      setEntreprise(data || null);
+      setEntreprise({
+        ...data,
+        watermarkText: data?.watermark_text || 'ParaGestion',
+      });
     } catch (error) {
       console.error('Failed to fetch entreprise settings', error);
     }

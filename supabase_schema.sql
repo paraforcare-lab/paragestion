@@ -334,6 +334,7 @@ CREATE TABLE IF NOT EXISTS parametres (
     conditions_paiement_defaut TEXT,
     pied_page_defaut TEXT,
     activer_droit_timbre BOOLEAN DEFAULT TRUE,
+    watermark_text TEXT DEFAULT 'ParaGestion',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

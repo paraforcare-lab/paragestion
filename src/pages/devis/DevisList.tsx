@@ -158,7 +158,7 @@ export function DevisList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('*')
+        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift')
         .eq('user_id', String(user.id))
         .single();
 
@@ -195,6 +195,7 @@ export function DevisList() {
           banque: data.banque || '',
           rib: data.rib || '',
           swift: data.swift || '',
+          watermarkText: data.watermark_text || 'ParaGestion',
         });
       } else {
         setEntreprise(null);
@@ -304,6 +305,7 @@ export function DevisList() {
         dateValidite: data.date_validite?.split('T')[0] || '',
         lignes: (lignesData || []).map((l: any) => ({
           produitId: l.produit_id?.toString() || '',
+          reference: l.reference || '',
           designation: l.designation || '',
           prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
           quantite: Number(l.quantite || 1),
@@ -326,6 +328,19 @@ export function DevisList() {
       const { data, error } = await supabase.from('devis').select('*, client:clients(*)').eq('id', devis.id).single();
       if (error) throw error;
 
+      const { data: lignesData } = await supabase.from('devis_lignes').select('*').eq('devis_id', devis.id).order('ordre');
+
+      const mappedLignes = (lignesData || []).map((l: any) => ({
+        ...l,
+        reference: l.reference || '',
+        designation: l.designation || '',
+        quantite: Number(l.quantite || 1),
+        prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
+        prix_unitaire_ht: Number(l.prix_unitaire_ht || 0),
+        montantHt: Number(l.montant_ht || 0),
+        montant_ht: Number(l.montant_ht || 0),
+      }));
+
       const mappedDevis = {
         ...data,
         numero: data.numero,
@@ -337,6 +352,7 @@ export function DevisList() {
         montantTva: data.montant_tva,
         montantTtc: data.montant_ttc,
         statut: data.statut,
+        lignes: mappedLignes,
       };
       setPrintingDevis(mappedDevis);
     } catch (error) {

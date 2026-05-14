@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -63,6 +63,7 @@ interface ParametresFormValues {
   conditionsPaiementDefaut: string;
   piedPageDefaut: string;
   activerDroitTimbre: boolean;
+  watermarkText: string;
 }
 
 const parametresSchema = z.object({
@@ -88,12 +89,14 @@ const parametresSchema = z.object({
   conditionsPaiementDefaut: z.string(),
   piedPageDefaut: z.string(),
   activerDroitTimbre: z.boolean(),
+  watermarkText: z.string(),
 });
 
 export function Parametres() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [parametresId, setParametresId] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
@@ -123,6 +126,7 @@ export function Parametres() {
       conditionsPaiementDefaut: '',
       piedPageDefaut: '',
       activerDroitTimbre: true,
+      watermarkText: 'ParaGestion',
     },
   });
 
@@ -131,14 +135,14 @@ export function Parametres() {
   const tabErrors = useMemo(() => ({
     general: ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].some(f => errors[f]),
     fiscal: ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].some(f => errors[f]),
-    personalisation: ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut'].some(f => errors[f]),
+    personalisation: ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText'].some(f => errors[f]),
   }), [errors]);
 
   const STORAGE_KEY = 'sf_params_modified';
 
   useEffect(() => {
     const subscription = form.watch(() => {
-      if (!isLoading) {
+      if (!isLoading && !isSavingRef.current) {
         setIsModified(true);
         localStorage.setItem(STORAGE_KEY, Date.now().toString());
       }
@@ -157,7 +161,7 @@ export function Parametres() {
         console.log('Fetching parametres for user:', user.id);
         const { data, error } = await supabase
           .from('parametres')
-          .select('*')
+          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
           .eq('user_id', user.id)
           .single();
         
@@ -193,6 +197,7 @@ export function Parametres() {
             conditionsPaiementDefaut: data.conditions_paiement_defaut || '',
             piedPageDefaut: data.pied_page_defaut || '',
             activerDroitTimbre: data.activer_droit_timbre !== undefined ? data.activer_droit_timbre : true,
+            watermarkText: data.watermark_text || 'ParaGestion',
           });
         }
       } catch (error) {
@@ -210,7 +215,7 @@ export function Parametres() {
     const tabs: string[] = []
     if (fieldNames.some(f => ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].includes(f))) tabs.push('Informations')
     if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].includes(f))) tabs.push('Fiscalité')
-    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut'].includes(f))) tabs.push('Personnalisation')
+    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText'].includes(f))) tabs.push('Personnalisation')
 
     const first = tabs[0]
     if (first === 'Informations') setActiveTab('general')
@@ -227,6 +232,7 @@ export function Parametres() {
     }
     
     setIsSaving(true);
+    isSavingRef.current = true;
     try {
       const fields = {
         user_id: user.id,
@@ -253,6 +259,7 @@ export function Parametres() {
         conditions_paiement_defaut: data.conditionsPaiementDefaut,
         pied_page_defaut: data.piedPageDefaut,
         activer_droit_timbre: data.activerDroitTimbre,
+        watermark_text: data.watermarkText,
       };
 
       console.log('Saving parametres for user:', user.id);
@@ -264,7 +271,7 @@ export function Parametres() {
           .from('parametres')
           .update(fields)
           .eq('id', parametresId)
-          .select()
+          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
           .single();
         result = response.data;
         error = response.error;
@@ -272,7 +279,7 @@ export function Parametres() {
         const response = await supabase
           .from('parametres')
           .insert([{ ...fields, user_id: user.id }])
-          .select()
+          .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
           .single();
         result = response.data;
         error = response.error;
@@ -295,6 +302,7 @@ export function Parametres() {
       toast.error(`Erreur: ${err.message || 'Impossible de sauvegarder'}`);
     } finally {
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   }
 
@@ -828,6 +836,21 @@ export function Parametres() {
                             {...field} 
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="watermarkText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-foreground font-semibold">Texte du filigrane (Watermark)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ParaGestion" className="h-11 bg-white border-border/50 focus:border-primary" {...field} />
+                        </FormControl>
+                        <p className="text-sm text-muted-foreground">Ce texte apparaîtra en arrière-plan de tous vos documents PDF.</p>
                         <FormMessage />
                       </FormItem>
                     )}

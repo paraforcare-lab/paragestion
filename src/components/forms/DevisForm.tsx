@@ -67,6 +67,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
           quantite: 1,
           prixUnitaireHt: 0,
           tva: 20,
+          reference: '',
         },
       ],
     },
@@ -116,7 +117,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       }
     };
     fetchData();
-  }, [initialData]);
+  }, [initialData, user]);
 
   const watchLignes = form.watch('lignes');
 
@@ -207,6 +208,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
     const produit = produits.find((p) => p.id.toString() === produitId);
     if (produit) {
       form.setValue(`lignes.${index}.produitId`, produit.id.toString());
+      form.setValue(`lignes.${index}.reference`, produit.reference || '');
       form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
       form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt || produit.prix_vente_ht || 0));
       form.setValue(`lignes.${index}.tva`, Number(produit.tauxTva || produit.tva || 20));
@@ -300,7 +302,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
             size="sm"
             className="border-blue-200 text-blue-700 hover:bg-blue-50"
             onClick={() =>
-              append({ designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20 })
+              append({ designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20, reference: '' })
             }
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -334,12 +336,16 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
                         onValueChange={(val) => handleProduitSelect(index, val)}
                       >
                         <SelectTrigger className="h-9 bg-white border-slate-200">
-                          <SelectValue placeholder="Choisir..." />
+                          {(() => {
+                            const pid = form.watch(`lignes.${index}.produitId`);
+                            const p = pid ? produits.find(p2 => p2.id.toString() === pid) : null;
+                            return p ? <span>{p.designation || p.nom || '-'}</span> : <SelectValue placeholder="Choisir..." />;
+                          })()}
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[400px] overflow-y-auto">
                           {produits.map((p) => (
                             <SelectItem key={p.id} value={p.id.toString()}>
-                              {p.designation || '-'}
+                              {p.designation || p.nom || p.reference || '-'}
                             </SelectItem>
                           ))}
                         </SelectContent>

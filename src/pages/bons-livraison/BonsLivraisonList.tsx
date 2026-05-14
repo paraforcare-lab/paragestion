@@ -139,7 +139,7 @@ export function BonsLivraisonList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('*')
+        .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,logo_url,couleur_principale')
         .eq('user_id', String(user.id))
         .single();
 
@@ -164,7 +164,8 @@ export function BonsLivraisonList() {
           email: data.email || '',
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
-          couleurPrincipale: data.couleur_principale || '#267E54'
+          couleurPrincipale: data.couleur_principale || '#267E54',
+          watermarkText: data.watermark_text || 'ParaGestion',
         });
       }
     } catch (error) {

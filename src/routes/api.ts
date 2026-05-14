@@ -248,6 +248,10 @@ NOTIFY pgrst, 'reload schema';
   });
 });
 
+import { generatePDFController } from '../lib/pdfGenerator.js';
+// --- PDF GENERATION ---
+router.post('/generate-pdf', generatePDFController);
+
 // Helper to convert snake_case to camelCase
 const toCamel = (obj: any): any => {
   if (Array.isArray(obj)) return obj.map(toCamel);
@@ -2871,14 +2875,15 @@ router.get('/parametres', async (req, res) => {
         ice: '',
         formeJuridique: '',
         logoUrl: '',
-        couleurPrincipale: '#267E54'
+        couleurPrincipale: '#267E54',
+        watermarkText: 'ParaGestion'
       });
     }
     
     // Get parametres for this user
     const { data: params, error } = await supabase
       .from('parametres')
-      .select('*')
+      .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
       .eq('user_id', userId)
       .single();
     
@@ -2894,7 +2899,8 @@ router.get('/parametres', async (req, res) => {
         ice: '',
         formeJuridique: '',
         logoUrl: '',
-        couleurPrincipale: '#267E54'
+        couleurPrincipale: '#267E54',
+        watermarkText: 'ParaGestion'
       });
     }
     
@@ -2931,6 +2937,7 @@ router.get('/parametres', async (req, res) => {
       conditionsPaiementDefaut: params.conditions_paiement_defaut || '',
       piedPageDefaut: params.pied_page_defaut || '',
       activerDroitTimbre: params.activer_droit_timbre !== undefined ? params.activer_droit_timbre : true,
+      watermarkText: params.watermark_text || 'ParaGestion',
     };
     
     res.json(mapped);
@@ -2946,7 +2953,8 @@ router.get('/parametres', async (req, res) => {
       ice: '',
       formeJuridique: '',
       logoUrl: '',
-      couleurPrincipale: '#267E54'
+      couleurPrincipale: '#267E54',
+      watermarkText: 'ParaGestion'
     });
   }
 });
@@ -3001,6 +3009,7 @@ router.put('/parametres', async (req, res) => {
     if (req.body.logoUrl !== undefined) safeFields.logo_url = req.body.logoUrl;
     if (req.body.couleurPrincipale !== undefined) safeFields.couleur_principale = req.body.couleurPrincipale;
     if (req.body.activerDroitTimbre !== undefined) safeFields.activer_droit_timbre = req.body.activerDroitTimbre;
+    if (req.body.watermarkText !== undefined) safeFields.watermark_text = req.body.watermarkText;
     
     // Check if record exists for this user
     let { data: existingRows } = await supabase.from('parametres').select('id').eq('user_id', userId).limit(1);
@@ -3013,7 +3022,7 @@ router.put('/parametres', async (req, res) => {
         .from('parametres')
         .update(safeFields)
         .eq('id', recordId)
-        .select()
+        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
         .single();
       
       if (error) {
@@ -3026,7 +3035,7 @@ router.put('/parametres', async (req, res) => {
       const { data: created, error } = await supabase
         .from('parametres')
         .insert([safeFields])
-        .select()
+        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
         .single();
       
       if (error) {
@@ -3061,6 +3070,7 @@ router.put('/parametres', async (req, res) => {
       conditionsPaiementDefaut: result.conditions_paiement_defaut || '',
       piedPageDefaut: result.pied_page_defaut || '',
       activerDroitTimbre: result.activer_droit_timbre !== undefined ? result.activer_droit_timbre : true,
+      watermarkText: result.watermark_text || 'ParaGestion',
     };
     
     res.json(mapped);
