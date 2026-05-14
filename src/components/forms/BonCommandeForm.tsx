@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -221,6 +222,19 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
         if (lignesError) {
           console.error('Lignes insert error:', lignesError);
           throw lignesError;
+        }
+
+        // Update stock if status is livré/livrée
+        const activeStatuses = ['livré', 'livrée'];
+        if (activeStatuses.includes(data.statut)) {
+          const changedIds: (number | string)[] = [];
+          for (const ligne of lignesPayload) {
+            if (ligne.produit_id) {
+              await updateStockAndNotify(user?.id, ligne.produit_id, Number(ligne.quantite));
+              changedIds.push(ligne.produit_id);
+            }
+          }
+          await ensureLowStockNotifications(user?.id, changedIds);
         }
       }
 

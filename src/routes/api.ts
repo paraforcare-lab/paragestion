@@ -211,6 +211,19 @@ ALTER TABLE bon_livraison_lignes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE bon_commande_lignes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_mouvements DISABLE ROW LEVEL SECURITY;
 
+-- Create notifications table if not exists
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT,
+  type TEXT DEFAULT 'info' CHECK (type IN ('success', 'error', 'warning', 'info')),
+  is_read BOOLEAN DEFAULT FALSE,
+  link TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
+
 -- Create logs_activites if not exists
 CREATE TABLE IF NOT EXISTS logs_activites (
   id BIGSERIAL PRIMARY KEY,
@@ -307,6 +320,28 @@ const logActivity = async (action: string, details?: string) => {
   }
 };
 
+const createNotification = async (
+  userId: string | undefined | null,
+  title: string,
+  message: string,
+  type: 'success' | 'error' | 'warning' | 'info' = 'info',
+  link?: string
+) => {
+  if (!userId) return;
+  try {
+    await supabase.from('notifications').insert([{
+      user_id: userId,
+      title,
+      message,
+      type,
+      is_read: false,
+      link: link || null
+    }]);
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
+};
+
 const updateProductStock = async (
   produitId: any, 
   delta: number, 
@@ -321,7 +356,7 @@ const updateProductStock = async (
   // Fetch current stock
   const { data: produit, error: fetchError } = await supabase
     .from('produits')
-    .select('stock_actuel')
+    .select('stock_actuel, stock_min, designation, nom, user_id')
     .eq('id', produitId)
     .single();
     
@@ -364,6 +399,33 @@ const updateProductStock = async (
   const { error: mError } = await supabase.from('mouvements_stock').insert([mData]);
   if (mError) {
     console.warn(`Stock movement not recorded (table may not exist): ${mError.message}`);
+  }
+
+  // Auto-create notification if stock dropped below minimum
+  if (delta < 0 && newStock <= Number(produit.stock_min) && Number(produit.stock_min) > 0 && produit.user_id) {
+    try {
+      const designation = produit.designation || produit.nom || 'Produit';
+      const { data: recentNotifs } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', produit.user_id)
+        .eq('title', 'Stock Faible')
+        .ilike('message', `${designation} - %`)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .limit(1);
+
+      if (!recentNotifs || recentNotifs.length === 0) {
+        await createNotification(
+          produit.user_id,
+          'Stock Faible',
+          `${designation} - ${newStock} unités restantes`,
+          'warning',
+          '/produits'
+        );
+      }
+    } catch (err) {
+      console.error('Error creating low stock notification:', err);
+    }
   }
 };
 
@@ -4599,5 +4661,139 @@ router.delete('/tasks/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete task' });
   }
 });
+
+// --- NOTIFICATIONS: Stock Alerts ---
+router.post('/check-stock-alerts', async (req, res) => {
+  try {
+    const userId = req.body.user_id;
+    if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+    const { data: produits } = await supabase.from('produits').select('*');
+    const lowStockItems = (produits || []).filter(
+      p => Number(p.stock_actuel) <= Number(p.stock_min) && Number(p.stock_min) > 0
+    );
+
+    for (const p of lowStockItems) {
+      const designation = p.designation || p.nom || 'Produit';
+      const { data: recentNotifs } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('title', 'Stock Faible')
+        .ilike('message', `${designation} - %`)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .limit(1);
+
+      if (!recentNotifs || recentNotifs.length === 0) {
+        await createNotification(
+          userId,
+          'Stock Faible',
+          `${designation} - ${p.stock_actuel} unités restantes`,
+          'warning',
+          '/produits'
+        );
+      }
+    }
+
+    // Check for overdue invoices
+    const today = new Date().toISOString().split('T')[0];
+    const { data: factures } = await supabase
+      .from('factures')
+      .select('*, client:clients(id, nom)')
+      .eq('statut', 'reste_a_payer')
+      .lt('date_echeance', today);
+
+    for (const f of (factures || [])) {
+      const clientName = (f.client as any)?.nom || 'Client';
+      await createNotification(
+        userId,
+        'Paiement en Retard',
+        `${clientName} - Facture ${f.numero} échue depuis le ${f.date_echeance}`,
+        'error',
+        `/factures?id=${f.id}`
+      );
+    }
+
+    // Check invoices nearing due date (within 7 days)
+    const weekFromNow = new Date();
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
+
+    const { data: upcoming } = await supabase
+      .from('factures')
+      .select('*, client:clients(id, nom)')
+      .eq('statut', 'reste_a_payer')
+      .gte('date_echeance', today)
+      .lte('date_echeance', weekFromNowStr);
+
+    for (const f of (upcoming || [])) {
+      const clientName = (f.client as any)?.nom || 'Client';
+      await createNotification(
+        userId,
+        'Échéance Proche',
+        `${clientName} - Facture ${f.numero} à payer avant le ${f.date_echeance}`,
+        'info',
+        `/factures?id=${f.id}`
+      );
+    }
+
+    res.json({ checked: true, lowStock: lowStockItems.length, overdue: (factures || []).length, upcoming: (upcoming || []).length });
+  } catch (error) {
+    console.error('Error checking stock alerts:', error);
+    res.status(500).json({ error: 'Failed to check alerts' });
+  }
+});
+
+
+
+// Schedule periodic stock checks (every 5 minutes in production)
+const scheduleStockChecks = async () => {
+  const checkAndNotify = async () => {
+    try {
+      // Get all distinct user_ids from the produits table
+      const { data: users } = await supabase.from('produits').select('user_id');
+      const userIds = [...new Set((users || []).map(u => u.user_id).filter(Boolean))];
+      
+      for (const userId of userIds) {
+        // Check low stock
+        const { data: produits } = await supabase.from('produits').select('*').eq('user_id', userId);
+        const lowStockItems = (produits || []).filter(
+          p => Number(p.stock_actuel) <= Number(p.stock_min) && Number(p.stock_min) > 0
+        );
+
+        for (const p of lowStockItems) {
+          const designation = p.designation || p.nom || 'Produit';
+          const { data: recentNotifs } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('title', 'Stock Faible')
+            .ilike('message', `${designation} - %`)
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+            .limit(1);
+
+          if (!recentNotifs || recentNotifs.length === 0) {
+            await createNotification(
+              userId,
+              'Stock Faible',
+              `${designation} - ${p.stock_actuel} unités restantes`,
+              'warning',
+              '/produits'
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Scheduled stock check error:', err);
+    }
+  };
+
+  // Run immediately on server start, then every 30 min
+  await checkAndNotify();
+  setInterval(checkAndNotify, 30 * 60 * 1000);
+};
+
+// Start scheduled checks (non-blocking)
+scheduleStockChecks().catch(err => console.error('Failed to start stock checks:', err));
 
 export default router

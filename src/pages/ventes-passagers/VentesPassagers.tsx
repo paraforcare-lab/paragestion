@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import {
   Plus, Search, Trash2, ShoppingCart, Receipt, CreditCard, X,
   ShoppingBag, CalendarDays, Filter, ChevronLeft, ChevronRight,
-  Printer, Eye, User, TrendingUp, DollarSign, FileSpreadsheet
+  Printer, Eye, User, TrendingUp, DollarSign, FileSpreadsheet, Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 import { ProductSelector } from '@/components/ui/ProductSelector'
 
 interface VentePassager {
@@ -203,26 +204,9 @@ export default function VentesPassagers() {
       }
 
       for (const item of panier) {
-        try {
-          const { error: rpcError } = await supabase.rpc('decrement_stock', {
-            product_id: item.produitId,
-            amount: item.quantite
-          });
-          if (rpcError) {
-            const produit = produits.find(p => p.id === item.produitId);
-            if (produit) {
-              const newStock = (produit.stock_actuel || produit.stockActuel || 0) - item.quantite;
-              await supabase.from('produits').update({ stock_actuel: newStock }).eq('id', item.produitId);
-            }
-          }
-        } catch (e) {
-          const produit = produits.find(p => p.id === item.produitId);
-          if (produit) {
-            const newStock = (produit.stock_actuel || produit.stockActuel || 0) - item.quantite;
-            await supabase.from('produits').update({ stock_actuel: newStock }).eq('id', item.produitId);
-          }
-        }
+        await updateStockAndNotify(user?.id, item.produitId, -item.quantite);
       }
+      await ensureLowStockNotifications(user?.id);
 
       toast.success('Vente enregistrée avec succès');
       setIsDialogOpen(false);
@@ -395,159 +379,191 @@ export default function VentesPassagers() {
               Nouvelle Vente
             </Button>
           } />
-          <DialogContent className="max-w-4xl bg-gradient-to-br from-background to-muted/20">
-            <DialogHeader>
+          <DialogContent className="sm:max-w-[1000px] w-[95vw] !p-0 gap-0 max-h-[90vh] overflow-y-auto rounded-lg shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_20px_60px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08)]">
+            <DialogHeader className="px-8 pt-8 pb-0">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50">
-                  <ShoppingCart className="h-5 w-5 text-emerald-600" />
+                <div className="flex items-center justify-center h-12 w-12 rounded-[14px] bg-emerald-50 border border-emerald-200/50 shrink-0">
+                  <ShoppingCart className="h-6 w-6 text-emerald-600" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-bold">Nouvelle Vente Passager</DialogTitle>
-                  <p className="text-sm text-muted-foreground">Ajoutez des produits au panier</p>
+                  <DialogTitle className="text-2xl font-bold text-slate-900">Nouvelle Vente Passager</DialogTitle>
+                  <p className="text-sm text-slate-500 mt-0.5">Ajoutez des produits au panier et finalisez la vente</p>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="space-y-6 py-4">
-              <div className="flex items-center justify-center">
-                <ProductSelector
-                  produits={produits}
-                  onSelect={(produit, qte) => {
-                    const puHt = Number(produit.prixVenteHt ?? 0);
-                    const tvaRate = Number(produit.tauxTva ?? 20);
-                    const mht = puHt * qte;
-                    const mtva = mht * (tvaRate / 100);
-                    const mttc = mht + mtva;
-
-                    const existingIndex = panier.findIndex(item => Number(item.produitId) === Number(produit.id));
-                    if (existingIndex >= 0) {
-                      const existing = panier[existingIndex];
-                      const newQte = existing.quantite + qte;
-                      const newMht = existing.prixUnitaireHt * newQte;
-                      const newMtva = newMht * (existing.tva / 100);
-                      const newMttc = newMht + newMtva;
-
-                      setPanier(panier.map((item, idx) =>
-                        idx === existingIndex
-                          ? { ...item, quantite: newQte, montantHt: newMht, montantTva: newMtva, montantTtc: newMttc }
-                          : item
-                      ));
-                    } else {
-                      setPanier([...panier, {
-                        produitId: produit.id,
-                        designation: produit.designation || 'Produit',
-                        quantite: qte,
-                        prixUnitaireHt: puHt,
-                        tva: tvaRate,
-                        montantHt: mht,
-                        montantTva: mtva,
-                        montantTtc: mttc,
-                        prixAchatHt: Number(produit.prixAchatHt ?? 0)
-                      }]);
-                    }
-                    toast.success(`${produit.designation || 'Produit'} ajouté au panier`);
-                  }}
-                  trigger={
-                    <Button className="w-full h-14 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-[4px] shadow-none text-lg">
-                      <ShoppingCart className="mr-3 h-5 w-5" />
-                      Sélectionner un produit
-                    </Button>
-                  }
-                />
-              </div>
-
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground">
-                  Cherchez par nom, référence ou marque.
-                </p>
-              </div>
-
-              {/* Cart Table */}
+            <div className="px-8 py-8 space-y-8">
+              {/* Section 1: Information de Vente */}
               <div className="rounded-[6px] border border-slate-200 bg-white overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-b border-slate-100">
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Désignation</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Qté</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">PU HT</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">TVA</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Total TTC</TableHead>
-                      <TableHead className="w-12"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {panier.map((item, index) => (
-                      <TableRow key={index} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                        <TableCell className="py-4 text-sm font-medium text-slate-800">{item.designation}</TableCell>
-                        <TableCell className="py-4 text-right font-bold text-sm">{item.quantite}</TableCell>
-                        <TableCell className="py-4 text-right text-sm text-slate-500">{formatCurrency(item.prixUnitaireHt)}</TableCell>
-                        <TableCell className="py-4 text-right text-sm text-slate-500">{item.tva}%</TableCell>
-                        <TableCell className="py-4 text-right font-bold text-sm text-emerald-600">{formatCurrency(item.montantTtc)}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
-                            onClick={() => removeFromPanier(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {panier.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12">
-                          <div className="flex flex-col items-center gap-2">
-                            <ShoppingCart className="h-10 w-10 text-slate-300" />
-                            <p className="text-sm text-slate-500 font-medium">Panier vide</p>
-                            <p className="text-xs text-slate-400">Ajoutez des produits ci-dessus</p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                <div className="flex items-center gap-2.5 px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <ShoppingCart className="h-5 w-5 text-emerald-600" />
+                  <span className="text-sm font-bold text-slate-800">Information de Vente</span>
+                </div>
+                <div className="p-6 space-y-4">
+                  <ProductSelector
+                    produits={produits}
+                    onSelect={(produit, qte) => {
+                      const puHt = Number(produit.prixVenteHt ?? 0);
+                      const tvaRate = Number(produit.tauxTva ?? 20);
+                      const mht = puHt * qte;
+                      const mtva = mht * (tvaRate / 100);
+                      const mttc = mht + mtva;
+
+                      const existingIndex = panier.findIndex(item => Number(item.produitId) === Number(produit.id));
+                      if (existingIndex >= 0) {
+                        const existing = panier[existingIndex];
+                        const newQte = existing.quantite + qte;
+                        const newMht = existing.prixUnitaireHt * newQte;
+                        const newMtva = newMht * (existing.tva / 100);
+                        const newMttc = newMht + newMtva;
+
+                        setPanier(panier.map((item, idx) =>
+                          idx === existingIndex
+                            ? { ...item, quantite: newQte, montantHt: newMht, montantTva: newMtva, montantTtc: newMttc }
+                            : item
+                        ));
+                      } else {
+                        setPanier([...panier, {
+                          produitId: produit.id,
+                          designation: produit.designation || 'Produit',
+                          quantite: qte,
+                          prixUnitaireHt: puHt,
+                          tva: tvaRate,
+                          montantHt: mht,
+                          montantTva: mtva,
+                          montantTtc: mttc,
+                          prixAchatHt: Number(produit.prixAchatHt ?? 0)
+                        }]);
+                      }
+                      toast.success(`${produit.designation || 'Produit'} ajouté au panier`);
+                    }}
+                    trigger={
+                      <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] shadow-none text-base">
+                        <ShoppingCart className="mr-2 h-5 w-5" />
+                        Sélectionner un produit
+                      </Button>
+                    }
+                  />
+                  <p className="text-xs text-slate-400 text-center">
+                    Cherchez par nom, référence ou marque. Cliquez sur un produit, définissez la quantité, puis ajoutez au panier.
+                  </p>
+                </div>
               </div>
 
-              {/* Totals */}
-              {panier.length > 0 && (
-                <div className="flex justify-end">
-                  <div className="flex items-center gap-8 p-4 rounded-[6px] border border-emerald-100 bg-emerald-50/50">
-                    <div className="text-right">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total HT</p>
-                      <p className="text-base font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">TVA</p>
-                      <p className="text-base font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
-                    </div>
-                    <div className="text-right border-l border-emerald-200 pl-8">
-                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Total TTC</p>
-                      <p className="text-xl font-black text-emerald-600">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTtc, 0))}</p>
-                    </div>
+              {/* Section 2: Panier */}
+              <div className="rounded-[6px] border border-slate-200 bg-white overflow-hidden">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                  <div className="flex items-center gap-2.5">
+                    <Package className="h-5 w-5 text-emerald-600" />
+                    <span className="text-sm font-bold text-slate-800">Panier <span className="text-slate-400 font-normal">({panier.length} article{panier.length !== 1 ? 's' : ''})</span></span>
                   </div>
                 </div>
-              )}
+
+                <div className="p-6">
+                  <div className="rounded-[4px] border border-slate-200 overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="border-b border-slate-100 bg-slate-50/30">
+                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4">Désignation</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Qté</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">PU HT</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">TVA</TableHead>
+                          <TableHead className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Total TTC</TableHead>
+                          <TableHead className="w-14 px-5 py-4"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {panier.map((item, index) => (
+                          <TableRow key={index} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors last:border-0">
+                            <TableCell className="px-5 py-4">
+                              <p className="text-sm font-medium text-slate-800">{item.designation}</p>
+                            </TableCell>
+                            <TableCell className="px-5 py-4 text-right">
+                              <span className="inline-flex items-center justify-center min-w-[32px] h-7 px-2.5 rounded-[6px] bg-slate-100 text-sm font-bold text-slate-700">{item.quantite}</span>
+                            </TableCell>
+                            <TableCell className="px-5 py-4 text-right text-sm text-slate-500 font-medium">{formatCurrency(item.prixUnitaireHt)}</TableCell>
+                            <TableCell className="px-5 py-4 text-right text-sm text-slate-500">{item.tva}%</TableCell>
+                            <TableCell className="px-5 py-4 text-right">
+                              <span className="text-sm font-bold text-emerald-600">{formatCurrency(item.montantTtc)}</span>
+                            </TableCell>
+                            <TableCell className="px-5 py-4 text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[8px]"
+                                onClick={() => removeFromPanier(index)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {panier.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-16">
+                              <div className="flex flex-col items-center gap-4">
+                                <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-slate-300">
+                                  <rect x="10" y="26" width="52" height="36" rx="6" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                                  <path d="M8 22C8 19.7909 9.79086 18 12 18H60C62.2091 18 64 19.7909 64 22V26H8V22Z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                                  <path d="M26 34H46" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 3" />
+                                  <path d="M22 42H50" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 3" />
+                                  <path d="M24 50H36" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 3" />
+                                  <circle cx="38" cy="14" r="3" fill="#10B981" stroke="white" strokeWidth="1.5" />
+                                </svg>
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-500">Panier vide</p>
+                                  <p className="text-xs text-slate-400 mt-1">Sélectionnez un produit pour commencer</p>
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                {/* Totals */}
+                {panier.length > 0 && (
+                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">
+                    <div className="flex justify-end">
+                      <div className="flex items-center gap-8">
+                        <div className="text-right">
+                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total HT</p>
+                          <p className="text-lg font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">TVA</p>
+                          <p className="text-lg font-bold text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
+                        </div>
+                        <div className="text-right border-l border-emerald-200 pl-8">
+                          <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Total TTC</p>
+                          <p className="text-2xl font-black text-emerald-600">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTtc, 0))}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <DialogFooter className="gap-2">
+            <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-slate-200 bg-slate-50/50">
               <Button
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
-                className="rounded-[4px] h-10"
+                className="h-10 px-5 rounded-[4px] border-slate-300 text-slate-600 font-semibold text-sm shadow-none"
               >
                 Annuler
               </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={panier.length === 0}
-                className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 shadow-none"
+                className="h-10 px-5 rounded-[4px] bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-none"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 Valider la vente
               </Button>
-            </DialogFooter>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

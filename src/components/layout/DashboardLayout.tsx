@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
-import { Menu, Search, Bell, ChevronDown } from 'lucide-react'
+import { NotificationBell } from './NotificationDropdown'
+import { Menu, Search, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/contexts/AuthContext'
+import { useNotifications } from '@/contexts/NotificationsContext'
 import { cn } from '@/lib/utils'
 
 const routeMeta: Record<string, { title: string; subtitle: string }> = {
@@ -37,10 +39,23 @@ export function DashboardLayout() {
   const currentRoute = routeMeta[location.pathname] || { title: 'ParaGestion', subtitle: '' };
   const userInitial = user?.email?.charAt(0)?.toUpperCase() || 'P';
   const displayName = user?.email?.split('@')[0] || 'ParaGestion';
+  const { unreadCount, notifications } = useNotifications();
+
+  const hasHighPriority = notifications.some(n => !n.is_read && (n.type === 'error' || n.type === 'warning'));
 
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (hasHighPriority && unreadCount > 0) {
+      document.title = `Action requise - ParaGestion`;
+    } else if (unreadCount > 0) {
+      document.title = `(${unreadCount}) ParaGestion`;
+    } else {
+      document.title = 'ParaGestion';
+    }
+  }, [hasHighPriority, unreadCount]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
@@ -93,10 +108,7 @@ export function DashboardLayout() {
             {/* Right: Actions & Profile */}
             <div className="flex items-center gap-4 shrink-0">
               {/* Notification Bell */}
-              <button className="relative p-2 rounded-full hover:bg-slate-100 transition-colors">
-                <Bell className="h-5 w-5 text-slate-500" />
-                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 border-2 border-white" />
-              </button>
+              <NotificationBell />
 
               {/* Vertical Divider */}
               <div className="w-px h-8 bg-slate-200" />

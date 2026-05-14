@@ -43,6 +43,7 @@ import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 import { Link } from 'react-router-dom'
 
 interface BonLivraison {
@@ -288,6 +289,45 @@ export function BonsLivraisonList() {
 
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
+      const oldStatut = bons.find(b => b.id === id)?.statut;
+      const isBecomingLivré = (newStatus === 'livré' || newStatus === 'livrée');
+      const wasLivré = (oldStatut === 'livré' || oldStatut === 'livrée');
+
+      // Stock update: when becoming "livré", increase stock
+      const changedIds: (number | string)[] = [];
+      if (isBecomingLivré && !wasLivré) {
+        const { data: lignes } = await supabase
+          .from('bon_livraison_lignes')
+          .select('produit_id, quantite')
+          .eq('bon_livraison_id', id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, Number(l.quantite));
+              changedIds.push(l.produit_id);
+            }
+          }
+        }
+      } else if (!isBecomingLivré && wasLivré) {
+        const { data: lignes } = await supabase
+          .from('bon_livraison_lignes')
+          .select('produit_id, quantite')
+          .eq('bon_livraison_id', id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, -Number(l.quantite));
+            }
+          }
+        }
+      }
+
+      if (changedIds.length > 0) {
+        await ensureLowStockNotifications(user?.id, changedIds);
+      }
+
       const { error } = await supabase
         .from('bons_livraison')
         .update({ statut: newStatus })

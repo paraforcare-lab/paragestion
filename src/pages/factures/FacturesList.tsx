@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 
 interface Facture {
   id: number;
@@ -431,10 +432,51 @@ export function FacturesList() {
         }
       }
 
+      const oldStatut = facture?.statut;
       const updateData: any = { statut: newStatut };
       if (newStatut === 'payée') {
         updateData.reste_a_payer = 0;
       }
+
+      const activeStatuses = ['payée', 'reste_a_payer'];
+      const wasActive = activeStatuses.includes(oldStatut);
+      const isActive = activeStatuses.includes(newStatut);
+
+      // Stock update logic
+      const changedIds: (number | string)[] = [];
+      if (isActive && !wasActive) {
+        const { data: lignes } = await supabase
+          .from('facture_lignes')
+          .select('produit_id, quantite')
+          .eq('facture_id', id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, -Number(l.quantite));
+              changedIds.push(l.produit_id);
+            }
+          }
+        }
+      } else if (!isActive && wasActive && newStatut === 'annulée') {
+        const { data: lignes } = await supabase
+          .from('facture_lignes')
+          .select('produit_id, quantite')
+          .eq('facture_id', id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, Number(l.quantite));
+            }
+          }
+        }
+      }
+
+      if (changedIds.length > 0) {
+        await ensureLowStockNotifications(user?.id, changedIds);
+      }
+
       const { error } = await supabase
         .from('factures')
         .update(updateData)

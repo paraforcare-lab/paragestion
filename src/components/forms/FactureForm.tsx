@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 
 const ligneSchema = z.object({
   produitId: z.string().optional(),
@@ -209,6 +210,19 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
       if (lignesPayload.length > 0) {
         const { error: lignesError } = await supabase.from('facture_lignes').insert(lignesPayload);
         if (lignesError) throw lignesError;
+      }
+
+      // Update stock for active invoices
+      const activeStatuses = ['payée', 'reste_a_payer'];
+      if (activeStatuses.includes(data.statut)) {
+        const changedIds: (number | string)[] = [];
+        for (const ligne of lignesPayload) {
+          if (ligne.produit_id) {
+            await updateStockAndNotify(user?.id, ligne.produit_id, -Number(ligne.quantite));
+            changedIds.push(ligne.produit_id);
+          }
+        }
+        await ensureLowStockNotifications(user?.id, changedIds);
       }
 
       toast.success(initialData ? 'Facture modifiée' : 'Facture créée');
