@@ -162,11 +162,11 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 900, fontSize: '20pt', color: '#000', lineHeight: 1.1 }}>
-                  Facture N°
-                </div>
+                  <div style={{ fontWeight: 900, fontSize: '20pt', color: '#000', lineHeight: 1.1 }}>
+                    {facture?.isAvoir ? 'Avoir N°' : 'Facture'}
+                  </div>
                 <div style={{ fontSize: '9pt', fontWeight: 600, color: '#374151', marginTop: 4 }}>
-                  {entityName === '-' ? '' : `${ville}, le `}{dateEmission}
+                  {numero}, le {dateEmission}
                 </div>
               </div>
             </div>

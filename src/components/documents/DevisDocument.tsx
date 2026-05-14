@@ -115,16 +115,40 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
             <div style={{ textAlign: 'center', fontSize: '9pt', fontWeight: 600, color: '#374151', marginBottom: 4 }}>
               I.C.E : {entreprise?.ice || '-'}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-                <span style={{ fontWeight: 900, fontSize: '22pt', color: '#000', lineHeight: 1 }}>Devis</span>
-                <span style={{ fontSize: '9pt', color: '#64748b', fontWeight: 500 }}>
-                  Edité le {fmtDateTime(now)}
-                </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 8,
+                  border: '1px solid #d1d5db',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#000',
+                  fontWeight: 900,
+                  fontSize: '14pt',
+                  flexShrink: 0,
+                }}>
+                  {entreprise?.logoUrl ? (
+                    <img src={entreprise.logoUrl} alt="Logo" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                  ) : 'PG'}
+                </div>
+                <div style={{ fontSize: '8pt', lineHeight: 1.5, color: '#475569' }}>
+                  <div style={{ fontWeight: 700, fontSize: '10pt', color: '#000', marginBottom: 1 }}>
+                    {entreprise?.nom || entreprise?.nomEntreprise || 'Nom de l\'entreprise'}
+                  </div>
+                  <div>{entreprise?.adresse || 'Adresse'}</div>
+                  <div>{entreprise?.ville || 'Ville Code Postal'}</div>
+                  <div>{entreprise?.telephone || 'Téléphone'}</div>
+                  <div>{entreprise?.email || 'Email'}</div>
+                </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 800, fontSize: '14pt', color: '#000' }}>ParaGestion</div>
-                <div style={{ fontSize: '7pt', color: '#94a3b8' }}>{entreprise?.nom || 'Solution de Gestion'}</div>
+              <div style={{ textAlign: 'right', alignItems: 'flex-end' }}>
+                <span style={{ fontWeight: 900, fontSize: '22pt', color: '#000', lineHeight: 1 }}>Devis</span>
+                <div style={{ fontSize: '9pt', color: '#64748b', fontWeight: 500, marginTop: 4 }}>
+                  Edité le {fmtDateTime(now)}
+                </div>
               </div>
             </div>
 

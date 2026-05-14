@@ -132,10 +132,23 @@ export function AvoirsList() {
       }
 
       if (error && error.code !== 'PGRST116') throw error;
-      setEntreprise({
-        ...data,
-        watermarkText: data?.watermark_text || 'ParaGestion',
-      });
+
+      if (data) {
+        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png' || !data.logo_url.startsWith('http')
+          ? ''
+          : data.logo_url;
+        setEntreprise({
+          nom: data.nom_societe || data.nom || '',
+          nomEntreprise: data.nom_societe || data.nom || '',
+          adresse: data.adresse || '',
+          ville: data.ville || '',
+          telephone: data.telephone || '',
+          email: data.email || '',
+          ice: data.ice || '',
+          logoUrl: cleanLogoUrl,
+          watermarkText: data.watermark_text || 'ParaGestion',
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch entreprise settings', error);
     }

@@ -102,10 +102,11 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
 
     const entity = pickVal(data, 'client', 'fournisseur') || {}
     const entityName = entity?.nomSociete || entity?.nom || '-'
+    const docDate = fmtDate(pickVal(data, 'dateEmission', 'dateCommande', 'date', 'dateLivraison'))
 
     const meta = [
       { label: 'Numéro', value: data.numero || '-' },
-      { label: 'Date', value: fmtDate(pickVal(data, 'dateEmission', 'dateCommande', 'date', 'dateLivraison')) },
+      { label: 'Date', value: docDate },
       { label: 'Référence', value: '-' },
       { label: 'Mode de Règlement', value: modePaiement || '-' },
       {
@@ -165,10 +166,10 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 72pt;
+            font-size: 80pt;
             font-weight: 900;
             color: rgba(0, 0, 0, 0.05);
-            z-index: -1;
+            z-index: 0;
             white-space: nowrap;
             pointer-events: none;
             letter-spacing: 12px;
@@ -197,12 +198,12 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
               {page.isFirst ? (
                 <>
                   {/* ===== HEADER: Brand Left + Title Right ===== */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: type === 'bon_livraison' ? 16 : 12 }}>
+                    <div style={{ display: 'flex', gap: 10 }}>
                       <div style={{
                         width: 48,
                         height: 48,
-                        borderRadius: 10,
+                        borderRadius: 8,
                         border: '1px solid #d1d5db',
                         display: 'flex',
                         alignItems: 'center',
@@ -212,11 +213,18 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
                         fontSize: '14pt',
                         flexShrink: 0,
                       }}>
-                        PG
+                        {entreprise?.logoUrl ? (
+                          <img src={entreprise.logoUrl} alt="Logo" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
+                        ) : 'PG'}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '14pt', letterSpacing: '-0.3px', color: '#000' }}>ParaGestion</div>
-                        <div style={{ fontSize: '7pt', color: '#94a3b8', marginTop: 1 }}>{entreprise?.nom || 'Solution de Gestion'}</div>
+                      <div style={{ fontSize: '8pt', lineHeight: 1.5, color: '#475569' }}>
+                        <div style={{ fontWeight: 700, fontSize: '10pt', color: '#000', marginBottom: 1 }}>
+                          {entreprise?.nom || entreprise?.nomEntreprise || 'Nom de l\'entreprise'}
+                        </div>
+                        <div>{entreprise?.adresse || 'Adresse'}</div>
+                        <div>{entreprise?.ville || 'Ville Code Postal'}</div>
+                        <div>{entreprise?.telephone || 'Téléphone'}</div>
+                        <div>{entreprise?.email || 'Email'}</div>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -224,12 +232,16 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
                         {docTitle}
                       </div>
                       <div style={{ fontSize: '9pt', fontWeight: 600, color: '#374151', marginTop: 4 }}>
-                        I.C.E: {entreprise?.ice || '-'}
+                        {type === 'bon_livraison' ? (
+                          <>{data.numero || '-'} &mdash; {docDate}</>
+                        ) : (
+                          <>I.C.E: {entreprise?.ice || '-'}</>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* ===== 6-COLUMN METADATA GRID (thin black borders) ===== */}
+                  {type !== 'bon_livraison' && (
                   <table style={{ width: '100%', marginBottom: 12 }}>
                     <thead>
                       <tr>
@@ -260,6 +272,7 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
                       </tr>
                     </tbody>
                   </table>
+                  )}
 
                   {/* ===== CLIENT BOX (right side, 50% width) ===== */}
                   <div style={{
