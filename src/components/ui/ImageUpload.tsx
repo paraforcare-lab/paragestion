@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, Camera, X, Image as ImageIcon, RotateCw, Trash2, AlertCircle, Check, Crop } from 'lucide-react'
+import { Upload, Camera, X, Image as ImageIcon, RotateCw, Trash2, AlertCircle, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -74,9 +74,11 @@ function getCameraErrorMessage(error: any): string {
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.crossOrigin = 'anonymous';
+    if (!url.startsWith('blob:')) {
+      image.crossOrigin = 'anonymous';
+    }
     image.onload = () => resolve(image);
-    image.onerror = reject;
+    image.onerror = () => reject(new Error('Failed to load image'));
     image.src = url;
   });
 }
@@ -86,9 +88,9 @@ function getCroppedImg(
   pixelCrop: Area,
   outputFileName: string,
 ): Promise<File> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const image = await createImage(imageUrl);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
@@ -100,7 +102,7 @@ function getCroppedImg(
       canvas.height = pixelCrop.height;
 
       ctx.drawImage(
-        image,
+        img,
         pixelCrop.x,
         pixelCrop.y,
         pixelCrop.width,
@@ -123,9 +125,12 @@ function getCroppedImg(
         'image/jpeg',
         0.92,
       );
-    } catch (err) {
-      reject(err);
+    };
+    img.onerror = () => reject(new Error('Failed to load image for cropping'));
+    if (!imageUrl.startsWith('blob:')) {
+      img.crossOrigin = 'anonymous';
     }
+    img.src = imageUrl;
   });
 }
 
@@ -150,6 +155,7 @@ export function ImageUpload({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [cropperImageReady, setCropperImageReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nativeCameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -163,6 +169,18 @@ export function ImageUpload({
   useEffect(() => {
     setPreview(value || null);
   }, [value]);
+
+  useEffect(() => {
+    if (showCropper && imageToCrop) {
+      const img = new Image();
+      img.onload = () => setCropperImageReady(true);
+      img.onerror = () => {
+        toast.error('Erreur lors du chargement de l\'image');
+        handleCropCancel();
+      };
+      img.src = imageToCrop;
+    }
+  }, [showCropper, imageToCrop]);
 
   useEffect(() => {
     return () => {
@@ -271,11 +289,14 @@ export function ImageUpload({
       return;
     }
 
+    const url = URL.createObjectURL(file);
+    setCropperImageReady(false);
     setShowCropper(true);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setCroppedAreaPixels(null);
-    setImageToCrop(URL.createObjectURL(file));
+    setImageToCrop(null);
+    setImageToCrop(url);
   };
 
   const handleCropConfirm = async () => {
@@ -286,14 +307,17 @@ export function ImageUpload({
 
     setShowCropper(false);
     setIsUploading(true);
+    const url = imageToCrop;
+    setImageToCrop(null);
+    setCropperImageReady(false);
 
     try {
       const baseName = `crop-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const croppedFile = await getCroppedImg(imageToCrop, croppedAreaPixels, `${baseName}.jpg`);
-      URL.revokeObjectURL(imageToCrop);
-      setImageToCrop(null);
+      const croppedFile = await getCroppedImg(url, croppedAreaPixels, `${baseName}.jpg`);
+      URL.revokeObjectURL(url);
       await handleFile(croppedFile);
-    } catch {
+    } catch (e) {
+      console.error('Crop error:', e);
       toast.error('Erreur lors du recadrage de l\'image');
       setIsUploading(false);
     }
@@ -306,6 +330,7 @@ export function ImageUpload({
     setShowCropper(false);
     setImageToCrop(null);
     setCroppedAreaPixels(null);
+    setCropperImageReady(false);
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -557,17 +582,24 @@ export function ImageUpload({
       {showCropper && imageToCrop && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black">
           <div className="relative flex-1">
-            <Cropper
-              image={imageToCrop}
-              crop={crop}
-              zoom={zoom}
-              aspect={1 / 1}
-              onCropChange={setCrop}
-              onZoomChange={setZoom}
-              onCropComplete={onCropComplete}
-              cropShape="rect"
-              showGrid={true}
-            />
+            {!cropperImageReady && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-white text-sm">Chargement de l'image...</div>
+              </div>
+            )}
+            {cropperImageReady && (
+              <Cropper
+                image={imageToCrop}
+                crop={crop}
+                zoom={zoom}
+                aspect={1 / 1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+                cropShape="rect"
+                showGrid={true}
+              />
+            )}
           </div>
           <div className="flex items-center justify-between gap-4 p-4 bg-black/80">
             <Button
