@@ -46,101 +46,123 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+
+    /* Standard Tailwind slate palette (semantic approach uses CSS vars, not utility hijacking) */
+    --color-gray-50: #f9fafb;
+    --color-gray-100: #f3f4f6;
+    --color-gray-200: #e5e7eb;
+    --color-gray-300: #d1d5db;
+    --color-gray-400: #9ca3af;
+    --color-gray-500: #6b7280;
+    --color-gray-600: #4b5563;
+    --color-gray-700: #374151;
+    --color-gray-800: #1f2937;
+    --color-gray-900: #111827;
+
+    --color-slate-50: #f8fafc;
+    --color-slate-100: #f1f5f9;
+    --color-slate-200: #e2e8f0;
+    --color-slate-300: #cbd5e1;
+    --color-slate-400: #94a3b8;
+    --color-slate-500: #64748b;
+    --color-slate-600: #475569;
+    --color-slate-700: #334155;
+    --color-slate-800: #1e293b;
+    --color-slate-900: #0f172a;
 }
 
 :root {
-    /* Premium Pharmacy Theme - Clean & Professional */
-    --background: oklch(0.99 0.002 250);
-    --foreground: oklch(0.15 0.02 250);
+    /* LIGHT MODE — clean white background, dark text */
+    --background: #F8FAFC;
+    --foreground: #1E293B;
     
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.15 0.02 250);
+    --card: #FFFFFF;
+    --card-foreground: #1E293B;
     
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.15 0.02 250);
+    --popover: #FFFFFF;
+    --popover-foreground: #1E293B;
     
-    /* Medical Teal - Primary */
-    --primary: oklch(0.52 0.15 195);
-    --primary-foreground: oklch(1 0 0);
+    --primary: oklch(0.60 0.14 185);
+    --primary-foreground: #FFFFFF;
     
-    --secondary: oklch(0.96 0.01 250);
-    --secondary-foreground: oklch(0.25 0.03 250);
+    --secondary: oklch(0.95 0.01 250);
+    --secondary-foreground: #1E293B;
     
-    --muted: oklch(0.95 0.01 250);
-    --muted-foreground: oklch(0.5 0.03 250);
+    --muted: #F1F5F9;
+    --muted-foreground: #64748B;
     
-    --accent: oklch(0.96 0.02 175);
-    --accent-foreground: oklch(0.25 0.05 175);
+    --accent: #F1F5F9;
+    --accent-foreground: #1E293B;
     
-    /* Soft Medical Red */
-    --destructive: oklch(0.55 0.2 25);
+    --destructive: oklch(0.58 0.18 25);
     
-    --border: oklch(0.92 0.01 250);
-    --input: oklch(0.94 0.01 250);
-    --ring: oklch(0.52 0.15 195);
+    --border: #E2E8F0;
+    --input: #E2E8F0;
+    --ring: oklch(0.60 0.14 185);
     
-    /* Charts - Medical Inspired */
-    --chart-1: oklch(0.52 0.15 195);
-    --chart-2: oklch(0.65 0.12 155);
-    --chart-3: oklch(0.70 0.10 85);
-    --chart-4: oklch(0.55 0.18 25);
-    --chart-5: oklch(0.45 0.08 270);
+    --chart-1: oklch(0.60 0.14 185);
+    --chart-2: oklch(0.67 0.12 155);
+    --chart-3: oklch(0.72 0.10 85);
+    --chart-4: oklch(0.58 0.18 25);
+    --chart-5: oklch(0.55 0.08 270);
     
     --radius: 1rem;
     
-    /* Sidebar - Clean White */
-    --sidebar: oklch(1 0 0);
-    --sidebar-foreground: oklch(0.15 0.02 250);
-    --sidebar-primary: oklch(0.52 0.15 195);
-    --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.97 0.01 250);
-    --sidebar-accent-foreground: oklch(0.25 0.03 250);
-    --sidebar-border: oklch(0.92 0.01 250);
-    --sidebar-ring: oklch(0.52 0.15 195);
+    /* Sidebar — always Navy regardless of mode */
+    --sidebar: #0F172A;
+    --sidebar-foreground: #FFFFFF;
+    --sidebar-primary: oklch(0.60 0.14 185);
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #0F172A;
+    --sidebar-accent-foreground: #FFFFFF;
+    --sidebar-border: #1E293B;
+    --sidebar-ring: oklch(0.60 0.14 185);
 }
 
 .dark {
-    --background: oklch(0.12 0.02 250);
-    --foreground: oklch(0.97 0.01 250);
+    /* DARK MODE — Deep Navy (#0F172A) with white text */
+    --background: #0F172A;
+    --foreground: #FFFFFF;
     
-    --card: oklch(0.15 0.02 250);
-    --card-foreground: oklch(0.97 0.01 250);
+    --card: #0F172A;
+    --card-foreground: #FFFFFF;
     
-    --popover: oklch(0.15 0.02 250);
-    --popover-foreground: oklch(0.97 0.01 250);
+    --popover: #0F172A;
+    --popover-foreground: #FFFFFF;
     
-    --primary: oklch(0.62 0.15 195);
-    --primary-foreground: oklch(0.12 0.02 250);
+    --primary: oklch(0.60 0.14 185);
+    --primary-foreground: #FFFFFF;
     
-    --secondary: oklch(0.20 0.02 250);
-    --secondary-foreground: oklch(0.95 0.01 250);
+    --secondary: oklch(0.22 0.02 250);
+    --secondary-foreground: #FFFFFF;
     
-    --muted: oklch(0.20 0.02 250);
-    --muted-foreground: oklch(0.65 0.02 250);
+    --muted: oklch(0.16 0.02 250);
+    --muted-foreground: #CBD5E1;
     
-    --accent: oklch(0.22 0.02 175);
-    --accent-foreground: oklch(0.95 0.01 175);
+    --accent: oklch(0.22 0.02 250);
+    --accent-foreground: #FFFFFF;
     
-    --destructive: oklch(0.60 0.18 25);
+    --destructive: oklch(0.58 0.18 25);
     
-    --border: oklch(0.25 0.02 250);
-    --input: oklch(0.25 0.02 250);
-    --ring: oklch(0.62 0.15 195);
+    --border: rgba(255, 255, 255, 0.1);
+    --input: rgba(255, 255, 255, 0.08);
+    --ring: oklch(0.60 0.14 185);
     
-    --chart-1: oklch(0.62 0.15 195);
-    --chart-2: oklch(0.70 0.12 155);
-    --chart-3: oklch(0.75 0.10 85);
-    --chart-4: oklch(0.60 0.18 25);
+    --chart-1: oklch(0.60 0.14 185);
+    --chart-2: oklch(0.67 0.12 155);
+    --chart-3: oklch(0.72 0.10 85);
+    --chart-4: oklch(0.58 0.18 25);
     --chart-5: oklch(0.55 0.08 270);
     
-    --sidebar: oklch(0.14 0.02 250);
-    --sidebar-foreground: oklch(0.97 0.01 250);
-    --sidebar-primary: oklch(0.62 0.15 195);
-    --sidebar-primary-foreground: oklch(0.12 0.02 250);
-    --sidebar-accent: oklch(0.20 0.02 250);
-    --sidebar-accent-foreground: oklch(0.95 0.01 250);
-    --sidebar-border: oklch(0.25 0.02 250);
-    --sidebar-ring: oklch(0.62 0.15 195);
+    /* Sidebar — always Navy regardless of mode */
+    --sidebar: #0F172A;
+    --sidebar-foreground: #FFFFFF;
+    --sidebar-primary: oklch(0.60 0.14 185);
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #0F172A;
+    --sidebar-accent-foreground: #FFFFFF;
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-ring: oklch(0.60 0.14 185);
 }
 
 @layer base {
@@ -149,9 +171,11 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    overscroll-behavior: none;
   }
   html {
     @apply font-sans scroll-smooth;
+    overflow: hidden;
   }
 }
 
@@ -163,7 +187,7 @@
 }
 
 .dark .glass {
-  background: rgba(30, 30, 40, 0.8);
+  background: rgba(30, 41, 59, 0.85);
 }
 
 /* Premium Card Shadow */
@@ -217,8 +241,8 @@
 }
 
 .dark .border-gradient {
-  background: linear-gradient(#1a1a2e, #1a1a2e) padding-box,
-              linear-gradient(135deg, oklch(0.62 0.15 195), oklch(0.55 0.08 270)) border-box;
+  background: linear-gradient(oklch(0.21 0.018 265), oklch(0.21 0.018 265)) padding-box,
+              linear-gradient(135deg, oklch(0.60 0.14 185), oklch(0.55 0.08 270)) border-box;
 }
 
 /* Premium Shine Effect */
@@ -347,6 +371,51 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: oklch(0.52 0.15 195 / 0.5);
+}
+
+/* ---- Global Light Mode Scrollbar ---- */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* ---- Global Dark Mode Scrollbar ---- */
+.dark *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.dark *::-webkit-scrollbar-track {
+  background: #0B1222;
+}
+
+.dark *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  border: 2px solid #0B1222;
+}
+
+.dark *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* Premium Animations */
@@ -555,3 +624,44 @@
 .sidebar-scroll:hover::-webkit-scrollbar-thumb {
   background-color: rgba(148, 163, 184, 0.3);
 }
+
+/* ---- Typography Overrides - Pure White Headings ---- */
+.dark h1,
+.dark h2,
+.dark h3 {
+  color: #FFFFFF;
+}
+
+.dark .text-muted-foreground {
+  color: #cbd5e1;
+}
+
+/* ---- Icon Brightness Boost ---- */
+.dark .lucide {
+  opacity: 0.9;
+}
+
+.dark .text-primary .lucide,
+.dark .text-emerald-500 .lucide,
+.dark .text-amber-500 .lucide,
+.dark .text-blue-500 .lucide,
+.dark [class*="text-"] .lucide {
+  opacity: 1;
+}
+
+/* ---- Glow Effects ---- */
+.dark .card-glow-active {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 0 40px rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.dark .btn-glow-primary {
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+  transition: box-shadow 0.2s ease;
+}
+
+.dark .btn-glow-primary:hover {
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.4);
+}
+
+

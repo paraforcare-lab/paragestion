@@ -215,24 +215,28 @@ const [stats, setStats] = useState<Stats | null>(null);
           value={stats ? formatCurrency(stats.totalRevenue) : formatCurrency(0)}
           subtitle="Revenus totaux TTC"
           icon={DollarSign}
+          iconContainerClass="dark:bg-emerald-500/10 dark:border dark:border-emerald-500/20 dark:text-emerald-400"
         />
         <KPICard
           title="Créances Clients"
           value={stats ? formatCurrency(stats.unpaidRevenue) : formatCurrency(0)}
           subtitle="Factures en attente"
           icon={CreditCard}
+          iconContainerClass="dark:bg-blue-500/10 dark:border dark:border-blue-500/20 dark:text-blue-400"
         />
         <KPICard
           title="Dépenses Totales"
           value={stats ? formatCurrency(stats.totalDepenses) : formatCurrency(0)}
           subtitle="Sorties mensuelles"
           icon={Activity}
+          iconContainerClass="dark:bg-rose-500/10 dark:border dark:border-rose-500/20 dark:text-rose-400"
         />
         <KPICard
           title="Bénéfice Net"
           value={stats ? formatCurrency(stats.profit) : formatCurrency(0)}
           subtitle="Marge bénéficiaire"
           icon={ShieldCheck}
+          iconContainerClass="dark:bg-rose-500/10 dark:border dark:border-rose-500/20 dark:text-rose-400"
         />
       </div>
 
@@ -243,37 +247,42 @@ const [stats, setStats] = useState<Stats | null>(null);
           value={stats ? String(stats.bonsCommandeCount) : "0"}
           subtitle="Confirmés / Livrés"
           icon={ClipboardList}
+          iconContainerClass="dark:bg-emerald-500/10 dark:border dark:border-emerald-500/20 dark:text-emerald-400"
         />
         <KPICard
           title="Clients"
           value={stats ? String(stats.clientsCount) : "0"}
           subtitle="Total clients"
           icon={Users}
+          iconContainerClass="dark:bg-blue-500/10 dark:border dark:border-blue-500/20 dark:text-blue-400"
         />
         <KPICard
           title="Fournisseurs"
           value={stats ? String(stats.fournisseursCount) : "0"}
           subtitle="Total fournisseurs"
           icon={Building2}
+          iconContainerClass="dark:bg-indigo-500/10 dark:border dark:border-indigo-500/20 dark:text-indigo-400"
         />
         <KPICard
           title="Produits"
           value={stats ? String(stats.produitsCount) : "0"}
           subtitle="Articles en stock"
           icon={Package}
+          iconContainerClass="dark:bg-amber-500/10 dark:border dark:border-amber-500/20 dark:text-amber-400"
         />
         <KPICard
           title="Factures"
           value={stats ? String(stats.facturesCount) : "0"}
           subtitle="Payées + Attente + Brouillon"
           icon={FileText}
+          iconContainerClass="dark:bg-emerald-500/10 dark:border dark:border-emerald-500/20 dark:text-emerald-400"
         />
       </div>
 
       {/* Main Content Grid */}
       <div className="grid gap-6 lg:grid-cols-7">
         {/* Revenue Chart */}
-        <Card className="lg:col-span-4 border border-slate-200 shadow-none rounded-[6px]">
+        <Card className="lg:col-span-4 shadow-none rounded-[6px]">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -307,7 +316,7 @@ const [stats, setStats] = useState<Stats | null>(null);
                       <stop offset="95%" stopColor="oklch(0.55 0.2 25)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="oklch(0.92 0.01 250)" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                   <XAxis 
                     dataKey="name" 
                     axisLine={false} 
@@ -323,8 +332,8 @@ const [stats, setStats] = useState<Stats | null>(null);
                   <Tooltip 
                     contentStyle={{ 
                       borderRadius: '4px', 
-                      border: '1px solid #E2E8F0',
-                      background: 'white'
+                      border: '1px solid var(--border)',
+                      background: 'var(--card)'
                     }}
                   />
                   <Area 
@@ -352,7 +361,7 @@ const [stats, setStats] = useState<Stats | null>(null);
         </Card>
 
         {/* Recent Invoices */}
-        <Card className="lg:col-span-3 border border-slate-200 shadow-none rounded-[6px]">
+        <Card className="lg:col-span-3 shadow-none rounded-[6px]">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -378,9 +387,9 @@ const [stats, setStats] = useState<Stats | null>(null);
                   >
                       <div className={cn(
                         "h-11 w-11 rounded-[6px] flex items-center justify-center shrink-0",
-                        facture.statut === 'payée' ? "bg-gradient-to-br from-emerald-50 to-emerald-100 text-emerald-600" :
-                        facture.statut === 'reste_a_payer' ? "bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600" :
-                        "bg-gradient-to-br from-amber-50 to-amber-100 text-amber-600"
+                        facture.statut === 'payée' ? "bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 text-emerald-400" :
+                        facture.statut === 'reste_a_payer' ? "bg-gradient-to-br from-blue-500/10 to-blue-500/5 text-blue-400" :
+                        "bg-gradient-to-br from-amber-500/10 to-amber-500/5 text-amber-400"
                       )}>
                       <FileText className="h-5 w-5" />
                     </div>
@@ -400,9 +409,9 @@ const [stats, setStats] = useState<Stats | null>(null);
                          variant="outline" 
                           className={cn(
                             "text-[10px] h-5 px-2 font-bold border-0",
-                            facture.statut === 'payée' ? "bg-emerald-100 text-emerald-700" :
-                            facture.statut === 'reste_a_payer' ? "bg-blue-100 text-blue-700" :
-                            "bg-amber-100 text-amber-700"
+                             facture.statut === 'payée' ? "bg-emerald-500/10 text-emerald-400" :
+                             facture.statut === 'reste_a_payer' ? "bg-blue-500/10 text-blue-400" :
+                             "bg-amber-500/10 text-amber-400"
                           )}
                       >
                         {facture.statut === 'payée' ? 'Payée' : 
@@ -430,7 +439,7 @@ const [stats, setStats] = useState<Stats | null>(null);
       {/* Second Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Quick Actions */}
-        <Card className="border border-slate-200 shadow-none rounded-[6px]">
+        <Card className="shadow-none rounded-[6px]">
           <CardHeader>
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
@@ -441,9 +450,9 @@ const [stats, setStats] = useState<Stats | null>(null);
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
                 { label: 'Nouvelle Facture', icon: FileText, color: 'primary', bg: 'bg-primary/10', link: '/factures' },
-                { label: 'Vente Rapide', icon: ShoppingCart, color: 'emerald-500', bg: 'bg-emerald-50', link: '/ventes-passagers' },
-                { label: 'Nouvelle Dépense', icon: CreditCard, color: 'red-500', bg: 'bg-red-50', link: '/depenses' },
-                { label: 'Ajouter Client', icon: Users, color: 'amber-500', bg: 'bg-amber-50', link: '/clients' },
+                { label: 'Vente Rapide', icon: ShoppingCart, color: 'emerald-400', bg: 'bg-emerald-500/10', link: '/ventes-passagers' },
+                { label: 'Nouvelle Dépense', icon: CreditCard, color: 'red-400', bg: 'bg-red-500/10', link: '/depenses' },
+                { label: 'Ajouter Client', icon: Users, color: 'amber-400', bg: 'bg-amber-500/10', link: '/clients' },
               ].map((action) => (
                 <Link 
                   key={action.label} 
@@ -466,14 +475,14 @@ const [stats, setStats] = useState<Stats | null>(null);
         </Card>
 
         {/* Stock Alerts */}
-        <Card className="border border-slate-200 shadow-none rounded-[6px]">
+        <Card className="shadow-none rounded-sm">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg font-bold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Alertes Stock
             </CardTitle>
             {stats?.lowStockProduits && stats.lowStockProduits.length > 0 && (
-              <Badge variant="destructive" className="bg-amber-500">
+              <Badge variant="destructive" className="dark:bg-amber-500/20 dark:text-amber-500 dark:border dark:border-amber-500/30 bg-amber-500 text-white">
                 {stats.lowStockProduits.length} produit{stats.lowStockProduits.length > 1 ? 's' : ''}
               </Badge>
             )}
@@ -484,11 +493,11 @@ const [stats, setStats] = useState<Stats | null>(null);
                 stats.lowStockProduits.slice(0, 4).map((produit) => (
                   <div 
                     key={produit.id} 
-                    className="flex items-center justify-between p-3 rounded-[6px] bg-gradient-to-r from-amber-50/50 to-transparent border border-amber-100 hover:from-amber-50 hover:border-amber-200 transition-all"
+                    className="flex items-center justify-between p-3 rounded-sm dark:bg-white/5 dark:border-white/10 bg-gradient-to-r from-amber-500/10 to-transparent border border-amber-500/20"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="bg-white p-2 rounded-[4px] border border-amber-100">
-                        <Pill className="h-4 w-4 text-amber-600" />
+                      <div className="dark:bg-amber-500/10 bg-card p-2 rounded-[4px] border dark:border-0 border-amber-500/20">
+                        <Pill className="h-4 w-4 dark:text-amber-300 text-amber-400" />
                       </div>
                       <div>
                         <p className="text-sm font-bold text-foreground">{produit?.nom || '-'}</p>
@@ -498,19 +507,19 @@ const [stats, setStats] = useState<Stats | null>(null);
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-black text-amber-600">
+                      <p className="text-sm font-black text-amber-400">
                         {produit.stock_actuel} {produit.unite}
                       </p>
-                      <p className="text-[10px] text-amber-500/70 font-semibold uppercase">Stock bas</p>
+                      <p className="text-[10px] text-amber-400/60 font-semibold uppercase">Stock bas</p>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-[8px] p-4 mb-3">
-                    <ShieldCheck className="h-8 w-8 text-emerald-600" />
+                  <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 rounded-[8px] p-4 mb-3">
+                    <ShieldCheck className="h-8 w-8 text-emerald-400" />
                   </div>
-                  <p className="text-sm font-semibold text-emerald-600">Stock optimal</p>
+                  <p className="text-sm font-semibold text-emerald-400">Stock optimal</p>
                   <p className="text-xs text-muted-foreground">Tous vos produits sont bien approvisionnés</p>
                 </div>
               )}
@@ -520,7 +529,7 @@ const [stats, setStats] = useState<Stats | null>(null);
       </div>
 
       {/* TVA Summary */}
-      <Card className="border border-slate-200 shadow-none rounded-[6px]">
+      <Card className="shadow-none rounded-[6px]">
         <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-6 py-4 border-b border-primary/10 flex items-center gap-3">
           <div className="p-2 rounded-[6px] bg-primary/10">
             <PieChart className="h-5 w-5 text-primary" />
@@ -564,16 +573,16 @@ const [stats, setStats] = useState<Stats | null>(null);
                 <Badge className={cn(
                   "font-bold",
                   (stats?.tvaNet || 0) > 0
-                    ? "bg-red-100 text-red-700 hover:bg-red-100"
-                    : "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                    ? "bg-red-500/10 text-red-400 hover:bg-red-500/10"
+                    : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/10"
                 )}>
                   {(stats?.tvaNet || 0) > 0 ? "À Payer" : "Crédit"}
                  </Badge>
                </div>
-               <p className="text-2xl font-black text-[#0f172a]">
+               <p className="text-2xl font-black text-foreground">
                  {Number(stats?.tvaNet || 0).toFixed(2)} <span className="text-sm font-medium text-muted-foreground">MAD</span>
                </p>
-               <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                  {stats && Number(stats.totalTvaCollectee) > 0 && (
                    <div
                      className="h-full rounded-full transition-all"

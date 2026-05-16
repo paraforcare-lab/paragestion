@@ -1,258 +1,321 @@
 import { forwardRef, useMemo } from 'react'
-import { format } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { formatCurrency } from '@/lib/utils'
 import { numberToFrenchWords } from '@/lib/numberToWords'
 
 interface DevisDocumentProps {
-  devis: any;
-  entreprise: any;
+  devis: any
+  entreprise: any
+}
+
+const fmt2 = (n: number): string =>
+  new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+
+const safeNum = (v: any, fallback = 0): number => {
+  if (v === null || v === undefined || v === '') return fallback
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
+  return isNaN(n) ? fallback : n
+}
+
+const pickVal = (obj: any, ...keys: string[]) => {
+  for (const k of keys) { const v = obj?.[k]; if (v !== null && v !== undefined) return v }
+  return null
+}
+
+const pickNum = (obj: any, ...keys: string[]) => safeNum(pickVal(obj, ...keys))
+
+const fmtDate = (d: any): string => {
+  if (!d) return '-'
+  try {
+    let date: Date
+    if (typeof d === 'string') {
+      date = d.includes('T') || d.includes('-') ? parseISO(d) : new Date(d)
+    } else if (d instanceof Date) {
+      date = d
+    } else {
+      date = new Date(d)
+    }
+    return isValid(date) ? format(date, 'dd/MM/yyyy', { locale: fr }) : '-'
+  } catch {
+    return '-'
+  }
+}
+
+const fmtDateTime = (d: Date): string => {
+  return format(d, 'dd/MM/yy HH:mm', { locale: fr })
 }
 
 export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
   ({ devis, entreprise }, ref) => {
     if (!devis) return null
 
-    const safeVal = (obj: any, ...keys: string[]) => {
-      for (const key of keys) {
-        const val = obj?.[key]
-        if (val !== null && val !== undefined) return val
-      }
-      return 0
-    }
-
-    const montantTtc = safeVal(devis, 'montantTtc', 'montant_ttc')
-    const montantHt = safeVal(devis, 'montantHt', 'montant_ht')
-    const montantTva = safeVal(devis, 'montantTva', 'montant_tva')
-
     const lignes = devis.lignes || []
-    const lineCount = lignes.length
-    const compact = lineCount > 10
+    const totalHt = pickNum(devis, 'montantHt', 'montant_ht')
+    const totalTva = pickNum(devis, 'montantTva', 'montant_tva')
+    const totalTtc = pickNum(devis, 'montantTtc', 'montant_ttc')
+    const numero = devis.numero || '-'
+    const dateEmission = fmtDate(pickVal(devis, 'dateEmission', 'date_emission'))
+    const dateValidite = fmtDate(pickVal(devis, 'dateValidite', 'date_echeance', 'dateEcheance'))
+    const modePaiement = (pickVal(devis, 'modePaiement', 'mode_paiement') as string) || ''
+    const conditionsPaiement = devis.conditionsPaiement || ''
+    const client = pickVal(devis, 'client', 'fournisseur') || {}
+    const entityName = client?.nomSociete || client?.nom || '-'
+    const now = new Date()
 
-    const dateEmission = devis.dateEmission
-      ? format(new Date(devis.dateEmission), 'dd MMMM yyyy', { locale: fr })
-      : ''
-    const dateValidite = devis.dateValidite
-      ? format(new Date(devis.dateValidite), 'dd MMMM yyyy', { locale: fr })
-      : ''
+    const getPu = (l: any) => pickNum(l, 'prixUnitaireHt', 'prix_unitaire_ht')
+    const getQt = (l: any) => safeNum(l.quantite, 1)
+    const getMt = (l: any) => { const m = pickNum(l, 'montantHt', 'montant_ht'); return m > 0 ? m : getPu(l) * getQt(l) }
+
+    const totalQte = lignes.reduce((s: number, l: any) => s + getQt(l), 0)
+    const totalMtHt = lignes.reduce((s: number, l: any) => s + getMt(l), 0)
 
     return (
       <>
         <style>{`
           @page { margin: 0; size: A4; }
           @media print {
-            html, body {
-              margin: 0 !important; padding: 0 !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
+            html, body { margin: 0 !important; padding: 0 !important; }
+          }
+          .devis-doc {
+            font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
+            color: #000;
+            background: #fff;
+            position: relative;
+          }
+          .devis-doc table { border-collapse: collapse; }
+          .devis-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80pt;
+            font-weight: 900;
+            color: rgba(0, 0, 0, 0.05);
+            z-index: 0;
+            white-space: nowrap;
+            pointer-events: none;
+            letter-spacing: 12px;
+            text-transform: uppercase;
+            user-select: none;
           }
         `}</style>
-        <div
-          ref={ref}
-          className="bg-white text-slate-900 font-sans"
-          style={{
+        <div ref={ref} className="devis-doc">
+          <div style={{
             width: '210mm',
-            height: '297mm',
-            overflow: 'hidden',
-            padding: compact ? '12mm 14mm 10mm' : '16mm 16mm 12mm',
-            fontFamily: "'Inter Variable', sans-serif",
+            minHeight: '297mm',
+            padding: '15mm',
             display: 'flex',
             flexDirection: 'column',
-          }}
-        >
-          {/* Header */}
-          <div className={compact ? 'mb-3' : 'mb-5'}>
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                {entreprise?.logoUrl && entreprise.logoUrl !== 'image.png' && entreprise.logoUrl?.startsWith('http') ? (
-                  <img src={entreprise.logoUrl} alt="Logo" className={compact ? 'h-10 object-contain mb-2' : 'h-14 object-contain mb-2.5'} referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {entreprise?.activerFiligrane !== false && (
+              <div className="devis-watermark">{entreprise?.watermarkText || 'ParaGestion'}</div>
+            )}
+
+            {/* ===== HEADER ===== */}
+            <div style={{ textAlign: 'center', fontSize: '9pt', fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+              I.C.E : {entreprise?.ice || '-'}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                {entreprise?.logoUrl ? (
+                  <img src={entreprise.logoUrl} alt="Logo" style={{ width: 120, height: 60, objectFit: 'contain', flexShrink: 0 }} />
                 ) : (
-                  <div className="flex items-center gap-2.5 mb-2.5">
-                    <div className="w-9 h-9 rounded-[6px] bg-emerald-600 flex items-center justify-center text-white font-bold text-base">
-                      {entreprise?.nomEntreprise?.[0] || 'P'}
-                    </div>
-                    <h1 className={`font-bold text-slate-900 leading-tight ${compact ? 'text-lg' : 'text-xl'}`}>
-                      {entreprise?.nomEntreprise || 'ParaGestion'}
-                    </h1>
+                  <div style={{ fontSize: '18pt', fontWeight: 700, color: '#000', letterSpacing: 1, flexShrink: 0 }}>
+                    {(entreprise?.nomEntreprise || entreprise?.nom || 'PARAGESTION').substring(0, 4).toUpperCase()}
                   </div>
                 )}
-                <div className={`space-y-0.5 text-slate-500 leading-snug ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
-                  {entreprise?.adresse && <p>{entreprise.adresse}</p>}
-                  {entreprise?.ville && <p>{entreprise.ville}</p>}
-                  <p>
-                    {entreprise?.telephone && <span>Tél: {entreprise.telephone}</span>}
-                    {entreprise?.email && <span className="ml-2">Email: {entreprise.email}</span>}
-                  </p>
-                  {entreprise?.ice && <p className="font-medium text-slate-700">ICE: {entreprise.ice}</p>}
+                <div style={{ fontSize: '8pt', lineHeight: 1.5, color: '#475569' }}>
+                  <div style={{ fontWeight: 700, fontSize: '10pt', color: '#000', marginBottom: 1 }}>
+                    {entreprise?.nom || entreprise?.nomEntreprise || 'Nom de l\'entreprise'}
+                  </div>
+                  <div>{entreprise?.adresse || 'Adresse'}</div>
+                  <div>{entreprise?.ville || 'Ville Code Postal'}</div>
+                  <div>{entreprise?.telephone || 'Téléphone'}</div>
+                  <div>{entreprise?.email || 'Email'}</div>
                 </div>
               </div>
-              <div className="text-right relative min-w-[180px]">
-                <div className={`absolute -top-3 right-0 font-black tracking-[0.15em] text-slate-200 select-none leading-none pointer-events-none ${compact ? 'text-[40px]' : 'text-[52px]'}`} style={{ color: '#e2e8f0' }}>
-                  DEVIS
-                </div>
-                <div className="relative pt-7">
-                  <p className={`font-bold text-slate-900 tracking-tight ${compact ? 'text-xl' : 'text-2xl'}`}>
-                    {devis.numero}
-                  </p>
-                  <div className={`mt-1 space-y-0.5 text-slate-500 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
-                    <p>Émission: {dateEmission}</p>
-                    {dateValidite && <p>Valable jusqu'au: {dateValidite}</p>}
-                    {devis.modePaiement && <p>Paiement: {devis.modePaiement}</p>}
-                  </div>
+              <div style={{ textAlign: 'right', alignItems: 'flex-end' }}>
+                <span style={{ fontWeight: 900, fontSize: '22pt', color: '#000', lineHeight: 1 }}>Devis</span>
+                <div style={{ fontSize: '9pt', color: '#64748b', fontWeight: 500, marginTop: 4 }}>
+                  Edité le {fmtDateTime(now)}
                 </div>
               </div>
             </div>
-            <div className="mt-2.5 border-t border-slate-200" />
-          </div>
 
-          {/* Client Info */}
-          <div className={compact ? 'mb-3' : 'mb-4'}>
-            <div className="flex justify-between items-start">
-              <div>
-                <p className={`font-semibold text-slate-400 uppercase tracking-widest mb-1 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>
-                  Proposé à
-                </p>
-                <p className={`font-bold text-slate-900 ${compact ? 'text-xs' : 'text-sm'}`}>
-                  {devis.client?.nomSociete || devis.client?.nom || '-'}
-                </p>
-                {devis.client?.adresse && <p className={`text-slate-500 mt-0.5 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>{devis.client.adresse}</p>}
-                {(devis.client?.codePostale || devis.client?.ville) && (
-                  <p className={`text-slate-500 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>{devis.client?.codePostale} {devis.client?.ville}</p>
-                )}
-                {devis.client?.telephone && <p className={`text-slate-500 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>Tél: {devis.client.telephone}</p>}
-                {devis.client?.email && <p className={`text-slate-500 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>{devis.client.email}</p>}
-              </div>
-              {devis.client?.ice && (
-                <div className="text-right">
-                  <p className={`font-semibold text-slate-400 uppercase tracking-widest ${compact ? 'text-[8px]' : 'text-[9px]'}`}>ICE</p>
-                  <p className={`font-mono font-semibold text-slate-700 ${compact ? 'text-[10px]' : 'text-xs'}`}>{devis.client.ice}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Items Table */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <table className="w-full border-collapse">
+            {/* ===== 6-COLUMN METADATA TABLE ===== */}
+            <table style={{ width: '100%', marginBottom: 12 }}>
               <thead>
-                <tr className="border-b border-slate-200">
-                  <th className={`pb-1.5 text-left font-semibold text-slate-400 uppercase tracking-widest ${compact ? 'text-[8px]' : 'text-[9px]'}`}>Désignation</th>
-                  <th className={`pb-1.5 text-center font-semibold text-slate-400 uppercase tracking-widest ${compact ? 'text-[8px]' : 'text-[9px]'}`}>Qté</th>
-                  <th className={`pb-1.5 text-right font-semibold text-slate-400 uppercase tracking-widest ${compact ? 'text-[8px]' : 'text-[9px]'}`}>Prix HT</th>
-                  <th className={`pb-1.5 text-right font-semibold text-slate-400 uppercase tracking-widest ${compact ? 'text-[8px]' : 'text-[9px]'}`}>TVA</th>
-                  <th className={`pb-1.5 text-right font-semibold text-slate-400 uppercase tracking-widest ${compact ? 'text-[8px]' : 'text-[9px]'}`}>Total HT</th>
+                <tr>
+                  {[
+                    { label: 'Numéro', value: numero },
+                    { label: 'Date', value: dateEmission },
+                    { label: 'Référence', value: '-' },
+                    { label: 'Mode de Règlement', value: modePaiement || '-' },
+                    { label: 'Échéance', value: dateValidite },
+                    { label: 'Agent', value: entityName },
+                  ].map((m, i) => (
+                    <th key={i} style={{
+                      border: '1px solid #000',
+                      padding: '5px 6px',
+                      fontWeight: 600,
+                      fontSize: '10pt',
+                      textAlign: 'center',
+                      background: '#fff',
+                      color: '#000',
+                    }}>{m.label}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {lignes.map((ligne: any, index: number) => {
-                  const qte = ligne.quantite || 1
-                  const prixHt = ligne.prixUnitaireHt ?? ligne.prix_unitaire_ht ?? 0
-                  const montantLigneHt = ligne.montantHt ?? ligne.montant_ht ?? (qte * prixHt)
-                  const tva = ligne.tva ?? 0
-                  return (
-                    <tr key={index} className="border-b border-slate-100 last:border-0">
-                      <td className={`${compact ? 'py-1.5' : 'py-2.5'} pr-3`}>
-                        <p className={`font-semibold text-slate-900 ${compact ? 'text-[10px]' : 'text-xs'}`}>{ligne.designation || '-'}</p>
-                        {ligne.reference && <p className={`text-slate-400 mt-0.5 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>Réf: {ligne.reference}</p>}
-                      </td>
-                      <td className={`${compact ? 'py-1.5' : 'py-2.5'} px-1.5 text-center align-top`}>
-                        <span className={`font-medium text-slate-700 ${compact ? 'text-[10px]' : 'text-xs'}`}>{qte}</span>
-                      </td>
-                      <td className={`${compact ? 'py-1.5' : 'py-2.5'} px-1.5 text-right align-top`}>
-                        <span className={`text-slate-600 ${compact ? 'text-[10px]' : 'text-xs'}`}>{formatCurrency(prixHt)}</span>
-                      </td>
-                      <td className={`${compact ? 'py-1.5' : 'py-2.5'} px-1.5 text-right align-top`}>
-                        {Number(tva) > 0 ? (
-                          <span className={`inline-block font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-[4px] ${compact ? 'text-[9px]' : 'text-[10px]'}`}>{tva}%</span>
-                        ) : (
-                          <span className={`text-slate-400 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>—</span>
-                        )}
-                      </td>
-                      <td className={`${compact ? 'py-1.5' : 'py-2.5'} pl-1.5 text-right align-top`}>
-                        <span className={`font-semibold text-slate-900 ${compact ? 'text-[10px]' : 'text-xs'}`}>{formatCurrency(montantLigneHt)}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {lignes.length === 0 && (
-                  <tr><td colSpan={5} className="py-8 text-center text-xs text-slate-400">Aucun article</td></tr>
-                )}
+                <tr>
+                  {[
+                    numero,
+                    dateEmission,
+                    '-',
+                    modePaiement || '-',
+                    dateValidite,
+                    entityName,
+                  ].map((v, i) => (
+                    <td key={i} style={{
+                      border: '1px solid #000',
+                      padding: '5px 6px',
+                      fontWeight: 400,
+                      fontSize: '9pt',
+                      textAlign: 'center',
+                    }}>{v}</td>
+                  ))}
+                </tr>
               </tbody>
             </table>
 
-            <div className="flex-1" />
-
-            {/* Totals */}
-            <div className="flex justify-end mb-3">
-              <div className="w-60">
-                <div className={`space-y-1 pb-2 border-b border-dashed border-slate-300 ${compact ? 'text-[10px]' : 'text-xs'}`}>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Total HT</span>
-                    <span className={`font-medium text-slate-800 ${compact ? 'text-[10px]' : 'text-xs'}`}>{formatCurrency(montantHt)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">TVA</span>
-                    <span className={`font-medium text-slate-800 ${compact ? 'text-[10px]' : 'text-xs'}`}>{formatCurrency(montantTva)}</span>
-                  </div>
-                </div>
-                <div className={`flex justify-between items-center pt-2 ${compact ? 'text-sm' : 'text-base'} font-bold text-slate-900`}>
-                  <span>Total TTC</span>
-                  <span>{formatCurrency(montantTtc)}</span>
-                </div>
-              </div>
+            {/* ===== INTRO TEXT ===== */}
+            <div style={{ fontSize: '9pt', marginBottom: 12, lineHeight: 1.5, fontStyle: 'italic', color: '#475569' }}>
+              Cher Client, Nous avons bien reçu votre demande et nous vous remercions de la confiance que vous nous accordez.
+              Veuillez trouver ci-dessous le détail de notre proposition.
             </div>
 
-            {/* Payment Mode + Amount in Words */}
-            <div className={`grid grid-cols-2 gap-3 ${compact ? 'mb-3' : 'mb-4'}`}>
-              <div className="bg-slate-50 rounded-[6px] border border-slate-100 p-2.5">
-                <p className={`font-semibold text-slate-400 uppercase tracking-widest mb-0.5 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>
-                  Mode de paiement
+            {/* ===== ITEMS TABLE ===== */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <table style={{ width: '100%' }}>
+                <colgroup>
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '45%' }} />
+                  <col style={{ width: '10%' }} />
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '15%' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'left', borderBottom: '1.5pt solid #000', color: '#000' }}>Référence</th>
+                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'left', borderBottom: '1.5pt solid #000', color: '#000' }}>Désignation</th>
+                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'right', borderBottom: '1.5pt solid #000', color: '#000' }}>Qté</th>
+                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'right', borderBottom: '1.5pt solid #000', color: '#000' }}>PU HT</th>
+                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'right', borderBottom: '1.5pt solid #000', color: '#000' }}>Montant HT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lignes.map((ligne: any, i: number) => (
+                    <tr key={i}>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'left', borderBottom: '0.5pt solid #E5E7EB' }}>{ligne.reference || '—'}</td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'left', borderBottom: '0.5pt solid #E5E7EB' }}>{ligne.designation || '-'}</td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>{fmt2(getQt(ligne))}</td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>{fmt2(getPu(ligne))}</td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>{fmt2(getMt(ligne))}</td>
+                    </tr>
+                  ))}
+                  {/* A reporter sub-total row */}
+                  {lignes.length > 0 && (
+                    <tr style={{ fontWeight: 700 }}>
+                      <td colSpan={2} style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB', textTransform: 'uppercase' }}>A reporter</td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>{fmt2(totalQte)}</td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}></td>
+                      <td style={{ padding: '5px 6px', fontSize: '9pt', textAlign: 'right', fontWeight: 700, borderBottom: '0.5pt solid #E5E7EB' }}>{fmt2(totalMtHt)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <div style={{ flex: 1 }} />
+
+              {/* ===== CLOSING TEXT ===== */}
+              <div style={{
+                marginTop: 10,
+                padding: '8px',
+                fontSize: '9pt',
+                lineHeight: 1.5,
+                border: '1px solid #000',
+                color: '#475569',
+              }}>
+                <p style={{ margin: 0, fontStyle: 'italic' }}>
+                  Nous sommes à votre disposition pour tout renseignement complémentaire et vous remercions de votre confiance.
                 </p>
-                {(devis.modePaiement) ? (
-                  <p className={`font-semibold text-slate-800 ${compact ? 'text-xs' : 'text-sm'}`}>{devis.modePaiement}</p>
-                ) : (
-                  <p className={`text-slate-400 italic ${compact ? 'text-[10px]' : 'text-xs'}`}>Non spécifié</p>
+                {conditionsPaiement && (
+                  <p style={{ margin: '6px 0 0' }}>
+                    <strong>Conditions de règlement:</strong> {conditionsPaiement}
+                  </p>
+                )}
+                {dateValidite !== '-' && (
+                  <p style={{ margin: '2px 0 0' }}>
+                    <strong>Validité de l'offre:</strong> {dateValidite}
+                  </p>
                 )}
               </div>
-              <div className="bg-slate-50 rounded-[6px] border border-slate-100 p-2.5">
-                <p className={`font-semibold text-slate-400 uppercase tracking-widest mb-0.5 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>
-                  Arrêté à la somme de
-                </p>
-                <p className={`font-bold text-slate-800 leading-snug ${compact ? 'text-[9px]' : 'text-xs'}`}>
-                  {numberToFrenchWords(Math.abs(Number(montantTtc)))}
-                </p>
-              </div>
-            </div>
 
-            {/* Notes */}
-            {devis.notes && (
-              <div className={`bg-slate-50 rounded-[6px] border border-slate-100 p-2.5 ${compact ? 'mb-3' : 'mb-4'}`}>
-                <p className={`font-semibold text-slate-400 uppercase tracking-widest mb-0.5 ${compact ? 'text-[8px]' : 'text-[9px]'}`}>Notes</p>
-                <p className={`text-slate-600 ${compact ? 'text-[9px]' : 'text-[10px]'}`}>{devis.notes}</p>
+              {/* ===== TOTALS ===== */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <div style={{ border: '1px solid #000', fontSize: '9pt', minWidth: 200 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+                    <span>Total HT</span>
+                    <span style={{ fontWeight: 600 }}>{fmt2(totalHt)} DHS</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderBottom: '1px solid #000' }}>
+                    <span>TVA</span>
+                    <span style={{ fontWeight: 600 }}>{fmt2(totalTva)} DHS</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', fontWeight: 700, fontSize: '10pt' }}>
+                    <span>Total TTC</span>
+                    <span style={{ fontWeight: 800 }}>{fmt2(totalTtc)} DHS</span>
+                  </div>
+                </div>
               </div>
-            )}
 
-            {/* Signatures */}
-            <div className={`flex justify-between items-end pt-3 border-t border-dashed border-slate-300 ${compact ? 'mb-2' : 'mb-3'}`}>
-              <div className="text-center flex-1">
-                <div className="w-40 h-11 border-b-2 border-dashed border-slate-300 mx-auto mb-1" />
-                <p className="text-[8px] font-medium text-slate-400">Bon pour accord (Client)</p>
+              {/* ===== SIGNATURES ===== */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginTop: 16,
+                paddingTop: 8,
+                borderTop: '1px dotted #000',
+              }}>
+                <div style={{ textAlign: 'center', flex: 1 }}>
+                  <div style={{ width: 160, height: 50, borderBottom: '2px dashed #000', margin: '0 auto 4px' }} />
+                  <div style={{ fontSize: '9pt' }}>Cachet et Signature du Client</div>
+                </div>
+                <div style={{ textAlign: 'center', flex: 1 }}>
+                  <div style={{ width: 160, height: 50, borderBottom: '2px dashed #000', margin: '0 auto 4px' }} />
+                  <div style={{ fontSize: '9pt' }}>Cachet et Signature de la Société</div>
+                </div>
               </div>
-              <div className="text-center flex-1">
-                <div className="w-40 h-11 border-b-2 border-dashed border-slate-300 mx-auto mb-1" />
-                <p className="text-[8px] font-medium text-slate-400">Cachet et Signature de la Société</p>
-              </div>
-            </div>
 
-            {/* Footer */}
-            <div className="border-t border-slate-100 pt-2 text-center">
-              <p className="text-[8px] text-slate-400">
-                {entreprise?.ice && <span>ICE: {entreprise.ice}</span>}
-                {entreprise?.rc && <span className="ml-2">RC: {entreprise.rc}</span>}
-                {entreprise?.ifNumber && <span className="ml-2">IF: {entreprise.ifNumber}</span>}
-              </p>
-              <p className="text-[7px] text-slate-300 mt-0.5">Généré par ParaGestion</p>
+              {/* ===== LEGAL FOOTER ===== */}
+              <div style={{
+                marginTop: 8,
+                paddingTop: 5,
+                borderTop: '1px solid #000',
+                textAlign: 'center',
+                fontSize: '7pt',
+                lineHeight: 1.5,
+                color: '#475569',
+              }}>
+                {entreprise?.formeJuridique && entreprise?.capitalSocial && (
+                  <span>{entreprise.formeJuridique} au Capital de {entreprise.capitalSocial} — </span>
+                )}
+                {entreprise?.rc && <span>R.C: {entreprise.rc} — </span>}
+                {entreprise?.ifNumber && <span>I.F: {entreprise.ifNumber} — </span>}
+                {entreprise?.ice && <span>I.C.E: {entreprise.ice}</span>}
+              </div>
             </div>
           </div>
         </div>

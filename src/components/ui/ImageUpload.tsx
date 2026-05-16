@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import { Upload, Camera, X, Image as ImageIcon, RotateCw, Trash2, AlertCircle } from 'lucide-react'
+import { Upload, Camera, X, Image as ImageIcon, RotateCw, Trash2, AlertCircle, Check, Crop } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import Cropper, { Area } from 'react-easy-crop'
 
 interface ImageUploadProps {
   value?: string;
@@ -70,6 +71,64 @@ function getCameraErrorMessage(error: any): string {
   return error.message || "Impossible d'accéder à la caméra.";
 }
 
+function createImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = url;
+  });
+}
+
+function getCroppedImg(
+  imageUrl: string,
+  pixelCrop: Area,
+  outputFileName: string,
+): Promise<File> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const image = await createImage(imageUrl);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('No canvas context'));
+        return;
+      }
+
+      canvas.width = pixelCrop.width;
+      canvas.height = pixelCrop.height;
+
+      ctx.drawImage(
+        image,
+        pixelCrop.x,
+        pixelCrop.y,
+        pixelCrop.width,
+        pixelCrop.height,
+        0,
+        0,
+        pixelCrop.width,
+        pixelCrop.height,
+      );
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('Canvas is empty'));
+            return;
+          }
+          const file = new File([blob], outputFileName, { type: 'image/jpeg' });
+          resolve(file);
+        },
+        'image/jpeg',
+        0.92,
+      );
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 export function ImageUpload({
   value,
   onChange,
@@ -86,6 +145,11 @@ export function ImageUpload({
   const [preview, setPreview] = useState<string | null>(value || null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nativeCameraInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -192,15 +256,67 @@ export function ImageUpload({
     }
   }, [maxSize, onChange, user, folder, bucketName]);
 
+  const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const showImageCropper = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
+    }
+
+    if (file.size > maxSize) {
+      toast.error(`L'image est trop volumineuse (max ${(maxSize / 1024 / 1024).toFixed(0)}MB)`);
+      return;
+    }
+
+    setShowCropper(true);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+    setImageToCrop(URL.createObjectURL(file));
+  };
+
+  const handleCropConfirm = async () => {
+    if (!imageToCrop || !croppedAreaPixels) {
+      toast.error('Erreur de recadrage');
+      return;
+    }
+
+    setShowCropper(false);
+    setIsUploading(true);
+
+    try {
+      const baseName = `crop-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      const croppedFile = await getCroppedImg(imageToCrop, croppedAreaPixels, `${baseName}.jpg`);
+      URL.revokeObjectURL(imageToCrop);
+      setImageToCrop(null);
+      await handleFile(croppedFile);
+    } catch {
+      toast.error('Erreur lors du recadrage de l\'image');
+      setIsUploading(false);
+    }
+  };
+
+  const handleCropCancel = () => {
+    if (imageToCrop) {
+      URL.revokeObjectURL(imageToCrop);
+    }
+    setShowCropper(false);
+    setImageToCrop(null);
+    setCroppedAreaPixels(null);
+  };
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
 
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFile(files[0]);
+      showImageCropper(files[0]);
     }
-  }, [handleFile]);
+  }, [maxSize]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -215,7 +331,7 @@ export function ImageUpload({
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFile(files[0]);
+      showImageCropper(files[0]);
     }
   };
 
@@ -255,7 +371,7 @@ export function ImageUpload({
   const handleNativeCameraInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFile(files[0]);
+      showImageCropper(files[0]);
     }
     
     if (nativeCameraInputRef.current) {
@@ -410,8 +526,8 @@ export function ImageUpload({
         if (blob) {
           console.log('Photo captured, size:', blob.size, 'bytes');
           const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-          handleFile(file);
           stopCamera();
+          showImageCropper(file);
         } else {
           toast.error('Erreur lors de la création de l\'image');
         }
@@ -438,7 +554,57 @@ export function ImageUpload({
         </label>
       )}
 
-      <canvas ref={canvasRef} className="hidden" />
+      {showCropper && imageToCrop && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="relative flex-1">
+            <Cropper
+              image={imageToCrop}
+              crop={crop}
+              zoom={zoom}
+              aspect={1 / 1}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+              cropShape="rect"
+              showGrid={true}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-4 p-4 bg-black/80">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleCropCancel}
+              className="bg-white/20 hover:bg-white/30 text-white border-0 min-w-[100px]"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Annuler
+            </Button>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-24 h-1 accent-white cursor-pointer"
+              />
+              <Button
+                type="button"
+                onClick={handleCropConfirm}
+                className="bg-primary hover:bg-primary/90 min-w-[120px]"
+                disabled={!croppedAreaPixels}
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Confirmer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!showCropper && <canvas ref={canvasRef} className="hidden" />}
       
       <input
         ref={nativeCameraInputRef}

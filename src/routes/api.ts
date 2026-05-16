@@ -211,6 +211,19 @@ ALTER TABLE bon_livraison_lignes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE bon_commande_lignes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_mouvements DISABLE ROW LEVEL SECURITY;
 
+-- Create notifications table if not exists
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT,
+  type TEXT DEFAULT 'info' CHECK (type IN ('success', 'error', 'warning', 'info')),
+  is_read BOOLEAN DEFAULT FALSE,
+  link TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE notifications DISABLE ROW LEVEL SECURITY;
+
 -- Create logs_activites if not exists
 CREATE TABLE IF NOT EXISTS logs_activites (
   id BIGSERIAL PRIMARY KEY,
@@ -247,6 +260,10 @@ NOTIFY pgrst, 'reload schema';
     sql: sql
   });
 });
+
+import { generatePDFController } from '../lib/pdfGenerator.js';
+// --- PDF GENERATION ---
+router.post('/generate-pdf', generatePDFController);
 
 // Helper to convert snake_case to camelCase
 const toCamel = (obj: any): any => {
@@ -303,6 +320,28 @@ const logActivity = async (action: string, details?: string) => {
   }
 };
 
+const createNotification = async (
+  userId: string | undefined | null,
+  title: string,
+  message: string,
+  type: 'success' | 'error' | 'warning' | 'info' = 'info',
+  link?: string
+) => {
+  if (!userId) return;
+  try {
+    await supabase.from('notifications').insert([{
+      user_id: userId,
+      title,
+      message,
+      type,
+      is_read: false,
+      link: link || null
+    }]);
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
+};
+
 const updateProductStock = async (
   produitId: any, 
   delta: number, 
@@ -317,7 +356,7 @@ const updateProductStock = async (
   // Fetch current stock
   const { data: produit, error: fetchError } = await supabase
     .from('produits')
-    .select('stock_actuel')
+    .select('stock_actuel, stock_min, designation, nom, user_id')
     .eq('id', produitId)
     .single();
     
@@ -361,53 +400,81 @@ const updateProductStock = async (
   if (mError) {
     console.warn(`Stock movement not recorded (table may not exist): ${mError.message}`);
   }
+
+  // Auto-create notification if stock dropped below minimum
+  if (delta < 0 && newStock <= Number(produit.stock_min) && Number(produit.stock_min) > 0 && produit.user_id) {
+    try {
+      const designation = produit.designation || produit.nom || 'Produit';
+      const { data: recentNotifs } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', produit.user_id)
+        .eq('title', 'Stock Faible')
+        .ilike('message', `${designation} - %`)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .limit(1);
+
+      if (!recentNotifs || recentNotifs.length === 0) {
+        await createNotification(
+          produit.user_id,
+          'Stock Faible',
+          `${designation} - ${newStock} unités restantes`,
+          'warning',
+          '/produits'
+        );
+      }
+    } catch (err) {
+      console.error('Error creating low stock notification:', err);
+    }
+  }
 };
 
 const handleAvoirLogic = async (factureId: any, newStatut: string, oldStatut: string) => {
   if (newStatut === 'annulée' && oldStatut !== 'annulée') {
-    // Create Avoir
     const { data: existingAvoir } = await supabase.from('avoirs').select('id').eq('facture_id', factureId).single();
     if (!existingAvoir) {
       const { count: avoirCount } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
       const avoirNumero = `AVO/${new Date().getFullYear()}/${String((avoirCount || 0) + 1).padStart(5, '0')}`;
-      
+
       const { data: facture } = await supabase.from('factures').select('*').eq('id', factureId).single();
       const { data: factureLignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', factureId);
-      
+
       if (facture) {
         const avoirData = {
           numero: avoirNumero,
           facture_id: factureId,
           client_id: facture.client_id,
           date_emission: new Date().toISOString().split('T')[0],
-          montant_ht: -Number(facture.montant_ht || 0),
-          montant_tva: -Number(facture.montant_tva || 0),
-          montant_ttc: -Number(facture.montant_ttc || 0),
+          montant_ht: Number(facture.montant_ht || 0),
+          montant_tva: Number(facture.montant_tva || 0),
+          montant_ttc: Number(facture.montant_ttc || 0),
           notes: `Avoir pour annulation de la facture ${facture.numero}`,
-          statut: 'valide'
+          statut: 'Généré'
         };
-        
+
         const { data: newAvoir, error: avoirError } = await supabase.from('avoirs').insert([avoirData]).select().single();
+        if (avoirError) throw new Error(`Erreur lors de la création de l'avoir: ${avoirError.message}`);
+
         if (newAvoir && factureLignes) {
           const avoirLignesData = factureLignes.map(l => ({
             avoir_id: newAvoir.id,
             produit_id: l.produit_id,
             reference: l.reference,
             designation: l.designation,
-            quantite: -Number(l.quantite || 0),
+            quantite: Number(l.quantite || 0),
             prix_unitaire_ht: l.prix_unitaire_ht,
             tva: l.tva,
-            montant_ht: -Number(l.montant_ht || 0),
-            montant_ttc: -Number(l.montant_ttc || 0),
+            montant_ht: Number(l.montant_ht || 0),
+            montant_ttc: Number(l.montant_ttc || 0),
             ordre: l.ordre
           }));
-          await supabase.from('avoir_lignes').insert(avoirLignesData);
+          const { error: lignesError } = await supabase.from('avoir_lignes').insert(avoirLignesData);
+          if (lignesError) throw new Error(`Erreur lors de la création des lignes d'avoir: ${lignesError.message}`);
           await logActivity('création avoir', `Avoir ${avoirNumero} créé pour la facture ${facture.numero}`);
         }
       }
     }
   } else if (oldStatut === 'annulée' && (newStatut === 'payée' || newStatut === 'reste_a_payer')) {
-    // Delete Avoir
     const { data: avoir } = await supabase.from('avoirs').select('numero').eq('facture_id', factureId).single();
     if (avoir) {
       await supabase.from('avoirs').delete().eq('facture_id', factureId);
@@ -1291,6 +1358,13 @@ router.put('/factures/:id', async (req, res) => {
     if (factureData.notes !== undefined) updateData.notes = factureData.notes;
     if (factureData.conditionsPaiement !== undefined) updateData.conditions_paiement = factureData.conditionsPaiement;
 
+    const newStatut = updateData.statut;
+
+    // Avoir creation BEFORE status update (transactional integrity)
+    if (newStatut === 'annulée' && oldStatut && oldStatut !== 'annulée') {
+      await handleAvoirLogic(id, newStatut, oldStatut);
+    }
+
     const { error: updateError } = await supabase
       .from('factures')
       .update(updateData)
@@ -1302,7 +1376,6 @@ router.put('/factures/:id', async (req, res) => {
     }
 
     // Stock update logic
-    const newStatut = updateData.statut;
     if (newStatut && newStatut !== oldStatut) {
       const { data: currentLignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', id);
       if (currentLignes && currentLignes.length > 0) {
@@ -1343,8 +1416,8 @@ router.put('/factures/:id', async (req, res) => {
       }
     }
 
-    // Avoir logic
-    if (newStatut && newStatut !== oldStatut) {
+    // Avoir deletion (reverse case) after status update
+    if (oldStatut === 'annulée' && newStatut && newStatut !== 'annulée') {
       await handleAvoirLogic(id, newStatut, oldStatut);
     }
 
@@ -1426,6 +1499,11 @@ router.put('/factures/:id/statut', async (req, res) => {
     const oldStatut = oldFacture?.statut;
     const oldStockUpdated = oldFacture?.stock_updated;
 
+    // Avoir creation BEFORE status update (transactional integrity)
+    if (statut === 'annulée' && oldStatut && oldStatut !== 'annulée') {
+      await handleAvoirLogic(id, statut, oldStatut);
+    }
+
     const updatePayload: any = { statut };
     if (['payée', 'annulée'].includes(statut)) {
       updatePayload.reste_a_payer = 0;
@@ -1478,15 +1556,17 @@ router.put('/factures/:id/statut', async (req, res) => {
       }
     }
 
-    // Avoir logic
-    if (statut && statut !== oldStatut) {
-      await logActivity('changement de statut facture', `Facture ${oldFacture?.numero || id} : ${oldStatut} -> ${statut}`);
+    // Avoir deletion (reverse case) after status update
+    if (oldStatut === 'annulée' && statut && statut !== 'annulée') {
       await handleAvoirLogic(id, statut, oldStatut);
     }
 
+    await logActivity('changement de statut facture', `Facture ${oldFacture?.numero || id} : ${oldStatut} -> ${statut}`);
+
     res.json(toCamel(facture));
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to update facture status' });
+  } catch (error: any) {
+    console.error('Error updating facture status:', error);
+    res.status(500).json({ error: error.message || 'Failed to update facture status' });
   }
 });
 
@@ -2871,14 +2951,15 @@ router.get('/parametres', async (req, res) => {
         ice: '',
         formeJuridique: '',
         logoUrl: '',
-        couleurPrincipale: '#267E54'
+        couleurPrincipale: '#267E54',
+        watermarkText: 'ParaGestion'
       });
     }
     
     // Get parametres for this user
     const { data: params, error } = await supabase
       .from('parametres')
-      .select('*')
+      .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
       .eq('user_id', userId)
       .single();
     
@@ -2894,7 +2975,8 @@ router.get('/parametres', async (req, res) => {
         ice: '',
         formeJuridique: '',
         logoUrl: '',
-        couleurPrincipale: '#267E54'
+        couleurPrincipale: '#267E54',
+        watermarkText: 'ParaGestion'
       });
     }
     
@@ -2931,6 +3013,7 @@ router.get('/parametres', async (req, res) => {
       conditionsPaiementDefaut: params.conditions_paiement_defaut || '',
       piedPageDefaut: params.pied_page_defaut || '',
       activerDroitTimbre: params.activer_droit_timbre !== undefined ? params.activer_droit_timbre : true,
+      watermarkText: params.watermark_text || 'ParaGestion',
     };
     
     res.json(mapped);
@@ -2946,7 +3029,8 @@ router.get('/parametres', async (req, res) => {
       ice: '',
       formeJuridique: '',
       logoUrl: '',
-      couleurPrincipale: '#267E54'
+      couleurPrincipale: '#267E54',
+      watermarkText: 'ParaGestion'
     });
   }
 });
@@ -3001,6 +3085,7 @@ router.put('/parametres', async (req, res) => {
     if (req.body.logoUrl !== undefined) safeFields.logo_url = req.body.logoUrl;
     if (req.body.couleurPrincipale !== undefined) safeFields.couleur_principale = req.body.couleurPrincipale;
     if (req.body.activerDroitTimbre !== undefined) safeFields.activer_droit_timbre = req.body.activerDroitTimbre;
+    if (req.body.watermarkText !== undefined) safeFields.watermark_text = req.body.watermarkText;
     
     // Check if record exists for this user
     let { data: existingRows } = await supabase.from('parametres').select('id').eq('user_id', userId).limit(1);
@@ -3013,7 +3098,7 @@ router.put('/parametres', async (req, res) => {
         .from('parametres')
         .update(safeFields)
         .eq('id', recordId)
-        .select()
+        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
         .single();
       
       if (error) {
@@ -3026,7 +3111,7 @@ router.put('/parametres', async (req, res) => {
       const { data: created, error } = await supabase
         .from('parametres')
         .insert([safeFields])
-        .select()
+        .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,created_at,updated_at')
         .single();
       
       if (error) {
@@ -3061,6 +3146,7 @@ router.put('/parametres', async (req, res) => {
       conditionsPaiementDefaut: result.conditions_paiement_defaut || '',
       piedPageDefaut: result.pied_page_defaut || '',
       activerDroitTimbre: result.activer_droit_timbre !== undefined ? result.activer_droit_timbre : true,
+      watermarkText: result.watermark_text || 'ParaGestion',
     };
     
     res.json(mapped);
@@ -4589,5 +4675,139 @@ router.delete('/tasks/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete task' });
   }
 });
+
+// --- NOTIFICATIONS: Stock Alerts ---
+router.post('/check-stock-alerts', async (req, res) => {
+  try {
+    const userId = req.body.user_id;
+    if (!userId) return res.status(400).json({ error: 'user_id required' });
+
+    const { data: produits } = await supabase.from('produits').select('*');
+    const lowStockItems = (produits || []).filter(
+      p => Number(p.stock_actuel) <= Number(p.stock_min) && Number(p.stock_min) > 0
+    );
+
+    for (const p of lowStockItems) {
+      const designation = p.designation || p.nom || 'Produit';
+      const { data: recentNotifs } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('title', 'Stock Faible')
+        .ilike('message', `${designation} - %`)
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .limit(1);
+
+      if (!recentNotifs || recentNotifs.length === 0) {
+        await createNotification(
+          userId,
+          'Stock Faible',
+          `${designation} - ${p.stock_actuel} unités restantes`,
+          'warning',
+          '/produits'
+        );
+      }
+    }
+
+    // Check for overdue invoices
+    const today = new Date().toISOString().split('T')[0];
+    const { data: factures } = await supabase
+      .from('factures')
+      .select('*, client:clients(id, nom)')
+      .eq('statut', 'reste_a_payer')
+      .lt('date_echeance', today);
+
+    for (const f of (factures || [])) {
+      const clientName = (f.client as any)?.nom || 'Client';
+      await createNotification(
+        userId,
+        'Paiement en Retard',
+        `${clientName} - Facture ${f.numero} échue depuis le ${f.date_echeance}`,
+        'error',
+        `/factures?id=${f.id}`
+      );
+    }
+
+    // Check invoices nearing due date (within 7 days)
+    const weekFromNow = new Date();
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+    const weekFromNowStr = weekFromNow.toISOString().split('T')[0];
+
+    const { data: upcoming } = await supabase
+      .from('factures')
+      .select('*, client:clients(id, nom)')
+      .eq('statut', 'reste_a_payer')
+      .gte('date_echeance', today)
+      .lte('date_echeance', weekFromNowStr);
+
+    for (const f of (upcoming || [])) {
+      const clientName = (f.client as any)?.nom || 'Client';
+      await createNotification(
+        userId,
+        'Échéance Proche',
+        `${clientName} - Facture ${f.numero} à payer avant le ${f.date_echeance}`,
+        'info',
+        `/factures?id=${f.id}`
+      );
+    }
+
+    res.json({ checked: true, lowStock: lowStockItems.length, overdue: (factures || []).length, upcoming: (upcoming || []).length });
+  } catch (error) {
+    console.error('Error checking stock alerts:', error);
+    res.status(500).json({ error: 'Failed to check alerts' });
+  }
+});
+
+
+
+// Schedule periodic stock checks (every 5 minutes in production)
+const scheduleStockChecks = async () => {
+  const checkAndNotify = async () => {
+    try {
+      // Get all distinct user_ids from the produits table
+      const { data: users } = await supabase.from('produits').select('user_id');
+      const userIds = [...new Set((users || []).map(u => u.user_id).filter(Boolean))];
+      
+      for (const userId of userIds) {
+        // Check low stock
+        const { data: produits } = await supabase.from('produits').select('*').eq('user_id', userId);
+        const lowStockItems = (produits || []).filter(
+          p => Number(p.stock_actuel) <= Number(p.stock_min) && Number(p.stock_min) > 0
+        );
+
+        for (const p of lowStockItems) {
+          const designation = p.designation || p.nom || 'Produit';
+          const { data: recentNotifs } = await supabase
+            .from('notifications')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('title', 'Stock Faible')
+            .ilike('message', `${designation} - %`)
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+            .limit(1);
+
+          if (!recentNotifs || recentNotifs.length === 0) {
+            await createNotification(
+              userId,
+              'Stock Faible',
+              `${designation} - ${p.stock_actuel} unités restantes`,
+              'warning',
+              '/produits'
+            );
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Scheduled stock check error:', err);
+    }
+  };
+
+  // Run immediately on server start, then every 30 min
+  await checkAndNotify();
+  setInterval(checkAndNotify, 30 * 60 * 1000);
+};
+
+// Start scheduled checks (non-blocking)
+scheduleStockChecks().catch(err => console.error('Failed to start stock checks:', err));
 
 export default router

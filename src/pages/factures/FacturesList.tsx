@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 
 interface Facture {
   id: number;
@@ -60,11 +61,11 @@ interface StatutOption {
 }
 
 const statusOptions: StatutOption[] = [
-  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-sky-700', bgColor: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
-  { value: 'en_attente', label: 'En attente', icon: Clock, color: 'text-rose-700', bgColor: 'bg-rose-50 text-rose-700 border border-rose-200/50' },
-  { value: 'reste_a_payer', label: 'Reste à payer', icon: AlertCircle, color: 'text-orange-700', bgColor: 'bg-orange-50 text-orange-700 border border-orange-200/50' },
-  { value: 'payée', label: 'Payée', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'annulée', label: 'Annulée', icon: Ban, color: 'text-red-700', bgColor: 'bg-red-50 text-red-700 border border-red-200/50' },
+  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
+  { value: 'en_attente', label: 'En attente', icon: Clock, color: 'text-rose-700', bgColor: 'dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 bg-rose-50 text-rose-700 border border-rose-200/50' },
+  { value: 'reste_a_payer', label: 'Reste à payer', icon: AlertCircle, color: 'text-orange-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-orange-50 text-orange-700 border border-orange-200/50' },
+  { value: 'payée', label: 'Payée', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+  { value: 'annulée', label: 'Annulée', icon: Ban, color: 'text-red-700', bgColor: 'dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 bg-red-50 text-red-700 border border-red-200/50' },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -148,7 +149,7 @@ export function FacturesList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('*')
+        .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,logo_url,couleur_principale,watermark_text,activer_filigrane')
         .eq('user_id', String(user.id))
         .single();
 
@@ -163,10 +164,11 @@ export function FacturesList() {
       }
 
       if (data) {
-        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png' || !data.logo_url.startsWith('http')
+        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png'
           ? ''
           : data.logo_url;
         setEntreprise({
+          userId: user.id,
           nomEntreprise: data.nom_societe || data.nom || '',
           adresse: data.adresse || '',
           ville: data.ville || '',
@@ -174,7 +176,9 @@ export function FacturesList() {
           email: data.email || '',
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
-          couleurPrincipale: data.couleur_principale || '#267E54'
+          couleurPrincipale: data.couleur_principale || '#267E54',
+          watermarkText: data.watermark_text || 'ParaGestion',
+          activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       }
     } catch (error) {
@@ -294,62 +298,68 @@ export function FacturesList() {
     }
   };
 
+  const createAvoirForFacture = async (factureId: number): Promise<{ id: number; numero: string }> => {
+    const { data: factureData, error: fetchError } = await supabase
+      .from('factures')
+      .select('*, client:clients(*)')
+      .eq('id', factureId)
+      .single();
+
+    if (fetchError || !factureData) throw new Error('Facture non trouvée');
+
+    const { data: lignesData } = await supabase
+      .from('facture_lignes')
+      .select('*')
+      .eq('facture_id', factureId)
+      .order('ordre');
+
+    const year = new Date().getFullYear();
+    const { count } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
+    const randomNum = String((count || 0) + 1).padStart(4, '0');
+    const numeroAvoir = `AV-${year}-${randomNum}`;
+
+    const { data: avoirData, error: avoirError } = await supabase
+      .from('avoirs')
+      .insert([{
+        user_id: user?.id,
+        numero: numeroAvoir,
+        facture_id: factureData.id,
+        client_id: factureData.client_id,
+        date_emission: new Date().toISOString(),
+        montant_ht: factureData.montant_ht,
+        montant_tva: factureData.montant_tva,
+        montant_ttc: factureData.montant_ttc,
+        statut: 'Généré',
+        notes: `Avoir pour annulation de la facture ${factureData.numero}`,
+      }])
+      .select()
+      .single();
+
+    if (avoirError) throw avoirError;
+
+    if (lignesData && lignesData.length > 0) {
+      const lignesPayload = lignesData.map((l: any, index: number) => ({
+        avoir_id: avoirData.id,
+        produit_id: l.produit_id,
+        designation: l.description || l.designation || '',
+        quantite: l.quantite,
+        prix_unitaire_ht: l.prix_unitaire_ht || l.prix_unitaire || 0,
+        tva: l.tva,
+        montant_ht: l.montant_ht,
+        montant_ttc: l.montant_ttc,
+        ordre: index,
+      }));
+
+      const { error: lignesError } = await supabase.from('avoir_lignes').insert(lignesPayload);
+      if (lignesError) throw lignesError;
+    }
+
+    return { id: avoirData.id, numero: numeroAvoir };
+  };
+
   const handleAnnuler = async (facture: Facture) => {
     try {
-      const { data: factureData, error: fetchError } = await supabase
-        .from('factures')
-        .select('*, client:clients(*)')
-        .eq('id', facture.id)
-        .single();
-
-      if (fetchError || !factureData) throw new Error('Facture non trouvée');
-
-      const { data: lignesData } = await supabase
-        .from('facture_lignes')
-        .select('*')
-        .eq('facture_id', facture.id)
-        .order('ordre');
-
-      const year = new Date().getFullYear();
-      const { count } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
-      const randomNum = String((count || 0) + 1).padStart(4, '0');
-      const numeroAvoir = `AV-${year}-${randomNum}`;
-
-      const { data: avoirData, error: avoirError } = await supabase
-        .from('avoirs')
-        .insert([{
-          user_id: user?.id,
-          numero: numeroAvoir,
-          facture_id: factureData.id,
-          client_id: factureData.client_id,
-          date_emission: new Date().toISOString(),
-          montant_ht: factureData.montant_ht,
-          montant_tva: factureData.montant_tva,
-          montant_ttc: factureData.montant_ttc,
-          statut: 'émis',
-          notes: `Avoir pour annulation de la facture ${factureData.numero}`,
-        }])
-        .select()
-        .single();
-
-      if (avoirError) throw avoirError;
-
-      if (lignesData && lignesData.length > 0) {
-        const lignesPayload = lignesData.map((l: any, index: number) => ({
-          avoir_id: avoirData.id,
-          produit_id: l.produit_id,
-          designation: l.description || l.designation || '',
-          quantite: l.quantite,
-          prix_unitaire_ht: l.prix_unitaire_ht || l.prix_unitaire || 0,
-          tva: l.tva,
-          montant_ht: l.montant_ht,
-          montant_ttc: l.montant_ttc,
-          ordre: index,
-        }));
-
-        const { error: lignesError } = await supabase.from('avoir_lignes').insert(lignesPayload);
-        if (lignesError) throw lignesError;
-      }
+      const { numero: numeroAvoir } = await createAvoirForFacture(facture.id);
 
       const { error: updateError } = await supabase
         .from('factures')
@@ -430,10 +440,56 @@ export function FacturesList() {
         }
       }
 
+      const oldStatut = facture?.statut;
       const updateData: any = { statut: newStatut };
       if (newStatut === 'payée') {
         updateData.reste_a_payer = 0;
       }
+
+      // Create avoir BEFORE updating status (transaction integrity)
+      if (newStatut === 'annulée' && oldStatut && oldStatut !== 'annulée') {
+        await createAvoirForFacture(id);
+      }
+
+      const activeStatuses = ['payée', 'reste_a_payer'];
+      const wasActive = activeStatuses.includes(oldStatut);
+      const isActive = activeStatuses.includes(newStatut);
+
+      // Stock update logic
+      const changedIds: (number | string)[] = [];
+      if (isActive && !wasActive) {
+        const { data: lignes } = await supabase
+          .from('facture_lignes')
+          .select('produit_id, quantite')
+          .eq('facture_id', id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, -Number(l.quantite));
+              changedIds.push(l.produit_id);
+            }
+          }
+        }
+      } else if (!isActive && wasActive && newStatut === 'annulée') {
+        const { data: lignes } = await supabase
+          .from('facture_lignes')
+          .select('produit_id, quantite')
+          .eq('facture_id', id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, Number(l.quantite));
+            }
+          }
+        }
+      }
+
+      if (changedIds.length > 0) {
+        await ensureLowStockNotifications(user?.id, changedIds);
+      }
+
       const { error } = await supabase
         .from('factures')
         .update(updateData)
@@ -554,7 +610,7 @@ export function FacturesList() {
               </p>
             </div>
           </div>
-          <div className="rounded-[6px] border border-slate-200 bg-white p-6">
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
             <FactureForm
               initialData={editingFacture}
               onSuccess={() => {
@@ -568,7 +624,7 @@ export function FacturesList() {
         <>
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-rose-50 border border-rose-200/50">
+              <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-rose-500/10 dark:border-rose-500/20 bg-rose-50 border border-rose-200/50">
                 <Receipt className="h-5 w-5 text-rose-500" />
               </div>
               <div>
@@ -578,7 +634,7 @@ export function FacturesList() {
             </div>
             <Button
               onClick={openNewForm}
-              className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
+              className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none"
             >
               <Plus className="mr-2 h-4 w-4" />
               Nouvelle Facture
@@ -589,18 +645,18 @@ export function FacturesList() {
             <div className="lg:col-span-3 space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
                   <Input
                     type="search"
                     placeholder="Rechercher par numéro ou client..."
-                    className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+                    className="pl-9 h-10 dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-10 w-[140px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                    <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
+                  <SelectTrigger className="h-10 w-[140px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                    <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                     <SelectValue placeholder="Statut" />
                   </SelectTrigger>
                   <SelectContent>
@@ -611,8 +667,8 @@ export function FacturesList() {
                   </SelectContent>
                 </Select>
                 <Select value={timeFilter} onValueChange={setTimeFilter}>
-                  <SelectTrigger className="h-10 w-[150px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                    <CalendarDays className="h-3.5 w-3.5 text-slate-400 mr-2" />
+                  <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                    <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                     <SelectValue placeholder="Période" />
                   </SelectTrigger>
                   <SelectContent>
@@ -624,16 +680,16 @@ export function FacturesList() {
                 </Select>
               </div>
 
-              <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+              <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-b border-slate-100">
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                      <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                    <TableRow className="border-b dark:border-white/5 border-slate-100">
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -650,10 +706,10 @@ export function FacturesList() {
                       <TableRow>
                         <TableCell colSpan={6} className="h-48 text-center">
                           <div className="flex flex-col items-center justify-center gap-3">
-                            <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
-                              <Receipt className="h-8 w-8 text-slate-300" />
+                            <div className="dark:bg-white/5 dark:border-white/10 bg-slate-50 rounded-sm p-4 border border-slate-100">
+                              <Receipt className="h-8 w-8 dark:text-muted-foreground text-slate-300" />
                             </div>
-                            <p className="text-sm text-slate-500 font-medium">
+                            <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                               {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
                                 ? 'Aucune facture trouvée'
                                 : 'Aucune facture créée'}
@@ -661,7 +717,7 @@ export function FacturesList() {
                             {!searchQuery && statusFilter === 'all' && timeFilter === 'all' && (
                               <Button
                                 variant="outline"
-                                className="mt-1 rounded-[4px] text-sm"
+                                className="mt-1 rounded-sm text-sm"
                                 onClick={openNewForm}
                               >
                                 <Plus className="mr-2 h-4 w-4" />
@@ -680,37 +736,37 @@ export function FacturesList() {
                         return (
                           <TableRow
                             key={facture.id}
-                            className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                            className="border-b dark:border-white/5 border-slate-100"
                           >
                             <TableCell className="px-4 py-4">
                               <div className="flex items-center gap-3">
-                                <Avatar size="sm" className="h-8 w-8 border border-slate-200">
+                                <Avatar size="sm" className="h-8 w-8 dark:border-white/10 border border-slate-200">
                                   <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${facture.client?.nom}`} />
-                                  <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-600">
+                                  <AvatarFallback className="text-xs font-semibold dark:bg-slate-800 dark:text-muted-foreground bg-slate-100 text-slate-600">
                                     {clientInitial}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="text-sm font-semibold text-slate-800">
+                                  <p className="text-sm font-semibold dark:text-card-foreground text-slate-800">
                                     {facture.client?.nom || facture.client?.nomSociete || '-'}
                                   </p>
-                                  <p className="text-xs text-slate-400">
+                                  <p className="text-xs dark:text-muted-foreground text-slate-400">
                                     {facture.client?.email || facture.numero}
                                   </p>
                                 </div>
                               </div>
                             </TableCell>
                             <TableCell className="px-4 py-4">
-                              <span className="text-sm font-mono font-medium text-slate-700">{facture.numero}</span>
+                              <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{facture.numero}</span>
                             </TableCell>
                             <TableCell className="px-4 py-4">
-                              <span className="text-sm text-slate-500">
+                              <span className="text-sm dark:text-muted-foreground text-slate-500">
                                 {format(new Date(facture.dateEmission), 'dd MMM yyyy', { locale: fr })}
                               </span>
                             </TableCell>
                             <TableCell className="px-4 py-4 text-right">
-                              <span className="text-sm font-bold text-slate-800">{formatCurrency(facture.montantTtc)}</span>
-                              <ArrowUpRight className="h-3 w-3 text-slate-400 inline-block ml-1 -mt-0.5" />
+                              <span className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(facture.montantTtc)}</span>
+                              <ArrowUpRight className="h-3 w-3 dark:text-muted-foreground text-slate-400 inline-block ml-1 -mt-0.5" />
                             </TableCell>
                             <TableCell className="px-4 py-4 text-center">
                               <Select
@@ -749,7 +805,7 @@ export function FacturesList() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-[4px]"
+                                    className="h-8 w-8 dark:text-muted-foreground dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-sm"
                                     onClick={() => handleMarkAsPaid(facture.id)}
                                     title="Marquer comme payée"
                                   >
@@ -759,7 +815,7 @@ export function FacturesList() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                                  className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                                   onClick={() => handleDownload(facture)}
                                   title="Télécharger PDF"
                                 >
@@ -768,7 +824,7 @@ export function FacturesList() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                                  className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                                   onClick={() => handleEdit(facture)}
                                   title="Modifier"
                                 >
@@ -778,7 +834,7 @@ export function FacturesList() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                                    className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                                     onClick={() => {
                                       setFactureToDelete(facture.id);
                                       setDeleteConfirmOpen(true);
@@ -791,7 +847,7 @@ export function FacturesList() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                                    className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                                     onClick={() => handleAnnuler(facture)}
                                     title="Annuler la facture (créer un avoir)"
                                   >
@@ -808,15 +864,15 @@ export function FacturesList() {
                 </Table>
 
                 {!isLoading && paginatedFactures.length > 0 && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                    <p className="text-xs text-slate-400">
+                  <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
+                    <p className="text-xs dark:text-muted-foreground text-slate-400">
                       {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFactures.length)} sur {filteredFactures.length}
                     </p>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                         disabled={currentPage === 1}
                         onClick={() => handlePageChange(currentPage - 1)}
                       >
@@ -828,10 +884,10 @@ export function FacturesList() {
                           variant="ghost"
                           size="sm"
                           className={cn(
-                            "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                            "h-8 min-w-[32px] rounded-sm text-sm font-medium",
                             page === currentPage
-                              ? "bg-slate-100 text-slate-800"
-                              : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                              ? "dark:bg-white/10 dark:text-card-foreground bg-slate-100 text-slate-800"
+                              : "dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                           )}
                           onClick={() => handlePageChange(page)}
                         >
@@ -841,7 +897,7 @@ export function FacturesList() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                        className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                         disabled={currentPage === totalPages}
                         onClick={() => handlePageChange(currentPage + 1)}
                       >
@@ -854,53 +910,53 @@ export function FacturesList() {
             </div>
 
             <div className="lg:col-span-1">
-              <Card className="border border-slate-200 shadow-none rounded-[6px]">
-                <CardHeader className="px-4 py-4 border-b border-slate-100">
-                  <CardTitle className="text-sm font-semibold text-slate-700">30 Derniers Jours</CardTitle>
+              <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
+                <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
+                  <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">30 Derniers Jours</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 py-4 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-sky-50 border border-sky-200/50 shrink-0">
-                      <FileText className="h-4 w-4 text-sky-600" />
+                    <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-sky-50 border border-sky-200/50 shrink-0">
+                      <FileText className="h-4 w-4 dark:text-primary text-sky-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500">Brouillon</p>
-                      <p className="text-sm font-bold text-slate-800">{drafted30.length} facture{drafted30.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">Brouillon</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{drafted30.length} facture{drafted30.length !== 1 ? 's' : ''}</p>
                     </div>
-                    <span className="text-sm font-semibold text-slate-600">
+                    <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                       {formatCurrency(drafted30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-rose-50 border border-rose-200/50 shrink-0">
-                      <Send className="h-4 w-4 text-rose-600" />
+                    <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-rose-50 border border-rose-200/50 shrink-0">
+                      <Send className="h-4 w-4 dark:text-primary text-rose-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500">Envoyé</p>
-                      <p className="text-sm font-bold text-slate-800">{sent30.length} facture{sent30.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">Envoyé</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{sent30.length} facture{sent30.length !== 1 ? 's' : ''}</p>
                     </div>
-                    <span className="text-sm font-semibold text-slate-600">
+                    <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                       {formatCurrency(sent30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0">
-                      <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
+                      <CheckCircle className="h-4 w-4 dark:text-primary text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-slate-500">Payée</p>
-                      <p className="text-sm font-bold text-slate-800">{paid30.length} facture{paid30.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">Payée</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{paid30.length} facture{paid30.length !== 1 ? 's' : ''}</p>
                     </div>
-                    <span className="text-sm font-semibold text-slate-600">
+                    <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                       {formatCurrency(paid30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
                     </span>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100">
+                  <div className="pt-3 border-t dark:border-white/5 border-slate-100">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-800">Total</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">Total</p>
                       <p className="text-base font-bold text-rose-500">{formatCurrency(total30Amount)}</p>
                     </div>
                   </div>

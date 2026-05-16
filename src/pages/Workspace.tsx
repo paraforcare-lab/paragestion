@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
@@ -43,11 +44,11 @@ interface InventoryItem {
 }
 
 const stockConfig: Record<StockStatus, { label: string; barColor: string; badgeClass: string }> = {
-  rupture:  { label: 'Rupture',  barColor: 'bg-red-500',   badgeClass: 'bg-red-50 text-red-700 border-red-200' },
-  critique: { label: 'Critique', barColor: 'bg-red-500',   badgeClass: 'bg-red-50 text-red-700 border-red-200' },
-  faible:   { label: 'Faible',   barColor: 'bg-amber-500', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
-  moyen:    { label: 'Moyen',    barColor: 'bg-blue-500',  badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
-  stable:   { label: 'Stable',   barColor: 'bg-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  rupture:  { label: 'Rupture',  barColor: 'bg-red-500',   badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  critique: { label: 'Critique', barColor: 'bg-red-500',   badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  faible:   { label: 'Faible',   barColor: 'bg-amber-500', badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  moyen:    { label: 'Moyen',    barColor: 'bg-blue-500',  badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  stable:   { label: 'Stable',   barColor: 'bg-emerald-500', badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
 };
 
 function getStockInfo(actuel: number, min: number): { status: StockStatus; percentage: number } {
@@ -61,12 +62,12 @@ function getStockInfo(actuel: number, min: number): { status: StockStatus; perce
 }
 
 const quickActions = [
-  { label: 'Facture',    icon: FileText,     href: '/factures',      color: 'text-blue-600 bg-blue-50' },
-  { label: 'Devis',      icon: TrendingUp,   href: '/devis',         color: 'text-violet-600 bg-violet-50' },
-  { label: 'Commande',   icon: ShoppingCart, href: '/bons-commande', color: 'text-orange-600 bg-orange-50' },
-  { label: 'Livraison',  icon: Box,          href: '/bons-livraison',color: 'text-emerald-600 bg-emerald-50' },
-  { label: 'Dépense',    icon: CreditCard,   href: '/depenses',      color: 'text-red-600 bg-red-50' },
-  { label: 'Client',     icon: Users,        href: '/clients',       color: 'text-indigo-600 bg-indigo-50' },
+  { label: 'Facture',    icon: FileText,     href: '/factures',      iconBg: 'bg-blue-500/10 dark:bg-blue-500/20', iconColor: 'text-blue-600 dark:text-blue-400' },
+  { label: 'Devis',      icon: TrendingUp,   href: '/devis',         iconBg: 'bg-violet-500/10 dark:bg-violet-500/20', iconColor: 'text-violet-600 dark:text-violet-400' },
+  { label: 'Commande',   icon: ShoppingCart, href: '/bons-commande', iconBg: 'bg-amber-500/10 dark:bg-amber-500/20', iconColor: 'text-amber-600 dark:text-amber-400' },
+  { label: 'Livraison',  icon: Box,          href: '/bons-livraison',iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+  { label: 'Dépense',    icon: CreditCard,   href: '/depenses',      iconBg: 'bg-rose-500/10 dark:bg-rose-500/20', iconColor: 'text-rose-600 dark:text-rose-400' },
+  { label: 'Client',     icon: Users,        href: '/clients',       iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20', iconColor: 'text-indigo-600 dark:text-indigo-400' },
 ];
 
 const aiRecommendations = [
@@ -117,6 +118,16 @@ export function Workspace() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeRecoIndex, setActiveRecoIndex] = useState(0);
   const [newClients, setNewClients] = useState(0);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem('notifications-enabled') !== 'false';
+  });
+
+  const handleToggleNotifications = (checked: boolean) => {
+    setNotificationsEnabled(checked);
+    localStorage.setItem('notifications-enabled', String(checked));
+    window.dispatchEvent(new CustomEvent('notifications-toggle', { detail: { enabled: checked } }));
+    toast.success(checked ? 'Notifications activées' : 'Notifications désactivées');
+  };
 
   const fetchData = async () => {
     if (!user?.id) return;
@@ -297,7 +308,7 @@ export function Workspace() {
       label: 'Facturé',
       value: formatCurrency(stats.invoiced),
       icon: DollarSign,
-      iconBg: 'bg-blue-50 text-blue-600',
+      iconBg: 'bg-blue-500/10 text-blue-400',
       change: {
         value: `${changeStats.invoicedChange >= 0 ? '+' : ''}${changeStats.invoicedChange.toFixed(1)}%`,
         positive: changeStats.invoicedPositive,
@@ -308,7 +319,7 @@ export function Workspace() {
       label: 'Clients',
       value: String(stats.clients),
       icon: Users,
-      iconBg: 'bg-emerald-50 text-emerald-600',
+      iconBg: 'bg-emerald-500/10 text-emerald-400',
       change: {
         value: `+${newClients}`,
         positive: true,
@@ -319,7 +330,7 @@ export function Workspace() {
       label: 'Produits',
       value: String(stats.products),
       icon: Package,
-      iconBg: 'bg-amber-50 text-amber-600',
+      iconBg: 'bg-amber-500/10 text-amber-400',
       change: {
         value: `${inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length} alerte(s)`,
         positive: inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length === 0,
@@ -330,7 +341,7 @@ export function Workspace() {
       label: 'Croissance',
       value: `${stats.monthlyGrowth >= 0 ? '+' : ''}${stats.monthlyGrowth.toFixed(1)}%`,
       icon: Target,
-      iconBg: stats.monthlyGrowth >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600',
+      iconBg: stats.monthlyGrowth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400',
       change: {
         value: `${stats.monthlyGrowth >= 0 ? '+' : ''}${stats.monthlyGrowth.toFixed(1)}%`,
         positive: stats.monthlyGrowth >= 0,
@@ -342,13 +353,13 @@ export function Workspace() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white rounded-[8px] border border-slate-200 p-4">
-          <p className="text-sm font-semibold text-gray-600 mb-2">{label}</p>
+        <div className="rounded-[8px] border p-4" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+          <p className="text-sm font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{label}</p>
           {payload.map((entry: any, idx: number) => (
             <div key={idx} className="flex items-center gap-2 text-sm">
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
-              <span className="text-gray-500">{entry.name === 'revenue' ? 'Revenus' : 'Dépenses'}:</span>
-              <span className="font-semibold">{formatCurrency(entry.value)}</span>
+              <span style={{ color: 'var(--muted-foreground)' }}>{entry.name === 'revenue' ? 'Revenus' : 'Dépenses'}:</span>
+              <span className="font-semibold" style={{ color: 'var(--foreground)' }}>{formatCurrency(entry.value)}</span>
             </div>
           ))}
         </div>
@@ -367,25 +378,25 @@ export function Workspace() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
-            className="rounded-[8px] bg-white p-5 border border-slate-200 hover:bg-gray-50/50 transition-all duration-200"
+            className="rounded-[8px] bg-card p-5 border border-border"
           >
             <div className="flex items-start justify-between mb-3">
               <div className={cn("h-10 w-10 rounded-[8px] flex items-center justify-center shrink-0", metric.iconBg)}>
                 <metric.icon className="h-5 w-5" />
               </div>
             </div>
-            <p className="text-xs font-medium text-gray-500 tracking-wide uppercase">{metric.label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-0.5 tracking-tight">{metric.value}</p>
+            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">{metric.label}</p>
+            <p className="text-2xl font-bold text-card-foreground mt-0.5 tracking-tight">{metric.value}</p>
             {metric.change && (
               <div className="flex items-center gap-2 mt-1.5">
                 <span className={cn(
                   "inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-[4px]",
-                  metric.change.positive ? "text-emerald-700 bg-emerald-50" : "text-red-700 bg-red-50"
+                  metric.change.positive ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"
                 )}>
                   {metric.change.positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                   {metric.change.value}
                 </span>
-                <span className="text-xs text-gray-400">{metric.change.label}</span>
+                <span className="text-xs text-muted-foreground">{metric.change.label}</span>
               </div>
             )}
           </motion.div>
@@ -399,21 +410,21 @@ export function Workspace() {
         <div className="lg:col-span-7 space-y-6">
 
           {/* Performance Chart */}
-          <Card className="border border-slate-200 shadow-none hover:shadow-none rounded-[8px]">
+          <Card className="shadow-none hover:shadow-none rounded-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
-                <CardTitle className="text-base font-semibold text-gray-900">Performance de Facturation</CardTitle>
-                <CardDescription className="text-xs text-gray-500 mt-0.5">
+                <CardTitle className="text-base font-semibold text-card-foreground">Performance de Facturation</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
                   {selectedRange === '1m' ? "Évolution sur les 30 derniers jours" :
                    selectedRange === '1y' ? "Évolution sur les 12 derniers mois" :
                    "Évolution sur les 6 derniers mois"}
                 </CardDescription>
               </div>
               <Tabs value={selectedRange} onValueChange={setSelectedRange}>
-                <TabsList className="bg-gray-100/80 rounded-[4px] p-0.5">
-                  <TabsTrigger value="1m" className="text-xs px-3 py-1.5 data-[state=active]:bg-white rounded-[4px]">1M</TabsTrigger>
-                  <TabsTrigger value="6m" className="text-xs px-3 py-1.5 data-[state=active]:bg-white rounded-[4px]">6M</TabsTrigger>
-                  <TabsTrigger value="1y" className="text-xs px-3 py-1.5 data-[state=active]:bg-white rounded-[4px]">1A</TabsTrigger>
+                <TabsList className="bg-muted dark:bg-white/5 rounded-[4px] p-0.5">
+                  <TabsTrigger value="1m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">1M</TabsTrigger>
+                  <TabsTrigger value="6m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">6M</TabsTrigger>
+                  <TabsTrigger value="1y" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">1A</TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
@@ -430,10 +441,10 @@ export function Workspace() {
                       <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} dy={8} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} dx={-4} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }} />
+                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} dx={-4} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
                   <Area type="monotone" dataKey="revenue" stroke="#267E54" strokeWidth={2.5} fillOpacity={1} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 5, fill: '#267E54', stroke: 'white', strokeWidth: 2 }} />
                   <Area type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#expenseGrad)" dot={false} activeDot={{ r: 4, fill: '#ef4444', stroke: 'white', strokeWidth: 2 }} />
                 </AreaChart>
@@ -442,16 +453,16 @@ export function Workspace() {
           </Card>
 
           {/* Priority Inventory Management Table */}
-          <Card className="border border-slate-200 shadow-none hover:shadow-none rounded-[8px]">
+          <Card className="shadow-none hover:shadow-none rounded-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base font-semibold text-gray-900">Gestion Prioritaire du Stock</CardTitle>
-                  <CardDescription className="text-xs text-gray-500 mt-0.5">
+                  <CardTitle className="text-base font-semibold text-card-foreground">Gestion Prioritaire du Stock</CardTitle>
+                  <CardDescription className="text-xs mt-0.5">
                     Produits triés par niveau de stock critique
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => window.location.href = '/produits'}>
+                <Button variant="outline" size="sm" className="text-xs h-8 bg-transparent border border-white/20 text-white hover:bg-white/10 rounded-sm transition-all duration-200" onClick={() => window.location.href = '/produits'}>
                   Voir tout <ChevronRight className="h-3 w-3 ml-1" />
                 </Button>
               </div>
@@ -459,51 +470,51 @@ export function Workspace() {
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="border-gray-100">
-                    <TableHead className="text-xs font-medium text-gray-500 h-9 px-5">Produit</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500 h-9">Référence</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500 h-9">Stock</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500 h-9 hidden md:table-cell">Niveau</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500 h-9 text-right pr-5">Statut</TableHead>
+                  <TableRow className="border-border">
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 px-5">Produit</TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9">Référence</TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9">Stock</TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 hidden md:table-cell">Niveau</TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 text-right pr-5">Statut</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {inventoryItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10 text-gray-400 text-sm">
-                        <Package className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <TableCell colSpan={5} className="text-center py-10 text-card-foreground/60 text-sm">
+                        <Package className="h-8 w-8 mx-auto mb-2 opacity-30 text-card-foreground" />
                         Aucun produit en stock
                       </TableCell>
                     </TableRow>
                   ) : (
-                    inventoryItems.map((item) => {
+                    inventoryItems.slice(0, 4).map((item) => {
                       const cfg = stockConfig[item.status];
                       return (
-                        <TableRow key={item.id} className="border-gray-100 hover:bg-gray-50/50 transition-colors">
+                        <TableRow key={item.id} className="border-border">
                           <TableCell className="py-3.5 px-5">
-                            <p className="text-sm font-medium text-gray-800">{item.name}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
+                            <p className="text-sm font-medium text-card-foreground">{item.name}</p>
+                            <p className="text-xs text-card-foreground/70 mt-0.5">
                               {item.stockActuel} / {Math.max(item.stockMin * 3, 1)} {item.unite}
                             </p>
                           </TableCell>
                           <TableCell className="py-3.5">
-                            <span className="text-xs text-gray-400 font-mono">{item.reference || '—'}</span>
+                            <span className="text-xs text-card-foreground/70 font-mono">{item.reference || '—'}</span>
                           </TableCell>
                           <TableCell className="py-3.5">
                             <div className="flex items-center gap-2">
                               <span className={cn(
                                 "text-sm font-semibold",
-                                item.status === 'rupture' || item.status === 'critique' ? 'text-red-600' :
-                                item.status === 'faible' ? 'text-amber-600' : 'text-gray-800'
+                                item.status === 'rupture' || item.status === 'critique' ? 'text-red-400' :
+                                item.status === 'faible' ? 'text-amber-400' : 'text-card-foreground'
                               )}>
                                 {item.stockActuel}
                               </span>
-                              <span className="text-xs text-gray-400">{item.unite}</span>
+                              <span className="text-xs text-card-foreground/70">{item.unite}</span>
                             </div>
                           </TableCell>
                           <TableCell className="py-3.5 hidden md:table-cell">
                             <div className="w-28">
-                              <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                              <div className="h-1.5 rounded-full bg-muted dark:bg-white/10 overflow-hidden">
                                 <div
                                   className={cn("h-full rounded-full transition-all duration-500", cfg.barColor)}
                                   style={{ width: `${item.percentage}%` }}
@@ -527,31 +538,31 @@ export function Workspace() {
 
           {/* Stats summary row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-[8px] bg-white p-4 border border-slate-200 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-[8px] bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+            <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
+              <div className="h-10 w-10 rounded-[8px] bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0">
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Factures en attente</p>
-                <p className="text-lg font-bold text-gray-900">{stats.pending}</p>
+                <p className="text-xs text-muted-foreground">Factures en attente</p>
+                <p className="text-lg font-bold text-card-foreground">{stats.pending}</p>
               </div>
             </div>
-            <div className="rounded-[8px] bg-white p-4 border border-slate-200 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-[8px] bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
+              <div className="h-10 w-10 rounded-[8px] bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
                 <Users className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Nouveaux clients</p>
-                <p className="text-lg font-bold text-gray-900">{newClients}</p>
+                <p className="text-xs text-muted-foreground">Nouveaux clients</p>
+                <p className="text-lg font-bold text-card-foreground">{newClients}</p>
               </div>
             </div>
-            <div className="rounded-[8px] bg-white p-4 border border-slate-200 flex items-center gap-3">
-              <div className="h-10 w-10 rounded-[8px] bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
+              <div className="h-10 w-10 rounded-[8px] bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Alertes stock</p>
-                <p className="text-lg font-bold text-gray-900">{inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length}</p>
+                <p className="text-xs text-muted-foreground">Alertes stock</p>
+                <p className="text-lg font-bold text-card-foreground">{inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length}</p>
               </div>
             </div>
           </div>
@@ -561,16 +572,16 @@ export function Workspace() {
         <div className="lg:col-span-5 space-y-6">
 
           {/* AI Optimization Card */}
-          <div className="rounded-[8px] bg-gradient-to-br from-emerald-50 to-emerald-50/60 border border-emerald-200 p-5">
+          <div className="rounded-[8px] bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-5 card-glow-active">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-9 w-9 rounded-[8px] bg-emerald-600/10 flex items-center justify-center">
-                <Sparkles className="h-4.5 w-4.5 text-emerald-600" />
+              <div className="h-9 w-9 rounded-[8px] bg-emerald-500/10 flex items-center justify-center">
+                <Sparkles className="h-4.5 w-4.5 text-emerald-400" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Optimisation IA</h3>
-                <p className="text-xs text-gray-500">Recommandations intelligentes</p>
+                <h3 className="text-sm font-semibold text-card-foreground">Optimisation IA</h3>
+                <p className="text-xs text-muted-foreground">Recommandations intelligentes</p>
               </div>
-              <Badge className="ml-auto bg-emerald-600/10 text-emerald-700 border-emerald-200/60 text-[10px] font-semibold px-2 py-0.5">
+              <Badge className="ml-auto bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-semibold px-2 py-0.5">
                 {activeRecoIndex + 1}/{aiRecommendations.length}
               </Badge>
             </div>
@@ -589,17 +600,17 @@ export function Workspace() {
                   return (
                     <div>
                       <div className="flex items-start gap-3 mb-3">
-                        <div className="h-8 w-8 rounded-[4px] bg-emerald-600/10 flex items-center justify-center shrink-0 mt-0.5">
-                          <RecoIcon className="h-4 w-4 text-emerald-600" />
+                        <div className="h-8 w-8 rounded-[4px] bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <RecoIcon className="h-4 w-4 text-emerald-400" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-semibold text-gray-800">{reco.title}</h4>
-                          <p className="text-xs text-gray-600 leading-relaxed mt-1">{reco.description}</p>
+                          <h4 className="text-sm font-semibold text-card-foreground">{reco.title}</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed mt-1">{reco.description}</p>
                         </div>
                       </div>
                       <Button
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 mt-1"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 mt-1 btn-glow-primary"
                         onClick={() => window.location.href = reco.href}
                       >
                         {reco.action} <ArrowRight className="h-3 w-3 ml-1.5" />
@@ -617,7 +628,7 @@ export function Workspace() {
                   onClick={() => setActiveRecoIndex(idx)}
                   className={cn(
                     "h-1.5 rounded-full transition-all duration-300",
-                    idx === activeRecoIndex ? "w-6 bg-emerald-500" : "w-1.5 bg-emerald-200 hover:bg-emerald-300"
+                    idx === activeRecoIndex ? "w-6 bg-emerald-500" : "w-1.5 bg-emerald-800"
                   )}
                 />
               ))}
@@ -625,32 +636,32 @@ export function Workspace() {
           </div>
 
           {/* Quick Actions */}
-          <Card className="border border-slate-200 shadow-none hover:shadow-none rounded-[8px]">
+          <Card className="shadow-none hover:shadow-none rounded-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-gray-900">Actions Rapides</CardTitle>
+              <CardTitle className="text-base font-semibold text-card-foreground">Actions Rapides</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-2.5">
+            <CardContent className="grid grid-cols-3 gap-3">
               {quickActions.map((action, i) => (
-                <Button
+                <button
                   key={i}
-                  variant="outline"
-                  className="h-auto py-3.5 flex flex-col items-center gap-1.5 border-slate-200 hover:border-slate-300 hover:bg-emerald-50/40 transition-all duration-200 rounded-[8px]"
+                  type="button"
                   onClick={() => window.location.href = action.href}
+                  className="flex flex-col items-center justify-center p-4 rounded-sm border border-border bg-card"
                 >
-                  <div className={cn("h-8 w-8 rounded-[4px] flex items-center justify-center", action.color)}>
-                    <action.icon className="h-4 w-4" />
+                  <div className={cn("p-2.5 rounded-sm mb-3", action.iconBg)}>
+                    <action.icon className={cn("w-5 h-5", action.iconColor)} />
                   </div>
-                  <span className="text-[11px] font-medium text-gray-600">{action.label}</span>
-                </Button>
+                  <span className="text-xs font-medium text-foreground">{action.label}</span>
+                </button>
               ))}
             </CardContent>
           </Card>
 
           {/* Task Manager */}
-          <Card className="border border-slate-200 shadow-none hover:shadow-none rounded-[8px] overflow-hidden">
+          <Card className="shadow-none hover:shadow-none rounded-[8px] overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold text-gray-900">Tâches à faire</CardTitle>
+                <CardTitle className="text-base font-semibold text-card-foreground">Tâches à faire</CardTitle>
                 <Badge className="bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-[4px]">
                   {tasks.filter(t => !t.completed).length}
                 </Badge>
@@ -661,7 +672,7 @@ export function Workspace() {
                   value={newTask}
                   onChange={(e) => setNewTask(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addTask()}
-                  className="bg-gray-50 border-gray-200/80 focus-visible:ring-emerald-500/30 h-9 text-sm rounded-[4px]"
+                  className="focus-visible:ring-emerald-500/30 h-9 text-sm rounded-[4px]"
                 />
                 <Button size="icon" onClick={addTask} className="bg-emerald-600 hover:bg-emerald-700 shrink-0 h-9 w-9 rounded-[4px]">
                   <Plus className="h-4 w-4" />
@@ -672,8 +683,8 @@ export function Workspace() {
               <div className="max-h-[320px] overflow-y-auto">
                 <AnimatePresence initial={false}>
                   {tasks.length === 0 ? (
-                    <div className="text-center py-10 text-gray-400">
-                      <CheckCircle2 className="h-10 w-10 mx-auto mb-2 opacity-20" />
+                    <div className="text-center py-10 text-muted-foreground/60">
+                      <CheckCircle2 className="h-10 w-10 mx-auto mb-2 opacity-20 text-muted-foreground" />
                       <p className="text-sm">Tout est à jour !</p>
                     </div>
                   ) : (
@@ -684,8 +695,8 @@ export function Workspace() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
                         className={cn(
-                          "group flex items-center justify-between px-5 py-3 border-b border-gray-100 last:border-0 transition-colors",
-                          task.completed ? "bg-gray-50/50" : "hover:bg-gray-50/30"
+                          "group flex items-center justify-between px-5 py-3 border-b border-border last:border-0",
+                          task.completed ? "bg-muted" : ""
                         )}
                       >
                         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -695,14 +706,14 @@ export function Workspace() {
                               "h-5 w-5 rounded-[4px] border-2 flex items-center justify-center transition-all shrink-0",
                               task.completed
                                 ? "bg-emerald-500 border-emerald-500 text-white"
-                                : "border-gray-300 hover:border-emerald-400"
+                                : "border-border"
                             )}
                           >
                             {task.completed && <CheckCircle2 className="h-3 w-3" />}
                           </button>
                           <span className={cn(
                             "text-sm font-medium truncate transition-all",
-                            task.completed ? "text-gray-400 line-through" : "text-gray-700"
+                            task.completed ? "text-muted-foreground line-through" : "text-card-foreground"
                           )}>
                             {task.title}
                           </span>
@@ -710,7 +721,7 @@ export function Workspace() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0 rounded-[4px]"
+                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0 rounded-[4px]"
                           onClick={() => deleteTask(task.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -724,19 +735,38 @@ export function Workspace() {
           </Card>
 
           {/* Quick Stat Footer */}
-          <div className="rounded-[8px] bg-gray-50/50 border border-slate-200 p-4 flex items-center justify-between">
+          <div className={cn(
+            "rounded-sm border p-4 flex items-center justify-between transition-colors duration-200",
+            notificationsEnabled
+              ? "bg-emerald-500/10 border-emerald-500/20"
+              : "bg-muted border-border"
+          )}>
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-[8px] bg-emerald-50 flex items-center justify-center">
-                <Bell className="h-4.5 w-4.5 text-emerald-600" />
+              <div className={cn(
+                "h-9 w-9 rounded-[8px] flex items-center justify-center transition-colors duration-200",
+                  notificationsEnabled ? "bg-emerald-500/10" : "bg-muted"
+                )}>
+                <Bell className={cn(
+                  "h-4.5 w-4.5 transition-colors duration-200",
+                  notificationsEnabled ? "text-emerald-400" : "text-muted-foreground"
+                )} />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-800">Rappels actifs</p>
-                <p className="text-xs text-gray-500">Notifications en temps réel</p>
+                <p className={cn(
+                  "text-sm font-medium transition-colors duration-200",
+                  notificationsEnabled ? "text-card-foreground" : "text-muted-foreground"
+                )}>
+                  Rappels actifs
+                </p>
+                <p className="text-xs text-muted-foreground">Notifications en temps réel</p>
               </div>
             </div>
-            <Badge variant="outline" className="bg-emerald-50/50 text-emerald-700 border-emerald-200/60 text-xs">
-              Activé
-            </Badge>
+            <Switch
+              checked={notificationsEnabled}
+              onCheckedChange={handleToggleNotifications}
+              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-muted data-[state=unchecked]:border-[#267E54] dark:data-[state=unchecked]:border-[#2ECC71]"
+              thumbClassName="data-[state=unchecked]:bg-[#267E54] dark:data-[state=unchecked]:bg-[#2ECC71]"
+            />
           </div>
         </div>
       </div>

@@ -53,11 +53,12 @@ interface StatutOption {
 }
 
 const statusOptions: StatutOption[] = [
-  { value: 'en_attente', label: 'En attente', color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'émis', label: 'Émis', color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'remboursé', label: 'Remboursé', color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'appliqué', label: 'Appliqué', color: 'text-sky-700', bgColor: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
-  { value: 'annulé', label: 'Annulé', color: 'text-slate-500', bgColor: 'bg-slate-50 text-slate-600 border border-slate-200/50' },
+  { value: 'Généré', label: 'Généré', color: 'text-blue-700', bgColor: 'dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 bg-blue-50 text-blue-700 border border-blue-200/50' },
+  { value: 'en_attente', label: 'En attente', color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
+  { value: 'émis', label: 'Émis', color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
+  { value: 'remboursé', label: 'Remboursé', color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+  { value: 'appliqué', label: 'Appliqué', color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
+  { value: 'annulé', label: 'Annulé', color: 'text-slate-500', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-600 border border-slate-200/50' },
 ];
 
 const ITEMS_PER_PAGE = 10;
@@ -122,17 +123,36 @@ export function AvoirsList() {
     try {
       const { data, error } = await supabase
         .from('parametres')
-        .select('*')
+        .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,rc,if_number,logo_url,couleur_principale,capital_social,forme_juridique,watermark_text,activer_filigrane')
         .eq('user_id', String(user.id))
         .single();
 
       if (!data) {
+        console.log('No parametres found');
         setEntreprise(null);
         return;
       }
 
       if (error && error.code !== 'PGRST116') throw error;
-      setEntreprise(data || null);
+
+      if (data) {
+        const cleanLogoUrl = !data.logo_url || data.logo_url === 'image.png'
+          ? ''
+          : data.logo_url;
+        setEntreprise({
+          userId: user.id,
+          nom: data.nom_societe || data.nom || '',
+          nomEntreprise: data.nom_societe || data.nom || '',
+          adresse: data.adresse || '',
+          ville: data.ville || '',
+          telephone: data.telephone || '',
+          email: data.email || '',
+          ice: data.ice || '',
+          logoUrl: cleanLogoUrl,
+          watermarkText: data.watermark_text || 'ParaGestion',
+          activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch entreprise settings', error);
     }
@@ -143,6 +163,18 @@ export function AvoirsList() {
       fetchAvoirs();
       fetchEntreprise();
     }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel('avoirs-realtime')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'avoirs', filter: `user_id=eq.${user.id}` },
+        () => { fetchAvoirs(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
   useEffect(() => {
@@ -274,7 +306,7 @@ export function AvoirsList() {
 
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-orange-50 border border-orange-200/50">
+        <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-orange-500/10 dark:border-orange-500/20 bg-orange-50 border border-orange-200/50">
           <RotateCcw className="h-5 w-5 text-orange-500" />
         </div>
         <div>
@@ -291,18 +323,18 @@ export function AvoirsList() {
           {/* Search & Filters */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400 pointer-events-none" />
               <Input
                 type="text"
                 placeholder="Rechercher par numéro, facture ou client..."
-                className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
+                className="pl-9 h-10 dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
+              <SelectTrigger className="h-10 w-[160px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                 <SelectValue placeholder="Statut" />
               </SelectTrigger>
               <SelectContent>
@@ -315,17 +347,17 @@ export function AvoirsList() {
           </div>
 
           {/* Table */}
-          <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden">
+          <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-slate-100">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Avoir</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Facture d'origine</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant TTC</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                <TableRow className="border-b dark:border-white/5 border-slate-100">
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Avoir</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Facture d'origine</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant TTC</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -342,16 +374,16 @@ export function AvoirsList() {
                   <TableRow>
                     <TableCell colSpan={7} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
-                        <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100">
-                          <RotateCcw className="h-8 w-8 text-slate-300" />
+                        <div className="dark:bg-white/5 dark:border-white/10 bg-slate-50 rounded-sm p-4 border border-slate-100">
+                          <RotateCcw className="h-8 w-8 dark:text-muted-foreground text-slate-300" />
                         </div>
-                        <p className="text-sm text-slate-500 font-medium">
+                        <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                           {searchQuery || statusFilter !== 'all'
                             ? 'Aucun avoir trouvé'
                             : 'Aucun avoir créé'}
                         </p>
                         {!searchQuery && statusFilter === 'all' && (
-                          <p className="text-xs text-slate-400 max-w-xs text-center">
+                          <p className="text-xs dark:text-muted-foreground text-slate-400 max-w-xs text-center">
                             Les avoirs sont générés automatiquement lors de l'annulation d'une facture.
                           </p>
                         )}
@@ -366,42 +398,42 @@ export function AvoirsList() {
                     return (
                       <TableRow
                         key={avoir.id}
-                        className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors"
+                        className="border-b dark:border-white/5 border-slate-100"
                       >
                         <TableCell className="px-4 py-5">
                           <div className="flex items-center gap-3">
-                            <Avatar size="sm" className="h-8 w-8 border border-slate-200">
+                            <Avatar size="sm" className="h-8 w-8 dark:border-white/10 border border-slate-200">
                               <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avoir.client?.nom}`} />
-                              <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-600">
+                              <AvatarFallback className="text-xs font-semibold dark:bg-slate-800 dark:text-muted-foreground bg-slate-100 text-slate-600">
                                 {clientInitial}
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <p className="text-sm font-semibold text-slate-800">
+                              <p className="text-sm font-semibold dark:text-card-foreground text-slate-800">
                                 {avoir.client?.nom || avoir.client?.nomSociete || '-'}
                               </p>
-                              <p className="text-xs text-slate-400">
+                              <p className="text-xs dark:text-muted-foreground text-slate-400">
                                 {avoir.client?.email || avoir.numero}
                               </p>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium text-slate-700">{avoir.numero || '-'}</span>
+                          <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{avoir.numero || '-'}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium text-emerald-600 bg-emerald-50/50 px-2 py-0.5 rounded-[4px] inline-flex items-center gap-1">
+                          <span className="text-sm font-mono font-medium dark:text-emerald-400 dark:bg-emerald-500/10 text-emerald-600 bg-emerald-50/50 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
                             <FileText className="h-3 w-3" />
                             {avoir.facture?.numero || '-'}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm text-slate-500">
+                          <span className="text-sm dark:text-muted-foreground text-slate-500">
                             {avoir.dateEmission ? format(new Date(avoir.dateEmission), 'dd MMM yyyy', { locale: fr }) : '-'}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold text-red-500">{formatCurrency(avoir.montantTtc)}</span>
+                          <span className="text-sm font-bold text-red-500 dark:text-red-400">{formatCurrency(avoir.montantTtc)}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-center">
                           <span className={cn(
@@ -416,7 +448,7 @@ export function AvoirsList() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                              className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                               onClick={() => handleDownload(avoir)}
                               title="Télécharger PDF"
                             >
@@ -425,7 +457,7 @@ export function AvoirsList() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px]"
+                              className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                               onClick={() => {
                                 setAvoirToDelete(avoir.id);
                                 setDeleteConfirmOpen(true);
@@ -444,15 +476,15 @@ export function AvoirsList() {
             </Table>
 
             {!isLoading && paginatedAvoirs.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
-                <p className="text-xs text-slate-400">
+              <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
+                <p className="text-xs dark:text-muted-foreground text-slate-400">
                   {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAvoirs.length)} sur {filteredAvoirs.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
@@ -464,10 +496,10 @@ export function AvoirsList() {
                       variant="ghost"
                       size="sm"
                       className={cn(
-                        "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                        "h-8 min-w-[32px] rounded-sm text-sm font-medium",
                         page === currentPage
-                          ? "bg-slate-100 text-slate-800"
-                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                          ? "dark:bg-white/10 dark:text-card-foreground bg-slate-100 text-slate-800"
+                          : "dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-50"
                       )}
                       onClick={() => handlePageChange(page)}
                     >
@@ -477,7 +509,7 @@ export function AvoirsList() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                    className="h-8 w-8 rounded-sm dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30"
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
@@ -491,37 +523,37 @@ export function AvoirsList() {
 
         {/* Right Column - Summary */}
         <div className="lg:col-span-1">
-          <Card className="border border-slate-200 shadow-none rounded-[6px]">
-            <CardHeader className="px-4 py-4 border-b border-slate-100">
-              <CardTitle className="text-sm font-semibold text-slate-700">Activité des Avoirs</CardTitle>
+          <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
+            <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
+              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">Activité des Avoirs</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-orange-50 border border-orange-200/50 shrink-0">
-                  <Receipt className="h-4 w-4 text-orange-600" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-orange-50 border border-orange-200/50 shrink-0">
+                  <Receipt className="h-4 w-4 dark:text-primary text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Total Avoirs (Mois en cours)</p>
-                  <p className="text-lg font-bold text-red-500">{formatCurrency(monthTotal)}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Total Avoirs (Mois en cours)</p>
+                  <p className="text-lg font-bold text-red-500 dark:text-red-400">{formatCurrency(monthTotal)}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-orange-50 border border-orange-200/50 shrink-0">
-                  <RotateCcw className="h-4 w-4 text-orange-600" />
+                <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-orange-50 border border-orange-200/50 shrink-0">
+                  <RotateCcw className="h-4 w-4 dark:text-primary text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Nombre de retours</p>
-                  <p className="text-lg font-bold text-slate-800">{monthCount} retour{monthCount !== 1 ? 's' : ''}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">Nombre de retours</p>
+                  <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{monthCount} retour{monthCount !== 1 ? 's' : ''}</p>
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 pt-4">
-                <div className="rounded-[6px] bg-amber-50 border border-amber-200/50 p-3 flex items-start gap-2.5">
+              <div className="border-t dark:border-white/5 border-slate-100 pt-4">
+                <div className="rounded-sm dark:bg-amber-500/10 dark:border-amber-500/20 bg-amber-50 border border-amber-200/50 p-3 flex items-start gap-2.5">
                   <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[11px] font-semibold text-amber-800">Impact sur le CA</p>
-                    <p className="text-[11px] text-amber-700/80 leading-relaxed mt-0.5">
+                    <p className="text-[11px] font-semibold dark:text-amber-400 text-amber-800">Impact sur le CA</p>
+                    <p className="text-[11px] dark:text-amber-400/80 text-amber-700/80 leading-relaxed mt-0.5">
                       Les avoirs viennent en déduction de votre chiffre d'affaires du mois.
                     </p>
                   </div>
