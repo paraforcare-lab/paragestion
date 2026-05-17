@@ -368,7 +368,9 @@ const updateProductStock = async (
   const currentStock = Number(produit.stock_actuel || 0);
   const newStock = currentStock + delta;
   
-  // Prevent negative stock
+  // Prevent negative stock — only block outbound movements (sales/deliveries).
+  // For inbound reversals (undoing a purchase receipt) the caller should use
+  // updateProductStockSafe() which clamps to 0 instead of throwing.
   if (newStock < 0) {
     throw new Error(`Stock insuffisant pour le produit ${produitId}. Stock actuel: ${currentStock}, Tentative de réduction: ${Math.abs(delta)}`);
   }
@@ -426,6 +428,81 @@ const updateProductStock = async (
     } catch (err) {
       console.error('Error creating low stock notification:', err);
     }
+  }
+};
+
+/**
+ * Safe variant of updateProductStock for administrative reversals
+ * (e.g. un-marking a purchase order as "livré").
+ *
+ * Unlike updateProductStock, this function NEVER throws when the resulting
+ * stock would go negative. Instead it clamps the stock to 0 and logs a
+ * warning. This is correct behaviour for purchase reversals: the physical
+ * goods may already have been consumed, sold, or adjusted, so the ERP should
+ * not block the administrative action — it simply records what it can.
+ */
+const updateProductStockSafe = async (
+  produitId: any,
+  delta: number,
+  type: string = 'ajustement',
+  referenceDocument?: string,
+  notes?: string,
+  entiteNom?: string,
+  prixUnitaire?: number
+) => {
+  if (!produitId) return;
+
+  const { data: produit, error: fetchError } = await supabase
+    .from('produits')
+    .select('stock_actuel, stock_min, designation, nom, user_id')
+    .eq('id', produitId)
+    .single();
+
+  if (fetchError || !produit) {
+    console.warn(`updateProductStockSafe: product ${produitId} not found — skipping`);
+    return;
+  }
+
+  const currentStock = Number(produit.stock_actuel || 0);
+  // Clamp: never go below 0 for a revert operation
+  const newStock = Math.max(0, currentStock + delta);
+
+  if (newStock < currentStock + delta) {
+    // Would have gone negative — log the clamping so the admin can audit
+    console.warn(
+      `updateProductStockSafe: stock clamped to 0 for product ${produitId}. ` +
+      `currentStock=${currentStock}, delta=${delta}. ` +
+      `Likely the stock was already consumed after receipt.`
+    );
+  }
+
+  const { error: updateError } = await supabase
+    .from('produits')
+    .update({ stock_actuel: newStock })
+    .eq('id', produitId);
+
+  if (updateError) {
+    console.error(`updateProductStockSafe: failed to update product ${produitId}:`, updateError);
+    // Do NOT throw — this is a safe variant; a failed revert should not
+    // block the status change that already succeeded.
+    return;
+  }
+
+  // Record movement
+  const mData = {
+    produit_id: parseInt(produitId),
+    type,
+    quantite: delta,
+    notes: notes || '',
+    reference_document: referenceDocument,
+    entite_nom: entiteNom,
+    prix_unitaire: prixUnitaire || 0,
+    date_mouvement: new Date()
+  };
+
+  const { error: mError } = await supabase.from('mouvements_stock').insert([mData]);
+  if (mError) {
+    console.warn(`Stock movement not recorded: ${mError.message}`);
   }
 };
 
@@ -2364,16 +2441,18 @@ router.put(['/bons-commande/:id/statut', '/bons-commande/:id/status'], async (re
         await supabase.from('bons_commande').update({ stock_updated: true }).eq('id', id);
       }
     } else if (!isNowLivré && wasStockUpdated) {
-      // Revert stock
+      // Revert stock — use the safe variant so a low/zero stock does not
+      // block the administrative status change. The revert clamps to 0 and
+      // logs a warning if the stock was already consumed.
       const { data: currentLignes } = await supabase.from('bon_commande_lignes').select('*').eq('bon_commande_id', id);
       const { data: b } = await supabase.from('bons_commande').select('*, fournisseur:fournisseurs(nom)').eq('id', id).single();
       if (currentLignes && currentLignes.length > 0) {
         for (const l of currentLignes) {
-          if (l.produit_id) await updateProductStock(
-            l.produit_id, 
-            -Number(l.quantite || 0), 
-            'ajustement', 
-            b?.numero, 
+          if (l.produit_id) await updateProductStockSafe(
+            l.produit_id,
+            -Number(l.quantite || 0),
+            'ajustement',
+            b?.numero,
             `Annulation Réception Bon de Commande ${b?.numero}`,
             b?.fournisseur?.nom,
             l.prix_unitaire_ht

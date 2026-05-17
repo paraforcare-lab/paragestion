@@ -292,13 +292,14 @@ export function BonsCommandeList() {
         body: JSON.stringify({ statut: newStatus }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || t('shared.toast.update_error'));
       }
       toast.success(t('shared.toast.status_updated'));
       fetchBons();
-    } catch (error) {
-      toast.error(t('shared.toast.update_error'));
+    } catch (error: any) {
+      // Surface the actual server message so the user knows exactly what failed
+      toast.error(error?.message || t('shared.toast.update_error'));
     }
   };
 
