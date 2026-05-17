@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, Plus, Minus, Package, ShoppingCart, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrencyLocale } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -42,13 +43,14 @@ interface ProductCardProps {
 }
 
 const StockBadge = ({ stock }: { stock: number }) => {
+  const { t } = useTranslation()
   if (stock <= 0) {
-    return <span className="text-[10px] font-semibold text-white bg-rose-500 px-2.5 py-1 rounded-full">Épuisé</span>
+    return <span className="text-[10px] font-semibold text-white bg-rose-500 px-2.5 py-1 rounded-full">{t('shared.product_selector.badge_out_of_stock')}</span>
   }
   if (stock <= 5) {
-    return <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">{stock} restant{stock > 1 ? 's' : ''}</span>
+    return <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">{t('shared.product_selector.badge_remaining', { count: stock })}</span>
   }
-  return <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">{stock} en stock</span>
+  return <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">{t('shared.product_selector.badge_in_stock', { count: stock })}</span>
 }
 
 const ProductCard = ({
@@ -56,9 +58,11 @@ const ProductCard = ({
   onClick,
   selected,
 }: ProductCardProps) => {
+  const { t, i18n } = useTranslation()
   const stock = Number(produit.stockActuel ?? 0);
   const outOfStock = stock <= 0;
   const imageUrl = produit.imageUrl || produit.image_url;
+  const displayName = produit.designation || produit.nom || t('shared.product_selector.default_product_name');
 
   return (
     <button
@@ -66,7 +70,7 @@ const ProductCard = ({
       onClick={onClick}
       disabled={outOfStock}
       className={cn(
-        "w-full relative text-left transition-all duration-200",
+        "w-full relative text-start transition-all duration-200",
         "flex gap-4 items-start p-4",
         selected
           ? "bg-emerald-50/30"
@@ -75,9 +79,9 @@ const ProductCard = ({
         "border-b border-slate-100 last:border-0"
       )}
     >
-      {/* Left accent bar for selected state */}
+      {/* Start-edge accent bar for selected state (logical: left in LTR, right in RTL) */}
       <div className={cn(
-        "absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full transition-all duration-200",
+        "absolute start-0 top-2 bottom-2 w-[3px] rounded-e-full transition-all duration-200",
         selected ? "bg-emerald-500" : "bg-transparent"
       )} />
 
@@ -89,7 +93,7 @@ const ProductCard = ({
         {imageUrl ? (
           <img
             src={imageUrl}
-            alt={produit.designation || produit.nom || 'Produit'}
+            alt={displayName}
             className="w-full h-full object-cover"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
@@ -111,13 +115,13 @@ const ProductCard = ({
               "text-sm font-semibold truncate",
               outOfStock ? "text-slate-400" : "text-slate-800"
             )}>
-              {produit.designation || produit.nom || 'Produit'}
+              {displayName}
             </p>
             {(produit.marque || produit.reference) && (
               <p className="text-xs text-slate-400 truncate mt-0.5">
                 {produit.marque && <span>{produit.marque}</span>}
                 {produit.marque && produit.reference && <span> • </span>}
-                {produit.reference && <span className="font-mono">{produit.reference}</span>}
+                {produit.reference && <span className="font-mono" dir="ltr">{produit.reference}</span>}
               </p>
             )}
           </div>
@@ -126,23 +130,29 @@ const ProductCard = ({
 
         {/* Price */}
         <div className="flex items-baseline gap-1.5 mt-3">
-          <span className="text-lg font-black text-emerald-600">
-            {formatCurrency(produit.prixVenteHt)}
+          <span
+            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+            className="text-lg font-black text-emerald-600"
+          >
+            {formatCurrencyLocale(produit.prixVenteHt, i18n.language)}
           </span>
-          <span className="text-[10px] font-medium text-slate-400">HT</span>
+          <span className="text-[10px] font-medium text-slate-400">{t('shared.product_selector.price_ht')}</span>
           {produit.prixVenteTtc && (
             <>
               <span className="text-xs text-slate-300 mx-0.5">•</span>
-              <span className="text-sm font-bold text-slate-700">
-                {formatCurrency(produit.prixVenteTtc)}
+              <span
+                dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                className="text-sm font-bold text-slate-700"
+              >
+                {formatCurrencyLocale(produit.prixVenteTtc, i18n.language)}
               </span>
-              <span className="text-[10px] font-medium text-slate-400">TTC</span>
+              <span className="text-[10px] font-medium text-slate-400">{t('shared.product_selector.price_ttc')}</span>
             </>
           )}
           {produit.tauxTva !== undefined && (
             <>
               <span className="text-xs text-slate-300 mx-0.5">•</span>
-              <span className="text-[10px] font-medium text-slate-400">TVA {produit.tauxTva}%</span>
+              <span className="text-[10px] font-medium text-slate-400">{t('shared.product_selector.vat_short')} {produit.tauxTva}%</span>
             </>
           )}
         </div>
@@ -157,6 +167,7 @@ export function ProductSelector({
   trigger,
   disabled,
 }: ProductSelectorProps) {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
@@ -215,8 +226,8 @@ export function ProductSelector({
             disabled={disabled}
             className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] shadow-none"
           >
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            Sélectionner un produit
+            <ShoppingCart className="me-2 h-4 w-4" />
+            {t('shared.product_selector.trigger')}
           </Button>
         )}
       </DialogTrigger>
@@ -226,25 +237,27 @@ export function ProductSelector({
             <div className="flex items-center justify-center h-9 w-9 rounded-[10px] bg-emerald-50">
               <ShoppingCart className="h-[18px] w-[18px] text-emerald-600" />
             </div>
-            Sélectionner un produit
+            {t('shared.product_selector.title')}
           </DialogTitle>
 
-          {/* Search Bar */}
+          {/* Search Bar — uses logical start/end positioning so the icon and
+              clear button automatically flip in RTL (Arabic) layouts. */}
           <div className="mt-4 relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute start-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <Input
               ref={searchInputRef}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Rechercher par nom, référence ou marque..."
-              className="pl-10 h-11 bg-slate-50 border-slate-200 rounded-[10px] focus:bg-white focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/15 shadow-none text-sm transition-all"
+              placeholder={t('shared.product_selector.search_placeholder')}
+              className="ps-10 pe-10 h-11 bg-slate-50 border-slate-200 rounded-[10px] focus:bg-white focus:border-emerald-300 focus:ring-2 focus:ring-emerald-500/15 shadow-none text-sm transition-all"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label={t('shared.product_selector.clear_search')}
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -253,7 +266,10 @@ export function ProductSelector({
 
           {searchTerm && (
             <p className="text-xs text-slate-400 mt-2">
-              {filteredProduits.length} résultat{filteredProduits.length !== 1 ? 's' : ''} pour "{searchTerm}"
+              {t('shared.product_selector.results', {
+                count: filteredProduits.length,
+                term: searchTerm,
+              })}
             </p>
           )}
         </DialogHeader>
@@ -276,13 +292,13 @@ export function ProductSelector({
               </div>
               <p className="text-sm font-semibold text-slate-600">
                 {searchTerm
-                  ? `Aucun produit trouvé`
-                  : "Aucun produit disponible"}
+                  ? t('shared.product_selector.empty_no_match')
+                  : t('shared.product_selector.empty_no_products')}
               </p>
               <p className="text-xs text-slate-400 mt-1 max-w-[220px]">
                 {searchTerm
-                  ? `Aucun résultat pour "${searchTerm}"`
-                  : "Ajoutez des produits dans la section Produits"}
+                  ? t('shared.product_selector.empty_no_match_hint', { term: searchTerm })
+                  : t('shared.product_selector.empty_no_products_hint')}
               </p>
               {searchTerm && (
                 <button
@@ -290,7 +306,7 @@ export function ProductSelector({
                   onClick={() => setSearchTerm('')}
                   className="mt-4 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:underline transition-colors"
                 >
-                  Effacer la recherche
+                  {t('shared.product_selector.clear_search')}
                 </button>
               )}
             </div>
@@ -345,7 +361,7 @@ export function ProductSelector({
                   </button>
                 </div>
                 {stock <= 5 && (
-                  <span className="text-[10px] text-amber-600 font-medium">Stock limité</span>
+                  <span className="text-[10px] text-amber-600 font-medium">{t('shared.product_selector.stock_limited')}</span>
                 )}
               </div>
 
@@ -354,8 +370,8 @@ export function ProductSelector({
                 onClick={handleConfirm}
                 className="h-10 px-5 rounded-[4px] bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-none"
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter au panier
+                <Plus className="me-2 h-4 w-4" />
+                {t('shared.product_selector.add_to_cart')}
               </Button>
             </div>
           </div>

@@ -486,14 +486,41 @@
       "estimated_ttc":       "Estimated total (incl. VAT)",
       "optional_supplier":   "Supplier (Optional)",
       "none":                "None",
-      "internal_notes":      "Internal notes or supplier invoice number..."
+      "internal_notes":      "Internal notes or supplier invoice number...",
+      "qty_label":           "Qty",
+      "price_ht_label":      "Unit price (excl. VAT)",
+      "vat_pct_label":       "VAT (%)"
     },
     "payment_modes": {
-      "bank_transfer": "Bank Transfer",
-      "cheque":        "Cheque",
-      "cash":          "Cash",
-      "card":          "Bank Card",
-      "bill":          "Bill of Exchange"
+      "bank_transfer":    "Bank Transfer",
+      "cheque":           "Cheque",
+      "cash":             "Cash",
+      "card":             "Bank Card",
+      "bill":             "Bill of Exchange",
+      "bill_of_exchange": "Bill of Exchange",
+      "other":            "Other"
+    },
+    "product_selector": {
+      "trigger":              "Select a product",
+      "title":                "Select a product",
+      "search_placeholder":   "Search by name, reference or brand...",
+      "results_one":          "{{count}} result for \"{{term}}\"",
+      "results_other":        "{{count}} results for \"{{term}}\"",
+      "empty_no_match":       "No product found",
+      "empty_no_products":    "No product available",
+      "empty_no_match_hint":  "No results for \"{{term}}\"",
+      "empty_no_products_hint": "Add products in the Products section",
+      "clear_search":         "Clear search",
+      "stock_limited":        "Low stock",
+      "add_to_cart":          "Add to cart",
+      "default_product_name": "Product",
+      "badge_out_of_stock":   "Out of stock",
+      "badge_remaining_one":  "{{count}} left",
+      "badge_remaining_other":"{{count}} left",
+      "badge_in_stock":       "{{count}} in stock",
+      "price_ht":             "excl. VAT",
+      "price_ttc":            "incl. VAT",
+      "vat_short":            "VAT"
     },
     "confirm_delete": {
       "title_invoice":        "Delete invoice",
@@ -542,7 +569,12 @@
       "description_required": "Description is required",
       "amount_positive":      "Amount must be positive",
       "date_required":        "Date is required",
-      "payment_required":     "Payment method is required"
+      "payment_required":     "Payment method is required",
+      "qty_min":                 "Quantity must be greater than 0",
+      "emission_date_required":  "Issue date is required",
+      "validity_date_required":  "Validity date is required",
+      "payment_mode_required":   "Payment method is required",
+      "lines_min":               "At least one line is required"
     }
   },
   "factures": {
@@ -673,7 +705,15 @@
     "detail_total_vat":    "VAT",
     "detail_total_ttc":    "Total (incl. VAT)",
     "tooltip_details":     "Details",
-    "tooltip_print":       "Print"
+    "tooltip_print":       "Print",
+    "form_lines_section":  "Delivery lines",
+    "form_notes_placeholder": "Notes for the customer or carrier...",
+    "form_save_button":    "Save delivery note",
+    "status_pending":      "Pending",
+    "status_delivered":    "Delivered",
+    "status_cancelled":    "Cancelled",
+    "toast_created":       "Delivery note created",
+    "toast_updated":       "Delivery note updated"
   },
   "avoirs": {
     "page_title":      "Credit Notes",

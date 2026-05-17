@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatCurrencyLocale, formatDate } from '@/lib/utils'
 import { FactureForm } from '@/components/forms/FactureForm'
 import { FactureDocument } from '@/components/documents/FactureDocument'
 import {
@@ -760,12 +760,20 @@ export function FacturesList() {
                               <span dir="ltr" className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{facture.numero}</span>
                             </TableCell>
                             <TableCell className="px-4 py-4">
-                              <span dir="ltr" className="text-sm dark:text-muted-foreground text-slate-500">
+                              <span
+                                dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                                className="text-sm dark:text-muted-foreground text-slate-500"
+                              >
                                 {formatDate(facture.dateEmission, 'dd MMM yyyy', i18n.language)}
                               </span>
                             </TableCell>
                             <TableCell className="px-4 py-4 text-start">
-                              <span dir="ltr" className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(facture.montantTtc)}</span>
+                              <span
+                                dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                                className="text-sm font-bold dark:text-card-foreground text-slate-800"
+                              >
+                                {formatCurrencyLocale(facture.montantTtc, i18n.language)}
+                              </span>
                               <ArrowUpRight className="h-3 w-3 dark:text-muted-foreground text-slate-400 inline-block ms-1 -mt-0.5" />
                             </TableCell>
                             <TableCell className="px-4 py-4 text-center">

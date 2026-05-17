@@ -486,14 +486,41 @@
       "estimated_ttc":       "الإجمالي التقديري (ش.ض)",
       "optional_supplier":   "المورد (اختياري)",
       "none":                "لا يوجد",
-      "internal_notes":      "ملاحظات داخلية أو رقم فاتورة المورد..."
+      "internal_notes":      "ملاحظات داخلية أو رقم فاتورة المورد...",
+      "qty_label":           "الكمية",
+      "price_ht_label":      "س.و (خ.ض)",
+      "vat_pct_label":       "ض.ق.م (%)"
     },
     "payment_modes": {
-      "bank_transfer": "تحويل بنكي",
-      "cheque":        "شيك",
-      "cash":          "نقداً",
-      "card":          "بطاقة بنكية",
-      "bill":          "كمبيالة"
+      "bank_transfer":    "تحويل بنكي",
+      "cheque":           "شيك",
+      "cash":             "نقداً",
+      "card":             "بطاقة بنكية",
+      "bill":             "كمبيالة",
+      "bill_of_exchange": "كمبيالة",
+      "other":            "أخرى"
+    },
+    "product_selector": {
+      "trigger":              "اختر منتجاً",
+      "title":                "اختر منتجاً",
+      "search_placeholder":   "ابحث بالاسم أو المرجع أو العلامة التجارية...",
+      "results_one":          "نتيجة واحدة لـ \"{{term}}\"",
+      "results_other":        "{{count}} نتيجة لـ \"{{term}}\"",
+      "empty_no_match":       "لم يتم العثور على أي منتج",
+      "empty_no_products":    "لا يوجد منتج متاح",
+      "empty_no_match_hint":  "لا توجد نتائج لـ \"{{term}}\"",
+      "empty_no_products_hint": "أضف منتجات في قسم المنتجات",
+      "clear_search":         "مسح البحث",
+      "stock_limited":        "المخزون محدود",
+      "add_to_cart":          "أضف إلى السلة",
+      "default_product_name": "منتج",
+      "badge_out_of_stock":   "نفذ",
+      "badge_remaining_one":  "تبقى {{count}}",
+      "badge_remaining_other":"تبقى {{count}}",
+      "badge_in_stock":       "{{count}} في المخزون",
+      "price_ht":             "خ.ض",
+      "price_ttc":            "ش.ض",
+      "vat_short":            "ض.ق.م"
     },
     "confirm_delete": {
       "title_invoice":        "حذف الفاتورة",
@@ -542,7 +569,12 @@
       "description_required": "الوصف مطلوب",
       "amount_positive":      "يجب أن يكون المبلغ موجباً",
       "date_required":        "التاريخ مطلوب",
-      "payment_required":     "طريقة الدفع مطلوبة"
+      "payment_required":     "طريقة الدفع مطلوبة",
+      "qty_min":                 "يجب أن تكون الكمية أكبر من 0",
+      "emission_date_required":  "تاريخ الإصدار مطلوب",
+      "validity_date_required":  "تاريخ الصلاحية مطلوب",
+      "payment_mode_required":   "طريقة الدفع مطلوبة",
+      "lines_min":               "يجب إضافة بند واحد على الأقل"
     }
   },
   "factures": {
@@ -673,7 +705,15 @@
     "detail_total_vat":    "الضريبة",
     "detail_total_ttc":    "المجموع الشامل",
     "tooltip_details":     "التفاصيل",
-    "tooltip_print":       "طباعة"
+    "tooltip_print":       "طباعة",
+    "form_lines_section":  "بنود وثيقة التسليم",
+    "form_notes_placeholder": "ملاحظات للعميل أو الناقل...",
+    "form_save_button":    "حفظ وثيقة التسليم",
+    "status_pending":      "في الانتظار",
+    "status_delivered":    "تم التسليم",
+    "status_cancelled":    "ملغاة",
+    "toast_created":       "تم إنشاء وثيقة التسليم",
+    "toast_updated":       "تم تعديل وثيقة التسليم"
   },
   "avoirs": {
     "page_title":      "إشعارات الدائن",

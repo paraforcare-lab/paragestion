@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { Plus, Trash2 } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrencyLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,25 +21,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 
-const ligneSchema = z.object({
-  produitId: z.string().optional(),
-  reference: z.string().optional(),
-  designation: z.string().min(1, 'La désignation est requise'),
-  quantite: z.number().min(0.01, 'La quantité doit être supérieure à 0'),
-  prixUnitaireHt: z.number().min(0, 'Le prix doit être positif').optional(),
-  tva: z.number().min(0, 'La TVA doit être positive').optional(),
-});
-
-const blSchema = z.object({
-  fournisseurId: z.string().optional(),
-  dateEmission: z.string().min(1, 'La date d\'émission est requise'),
-  statut: z.string().optional(),
-  modePaiement: z.string().optional(),
-  notes: z.string().optional(),
-  lignes: z.array(ligneSchema).min(1, 'Au moins une ligne est requise'),
-});
-
-type BLFormValues = z.infer<typeof blSchema>;
+// Zod schemas are built inside the component (below) so validation messages
+// can be localized via t(...). Building them once per render is fine — Zod
+// schema construction is cheap and React Hook Form caches the resolver.
 
 interface BLFormProps {
   initialData?: any;
@@ -46,11 +31,40 @@ interface BLFormProps {
 }
 
 export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [fournisseurs, setFournisseurs] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Localized Zod schema — rebuilt when language changes so error messages
+  // appear in the active locale.
+  const blSchema = useMemo(
+    () =>
+      z.object({
+        fournisseurId: z.string().optional(),
+        dateEmission: z.string().min(1, t('shared.validation.emission_date_required')),
+        statut: z.string().optional(),
+        modePaiement: z.string().optional(),
+        notes: z.string().optional(),
+        lignes: z
+          .array(
+            z.object({
+              produitId: z.string().optional(),
+              reference: z.string().optional(),
+              designation: z.string().min(1, t('shared.validation.designation_required')),
+              quantite: z.number().min(0.01, t('shared.validation.qty_min')),
+              prixUnitaireHt: z.number().min(0, t('shared.validation.price_positive')).optional(),
+              tva: z.number().min(0, t('shared.validation.vat_positive')).optional(),
+            }),
+          )
+          .min(1, t('shared.validation.lines_min')),
+      }),
+    [i18n.language, t],
+  );
+
+  type BLFormValues = z.infer<typeof blSchema>;
 
   const form = useForm<BLFormValues>({
     resolver: zodResolver(blSchema),
@@ -125,10 +139,14 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
         }
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast.error('Erreur lors du chargement des données');
+        toast.error(t('shared.toast.loading_error'));
       }
     };
     fetchData();
+    // We intentionally omit `t` from deps — toast text is only emitted once on
+    // mount; re-running this effect when language changes would refetch all
+    // suppliers/products needlessly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData?.id]);
 
   const watchLignes = form.watch('lignes');
@@ -234,11 +252,15 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
         }
       }
 
-      toast.success(initialData ? 'Bon de livraison modifié' : 'Bon de livraison créé');
+      toast.success(
+        initialData
+          ? t('bons_livraison.toast_updated')
+          : t('bons_livraison.toast_created'),
+      );
       onSuccess();
     } catch (error: any) {
       console.error('Error submitting form:', error);
-      toast.error(error?.message || error?.details || 'Une erreur est survenue');
+      toast.error(error?.message || error?.details || t('shared.toast.save_error'));
     } finally {
       setIsLoading(false);
     }
@@ -261,13 +283,13 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
       <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">Fournisseur *</Label>
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.supplier_label')}</Label>
             <Select
               value={form.watch('fournisseurId') || ""}
               onValueChange={(val) => form.setValue('fournisseurId', val)}
             >
               <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
-                <SelectValue placeholder="Sélectionner un fournisseur" />
+                <SelectValue placeholder={t('shared.form.select_supplier')} />
               </SelectTrigger>
               <SelectContent>
                 {fournisseurs.map((f) => (
@@ -283,7 +305,7 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">Date d'émission *</Label>
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.emission_date')}</Label>
             <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateEmission')} />
             {form.formState.errors.dateEmission && (
               <p className="text-xs text-red-500 font-medium">{form.formState.errors.dateEmission.message}</p>
@@ -291,18 +313,18 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">Statut *</Label>
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.status_label')}</Label>
             <Select
               value={form.watch('statut') || ""}
               onValueChange={(val) => form.setValue('statut', val)}
             >
               <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
-                <SelectValue placeholder="Sélectionner un statut" />
+                <SelectValue placeholder={t('shared.form.select_status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="en_attente">En attente</SelectItem>
-                <SelectItem value="livré">Livré</SelectItem>
-                <SelectItem value="annulé">Annulé</SelectItem>
+                <SelectItem value="en_attente">{t('bons_livraison.status_pending')}</SelectItem>
+                <SelectItem value="livré">{t('bons_livraison.status_delivered')}</SelectItem>
+                <SelectItem value="annulé">{t('bons_livraison.status_cancelled')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -311,7 +333,7 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b pb-2 dark:border-white/5">
-          <h3 className="text-lg font-bold text-slate-800 dark:text-white">Lignes de livraison</h3>
+          <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('bons_livraison.form_lines_section')}</h3>
           <Button
             type="button"
             variant="outline"
@@ -321,8 +343,8 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
               append({ designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20 })
             }
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Ajouter une ligne
+            <Plus className="h-4 w-4 me-2" />
+            {t('shared.form.add_line')}
           </Button>
         </div>
 
@@ -330,12 +352,12 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
           <table className="w-full text-sm">
             <thead className="bg-slate-100 border-b border-slate-200 dark:bg-slate-900/60 dark:border-white/10">
               <tr>
-                <th className="p-3 text-left font-semibold text-slate-600 dark:text-slate-400">Produit</th>
-                <th className="p-3 text-left font-semibold text-slate-600 dark:text-slate-400">Désignation *</th>
-                <th className="p-3 text-right font-semibold text-slate-600 dark:text-slate-400 w-24">Qté *</th>
-                <th className="p-3 text-right font-semibold text-slate-600 dark:text-slate-400 w-32">Prix HT</th>
-                <th className="p-3 text-right font-semibold text-slate-600 dark:text-slate-400 w-24">TVA %</th>
-                <th className="p-3 text-right font-semibold text-slate-600 dark:text-slate-400 w-32">Total HT</th>
+                <th className="p-3 text-start font-semibold text-slate-600 dark:text-slate-400">{t('bons_livraison.detail_col_product')}</th>
+                <th className="p-3 text-start font-semibold text-slate-600 dark:text-slate-400">{t('shared.form.description_label')} *</th>
+                <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-24">{t('shared.form.qty_label')} *</th>
+                <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-32">{t('shared.form.price_ht_label')}</th>
+                <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-24">{t('shared.form.vat_pct_label')}</th>
+                <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-32">{t('shared.form.subtotal_ht')}</th>
                 <th className="p-3 w-12"></th>
               </tr>
             </thead>
@@ -352,7 +374,7 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
                         onValueChange={(val) => handleProduitSelect(index, val)}
                       >
                         <SelectTrigger className="h-9 bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 [&_.lucide-chevron-down]:dark:text-slate-500">
-                          <SelectValue placeholder="Choisir..." />
+                          <SelectValue placeholder={t('shared.form.choose_product')} />
                         </SelectTrigger>
                         <SelectContent>
                           {produits.map((p) => (
@@ -373,7 +395,7 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
                       <Input
                         type="number"
                         step="0.01"
-                        className="h-9 text-right bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+                        className="h-9 text-end bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
                         {...form.register(`lignes.${index}.quantite`, { valueAsNumber: true })}
                       />
                     </td>
@@ -381,7 +403,7 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
                       <Input
                         type="number"
                         step="0.01"
-                        className="h-9 text-right bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+                        className="h-9 text-end bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
                         {...form.register(`lignes.${index}.prixUnitaireHt`, { valueAsNumber: true })}
                       />
                     </td>
@@ -389,12 +411,15 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
                       <Input
                         type="number"
                         step="0.01"
-                        className="h-9 text-right bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+                        className="h-9 text-end bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
                         {...form.register(`lignes.${index}.tva`, { valueAsNumber: true })}
                       />
                     </td>
-                    <td className="p-2 text-right font-semibold text-slate-700 align-middle dark:text-white">
-                      {formatCurrency(totalHt)}
+                    <td
+                      dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                      className="p-2 text-end font-semibold text-slate-700 align-middle dark:text-white"
+                    >
+                      {formatCurrencyLocale(totalHt, i18n.language)}
                     </td>
                     <td className="p-2 text-center align-middle">
                       <Button
@@ -419,10 +444,10 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
           <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">Notes</Label>
-            <Textarea 
-              {...form.register('notes')} 
-              placeholder="Notes pour le client ou le transporteur..." 
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.notes')}</Label>
+            <Textarea
+              {...form.register('notes')}
+              placeholder={t('bons_livraison.form_notes_placeholder')}
               className="min-h-[100px] bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
             />
           </div>
@@ -431,28 +456,43 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
         <div className="w-full md:w-80">
           <div className="bg-slate-50 p-6 rounded-[6px] border border-slate-200 space-y-4 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-500 font-medium dark:text-slate-400">Total HT</span>
-              <span className="font-bold text-slate-800 dark:text-white">{formatCurrency(totals.ht)}</span>
+              <span className="text-slate-500 font-medium dark:text-slate-400">{t('shared.form.subtotal_ht')}</span>
+              <span
+                dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                className="font-bold text-slate-800 dark:text-white"
+              >
+                {formatCurrencyLocale(totals.ht, i18n.language)}
+              </span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-500 font-medium dark:text-slate-400">Total TVA</span>
-              <span className="font-bold text-slate-800 dark:text-white">{formatCurrency(totals.tva)}</span>
+              <span className="text-slate-500 font-medium dark:text-slate-400">{t('shared.form.total_vat')}</span>
+              <span
+                dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                className="font-bold text-slate-800 dark:text-white"
+              >
+                {formatCurrencyLocale(totals.tva, i18n.language)}
+              </span>
             </div>
             <div className="h-px bg-slate-200 my-2 dark:bg-white/10" />
             <div className="flex justify-between items-center">
-              <span className="text-slate-900 font-bold text-lg dark:text-white">Total TTC</span>
-              <span className="text-2xl font-black text-blue-600 dark:text-blue-400">{formatCurrency(totals.ttc)}</span>
+              <span className="text-slate-900 font-bold text-lg dark:text-white">{t('shared.form.total_ttc')}</span>
+              <span
+                dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                className="text-2xl font-black text-blue-600 dark:text-blue-400"
+              >
+                {formatCurrencyLocale(totals.ttc, i18n.language)}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end items-center space-x-4 pt-6 border-t dark:border-white/5">
+      <div className="flex justify-end items-center gap-4 pt-6 border-t dark:border-white/5">
         <Button type="button" variant="ghost" onClick={() => onSuccess()} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
-          Annuler
+          {t('shared.actions.cancel')}
         </Button>
         <Button type="submit" disabled={isLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 h-10 rounded-[4px] shadow-none dark:rounded-sm">
-          {isLoading ? 'Enregistrement...' : 'Enregistrer le bon de livraison'}
+          {isLoading ? t('shared.actions.saving') : t('bons_livraison.form_save_button')}
         </Button>
       </div>
     </form>

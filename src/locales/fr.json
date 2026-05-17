@@ -486,14 +486,41 @@
       "estimated_ttc":       "Total TTC estimé",
       "optional_supplier":   "Fournisseur (Optionnel)",
       "none":                "Aucun",
-      "internal_notes":      "Informations complémentaires, n° de facture fournisseur..."
+      "internal_notes":      "Informations complémentaires, n° de facture fournisseur...",
+      "qty_label":           "Qté",
+      "price_ht_label":      "PU HT",
+      "vat_pct_label":       "TVA (%)"
     },
     "payment_modes": {
-      "bank_transfer": "Virement",
-      "cheque":        "Chèque",
-      "cash":          "Espèces",
-      "card":          "Carte Bancaire",
-      "bill":          "Effet de commerce"
+      "bank_transfer":    "Virement",
+      "cheque":           "Chèque",
+      "cash":             "Espèces",
+      "card":             "Carte Bancaire",
+      "bill":             "Effet de commerce",
+      "bill_of_exchange": "Effet de commerce",
+      "other":            "Autre"
+    },
+    "product_selector": {
+      "trigger":              "Sélectionner un produit",
+      "title":                "Sélectionner un produit",
+      "search_placeholder":   "Rechercher par nom, référence ou marque...",
+      "results_one":          "{{count}} résultat pour \"{{term}}\"",
+      "results_other":        "{{count}} résultats pour \"{{term}}\"",
+      "empty_no_match":       "Aucun produit trouvé",
+      "empty_no_products":    "Aucun produit disponible",
+      "empty_no_match_hint":  "Aucun résultat pour \"{{term}}\"",
+      "empty_no_products_hint": "Ajoutez des produits dans la section Produits",
+      "clear_search":         "Effacer la recherche",
+      "stock_limited":        "Stock limité",
+      "add_to_cart":          "Ajouter au panier",
+      "default_product_name": "Produit",
+      "badge_out_of_stock":   "Épuisé",
+      "badge_remaining_one":  "{{count}} restant",
+      "badge_remaining_other":"{{count}} restants",
+      "badge_in_stock":       "{{count}} en stock",
+      "price_ht":             "HT",
+      "price_ttc":            "TTC",
+      "vat_short":            "TVA"
     },
     "confirm_delete": {
       "title_invoice":        "Supprimer la facture",
@@ -542,7 +569,12 @@
       "description_required": "La description est requise",
       "amount_positive":      "Le montant doit être positif",
       "date_required":        "La date est requise",
-      "payment_required":     "Le mode de paiement est requis"
+      "payment_required":     "Le mode de paiement est requis",
+      "qty_min":                 "La quantité doit être supérieure à 0",
+      "emission_date_required":  "La date d'émission est requise",
+      "validity_date_required":  "La date de validité est requise",
+      "payment_mode_required":   "Le mode de paiement est requis",
+      "lines_min":               "Au moins une ligne est requise"
     }
   },
   "factures": {
@@ -673,7 +705,15 @@
     "detail_total_vat":    "TVA",
     "detail_total_ttc":    "Total TTC",
     "tooltip_details":     "Détails",
-    "tooltip_print":       "Imprimer"
+    "tooltip_print":       "Imprimer",
+    "form_lines_section":  "Lignes de livraison",
+    "form_notes_placeholder": "Notes pour le client ou le transporteur...",
+    "form_save_button":    "Enregistrer le bon de livraison",
+    "status_pending":      "En attente",
+    "status_delivered":    "Livré",
+    "status_cancelled":    "Annulé",
+    "toast_created":       "Bon de livraison créé",
+    "toast_updated":       "Bon de livraison modifié"
   },
   "avoirs": {
     "page_title":      "Avoirs",

@@ -40,7 +40,7 @@ import { BonLivraisonForm } from '@/components/forms/BonLivraisonForm'
 import { useReactToPrint } from 'react-to-print'
 import { BonLivraisonDocument } from '@/components/documents/BonLivraisonDocument'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatCurrencyLocale } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -606,7 +606,10 @@ export function BonsLivraisonList() {
                           <span dir="ltr" className="text-sm font-mono font-medium text-slate-700 dark:text-white">{bon.numero}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm text-slate-500 dark:text-slate-400"
+                          >
                             {(() => {
                               try {
                                 const dateStr = bon.dateLivraison || bon.date;
@@ -621,8 +624,11 @@ export function BonsLivraisonList() {
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-start">
-                          <span dir="ltr" className="text-sm font-bold text-slate-800 dark:text-white">
-                            {formatCurrency(bon.montantTtc || bon.montant_ttc || 0)}
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm font-bold text-slate-800 dark:text-white"
+                          >
+                            {formatCurrencyLocale(bon.montantTtc || bon.montant_ttc || 0, i18n.language)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-center">
@@ -867,15 +873,17 @@ export function BonsLivraisonList() {
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                 <CalendarDays className="h-4 w-4" />
-                {(() => {
-                  try {
-                    const dateStr = detailBon.dateLivraison || detailBon.date;
-                    if (!dateStr) return '-';
-                    const date = new Date(dateStr);
-                    if (isNaN(date.getTime())) return '-';
-                    return format(date, 'dd MMMM yyyy', { locale: dateFnsLocale });
-                  } catch { return '-'; }
-                })()}
+                <span dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}>
+                  {(() => {
+                    try {
+                      const dateStr = detailBon.dateLivraison || detailBon.date;
+                      if (!dateStr) return '-';
+                      const date = new Date(dateStr);
+                      if (isNaN(date.getTime())) return '-';
+                      return format(date, 'dd MMMM yyyy', { locale: dateFnsLocale });
+                    } catch { return '-'; }
+                  })()}
+                </span>
                 <span className="mx-2 text-slate-300 dark:text-slate-600">·</span>
                 <span className="font-medium text-slate-700 dark:text-white">
                   {detailBon.fournisseur?.nom || detailBon.fournisseur?.nomSociete || '-'}
