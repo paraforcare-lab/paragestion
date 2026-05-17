@@ -1,3 +1,28 @@
+/**
+ * Global Select primitives — built on top of Base UI's `Select`.
+ *
+ * This file is the SINGLE SOURCE OF STYLING for every dropdown/select in the
+ * application. Modifying any class name here propagates to every screen.
+ *
+ * Design goals (kept in sync with the broader UI checklist):
+ *   1. Premium look — rounded-xl popup, soft shadow, crisp border, modern
+ *      typography (text-sm), generous item padding.
+ *   2. Bulletproof RTL — every physical (`left-*`, `right-*`, `text-left`,
+ *      `pr-*`, `pl-*`) class has been replaced with logical equivalents
+ *      (`start-*`, `end-*`, `text-start`, `pe-*`, `ps-*`). Direction is
+ *      provided application-wide by the `<DirectionProvider>` in `App.tsx`,
+ *      driven by the active i18n language.
+ *   3. No viewport overflow — Base UI's collision-avoidance is enabled with
+ *      a generous `collisionPadding` so the popup never clips the edge of
+ *      the screen on Arabic (RTL) layouts where the trigger sits near the
+ *      right edge.
+ *   4. Trigger-matched width — `w-(--anchor-width)` makes the popup as wide
+ *      as the trigger by default; downstream callers can opt out by passing
+ *      a different `className`.
+ *   5. Selected indicator — a checkmark on the trailing edge of the active
+ *      item (flips automatically in RTL).
+ */
+
 import * as React from "react"
 import { Select as SelectPrimitive } from "@base-ui/react/select"
 
@@ -20,7 +45,7 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
-      className={cn("flex flex-1 text-left", className)}
+      className={cn("flex flex-1 text-start", className)}
       {...props}
     />
   )
@@ -39,15 +64,33 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
+        // Layout / sizing
+        "flex w-fit items-center justify-between gap-1.5 py-2 ps-3 pe-2 text-sm whitespace-nowrap",
+        // Surface
+        "rounded-lg border border-input bg-transparent shadow-sm transition-colors outline-none select-none",
+        // States
+        "hover:bg-slate-50 dark:hover:bg-slate-800/60",
+        "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        "aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20",
+        // Placeholder text colour
+        "data-placeholder:text-muted-foreground",
+        // Sizes
+        "data-[size=default]:h-9 data-[size=sm]:h-8",
+        // Value text alignment / clamping
+        "*:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5",
+        // Dark
+        "dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        // SVG sanity
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon
         render={
-          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
+          <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground transition-transform data-[open=true]:rotate-180" />
         }
       />
     </SelectPrimitive.Trigger>
@@ -58,15 +101,24 @@ function SelectContent({
   className,
   children,
   side = "bottom",
-  sideOffset = 4,
+  sideOffset = 6,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
+  collisionPadding = 12,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
     SelectPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
+    | "align"
+    | "alignOffset"
+    | "side"
+    | "sideOffset"
+    | "alignItemWithTrigger"
+    | "collisionPadding"
+    | "collisionBoundary"
+    | "collisionAvoidance"
+    | "sticky"
   >) {
   return (
     <SelectPrimitive.Portal>
@@ -75,13 +127,42 @@ function SelectContent({
         sideOffset={sideOffset}
         align={align}
         alignOffset={alignOffset}
+        // `alignItemWithTrigger` overlaps the popup with the trigger so the
+        // selected item sits exactly on the trigger's value. We default to
+        // `false` to get the more predictable "appears just below the
+        // trigger" behaviour familiar from modern web apps (Linear, Stripe,
+        // Vercel, etc.). Callers that need the original behaviour can opt in.
         alignItemWithTrigger={alignItemWithTrigger}
+        // Generous collision padding so the popup never clips the viewport
+        // edge — especially important in Arabic (RTL) where triggers often
+        // sit near the right edge of the screen.
+        collisionPadding={collisionPadding}
         className="isolate z-50"
       >
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn("relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover text-popover-foreground shadow-none ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          className={cn(
+            // Layout
+            "relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) overflow-x-hidden overflow-y-auto",
+            // Premium surface
+            "rounded-xl border border-slate-200/80 bg-popover text-popover-foreground shadow-xl ring-1 ring-black/[0.04]",
+            "dark:border-white/10 dark:ring-white/5 dark:shadow-2xl dark:shadow-black/40",
+            // Inner spacing so first/last items breathe
+            "p-1",
+            // Open / close animation
+            "duration-100",
+            "data-[align-trigger=true]:animate-none",
+            "data-[side=bottom]:slide-in-from-top-2",
+            "data-[side=inline-end]:slide-in-from-left-2",
+            "data-[side=inline-start]:slide-in-from-right-2",
+            "data-[side=left]:slide-in-from-right-2",
+            "data-[side=right]:slide-in-from-left-2",
+            "data-[side=top]:slide-in-from-bottom-2",
+            "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95",
+            "data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className,
+          )}
           {...props}
         >
           <SelectScrollUpButton />
@@ -100,7 +181,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn("px-1.5 py-1 text-xs text-muted-foreground", className)}
+      className={cn("px-2 py-1.5 text-xs font-medium text-muted-foreground", className)}
       {...props}
     />
   )
@@ -115,8 +196,27 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "relative flex w-full cursor-default items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-hidden select-none focus:bg-accent focus:text-accent-foreground not-data-[variant=destructive]:focus:**:text-accent-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
+        // Layout — logical padding so the checkmark slot is on the end side
+        // in both LTR and RTL.
+        "relative flex w-full cursor-default items-center gap-2 py-2 ps-3 pe-9 text-sm text-start outline-hidden select-none",
+        // Shape
+        "rounded-lg",
+        // Hover / focus / highlight (Base UI sets data-highlighted on keyboard
+        // navigation and pointer hover when highlightItemOnHover is true).
+        "transition-colors",
+        "hover:bg-slate-50 dark:hover:bg-slate-800/80",
+        "focus:bg-slate-100 focus:text-foreground dark:focus:bg-slate-700/70",
+        "data-[highlighted]:bg-slate-100 data-[highlighted]:text-foreground dark:data-[highlighted]:bg-slate-700/70",
+        // Selected state (Base UI sets data-selected on the active item)
+        "data-[selected]:font-medium data-[selected]:text-foreground",
+        // Disabled
+        "data-disabled:pointer-events-none data-disabled:opacity-50",
+        // SVG sanity
+        "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        // Last <span> inside (Base UI's value text wrapper) — keep its
+        // children laid out horizontally with consistent spacing.
+        "*:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
+        className,
       )}
       {...props}
     >
@@ -125,10 +225,12 @@ function SelectItem({
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator
         render={
-          <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center" />
+          // Logical `end-2` flips to the correct visual side based on the
+          // ambient text direction provided by `<DirectionProvider>`.
+          <span className="pointer-events-none absolute end-2 top-1/2 -translate-y-1/2 flex size-4 items-center justify-center text-primary" />
         }
       >
-        <CheckIcon className="pointer-events-none" />
+        <CheckIcon className="pointer-events-none size-4" />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>
   )
@@ -155,13 +257,12 @@ function SelectScrollUpButton({
     <SelectPrimitive.ScrollUpArrow
       data-slot="select-scroll-up-button"
       className={cn(
-        "top-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className
+        "sticky top-0 z-10 flex w-full cursor-default items-center justify-center rounded-t-xl bg-popover/95 backdrop-blur py-1 [&_svg:not([class*='size-'])]:size-4",
+        className,
       )}
       {...props}
     >
-      <ChevronUpIcon
-      />
+      <ChevronUpIcon />
     </SelectPrimitive.ScrollUpArrow>
   )
 }
@@ -174,13 +275,12 @@ function SelectScrollDownButton({
     <SelectPrimitive.ScrollDownArrow
       data-slot="select-scroll-down-button"
       className={cn(
-        "bottom-0 z-10 flex w-full cursor-default items-center justify-center bg-popover py-1 [&_svg:not([class*='size-'])]:size-4",
-        className
+        "sticky bottom-0 z-10 flex w-full cursor-default items-center justify-center rounded-b-xl bg-popover/95 backdrop-blur py-1 [&_svg:not([class*='size-'])]:size-4",
+        className,
       )}
       {...props}
     >
-      <ChevronDownIcon
-      />
+      <ChevronDownIcon />
     </SelectPrimitive.ScrollDownArrow>
   )
 }

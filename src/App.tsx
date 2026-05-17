@@ -1,5 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { DirectionProvider } from '@base-ui/react/direction-provider'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { NotificationsProvider } from './contexts/NotificationsContext'
@@ -26,32 +27,49 @@ import { TransactionsList } from './pages/transactions/TransactionsList'
 import { Toaster } from '@/components/ui/sonner'
 import i18n from './lib/i18n'
 
-function RtlSynchronizer() {
+/**
+ * Keeps `document.documentElement.dir` and the Base UI `DirectionProvider`
+ * in sync with the i18n language. Returns the active direction so the App
+ * can pass it into `<DirectionProvider>`, which propagates RTL/LTR to every
+ * Base UI primitive (Select, Popover, Menu, Dialog, etc.) without each
+ * component needing its own `dir` prop.
+ */
+function useAppDirection(): 'rtl' | 'ltr' {
+  const computeDir = (lng: string | null | undefined): 'rtl' | 'ltr' =>
+    lng && lng.startsWith('ar') ? 'rtl' : 'ltr';
+
+  const initial = computeDir(localStorage.getItem('pg_language') || i18n.language);
+  const [dir, setDir] = useState<'rtl' | 'ltr'>(initial);
+
   useEffect(() => {
-    const saved = localStorage.getItem('pg_language') || 'fr';
-    const dir = saved.startsWith('ar') ? 'rtl' : 'ltr';
+    // Apply once on mount, then on every language change.
     document.documentElement.dir = dir;
 
     const handleLanguageChanged = (lng: string) => {
-      document.documentElement.dir = lng.startsWith('ar') ? 'rtl' : 'ltr';
+      const next = computeDir(lng);
+      document.documentElement.dir = next;
+      setDir(next);
     };
 
     i18n.on('languageChanged', handleLanguageChanged);
     return () => {
       i18n.off('languageChanged', handleLanguageChanged);
     };
+    // We only want this effect to run once on mount; the listener handles updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return null;
+  return dir;
 }
 
 export default function App() {
+  const dir = useAppDirection();
   return (
+    <DirectionProvider direction={dir}>
     <AuthProvider>
       <ThemeProvider>
       <NotificationsProvider>
       <Router>
-        <RtlSynchronizer />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           
@@ -85,5 +103,6 @@ export default function App() {
       </NotificationsProvider>
       </ThemeProvider>
     </AuthProvider>
+    </DirectionProvider>
   );
 }
