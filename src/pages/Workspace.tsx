@@ -22,6 +22,9 @@ import {
 } from 'recharts';
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslation } from 'react-i18next'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface Task {
   id: string | number;
@@ -43,58 +46,66 @@ interface InventoryItem {
   percentage: number;
 }
 
-const stockConfig: Record<StockStatus, { label: string; barColor: string; badgeClass: string }> = {
-  rupture:  { label: 'Rupture',  barColor: 'bg-red-500',   badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  critique: { label: 'Critique', barColor: 'bg-red-500',   badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  faible:   { label: 'Faible',   barColor: 'bg-amber-500', badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  moyen:    { label: 'Moyen',    barColor: 'bg-blue-500',  badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  stable:   { label: 'Stable',   barColor: 'bg-emerald-500', badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+// ─── Stock Config ─────────────────────────────────────────────────────────────
+// Labels are now resolved dynamically via t() at render time; only styling here.
+
+const stockStyleConfig: Record<StockStatus, { barColor: string; badgeClass: string }> = {
+  rupture:  { barColor: 'bg-red-500',     badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  critique: { barColor: 'bg-red-500',     badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  faible:   { barColor: 'bg-amber-500',   badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  moyen:    { barColor: 'bg-blue-500',    badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  stable:   { barColor: 'bg-emerald-500', badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
 };
 
 function getStockInfo(actuel: number, min: number): { status: StockStatus; percentage: number } {
   if (actuel <= 0) return { status: 'rupture', percentage: 0 };
   const max = Math.max(min * 3, 1);
   const pct = Math.min(100, Math.round((actuel / max) * 100));
-  if (actuel <= min) return { status: 'critique', percentage: pct };
-  if (actuel <= min * 1.5) return { status: 'faible', percentage: pct };
-  if (actuel <= min * 2.5) return { status: 'moyen', percentage: pct };
+  if (actuel <= min)        return { status: 'critique', percentage: pct };
+  if (actuel <= min * 1.5)  return { status: 'faible',   percentage: pct };
+  if (actuel <= min * 2.5)  return { status: 'moyen',    percentage: pct };
   return { status: 'stable', percentage: pct };
 }
 
-const quickActions = [
-  { label: 'Facture',    icon: FileText,     href: '/factures',      iconBg: 'bg-blue-500/10 dark:bg-blue-500/20', iconColor: 'text-blue-600 dark:text-blue-400' },
-  { label: 'Devis',      icon: TrendingUp,   href: '/devis',         iconBg: 'bg-violet-500/10 dark:bg-violet-500/20', iconColor: 'text-violet-600 dark:text-violet-400' },
-  { label: 'Commande',   icon: ShoppingCart, href: '/bons-commande', iconBg: 'bg-amber-500/10 dark:bg-amber-500/20', iconColor: 'text-amber-600 dark:text-amber-400' },
-  { label: 'Livraison',  icon: Box,          href: '/bons-livraison',iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20', iconColor: 'text-emerald-600 dark:text-emerald-400' },
-  { label: 'Dépense',    icon: CreditCard,   href: '/depenses',      iconBg: 'bg-rose-500/10 dark:bg-rose-500/20', iconColor: 'text-rose-600 dark:text-rose-400' },
-  { label: 'Client',     icon: Users,        href: '/clients',       iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20', iconColor: 'text-indigo-600 dark:text-indigo-400' },
+// ─── Quick Action & AI Reco configs (labels resolved via t() at render time) ──
+
+type QuickActionKey = 'invoice' | 'quote' | 'order' | 'delivery' | 'expense' | 'customer';
+
+const quickActionDefs: Array<{
+  key: QuickActionKey;
+  icon: React.ElementType;
+  href: string;
+  iconBg: string;
+  iconColor: string;
+}> = [
+  { key: 'invoice',  icon: FileText,     href: '/factures',       iconBg: 'bg-blue-500/10 dark:bg-blue-500/20',    iconColor: 'text-blue-600 dark:text-blue-400' },
+  { key: 'quote',    icon: TrendingUp,   href: '/devis',          iconBg: 'bg-violet-500/10 dark:bg-violet-500/20', iconColor: 'text-violet-600 dark:text-violet-400' },
+  { key: 'order',    icon: ShoppingCart, href: '/bons-commande',  iconBg: 'bg-amber-500/10 dark:bg-amber-500/20',  iconColor: 'text-amber-600 dark:text-amber-400' },
+  { key: 'delivery', icon: Box,          href: '/bons-livraison', iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+  { key: 'expense',  icon: CreditCard,   href: '/depenses',       iconBg: 'bg-rose-500/10 dark:bg-rose-500/20',   iconColor: 'text-rose-600 dark:text-rose-400' },
+  { key: 'customer', icon: Users,        href: '/clients',        iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20', iconColor: 'text-indigo-600 dark:text-indigo-400' },
 ];
 
-const aiRecommendations = [
-  {
-    title: 'Optimisation de stock',
-    description: '3 produits approchent du seuil critique. Passez une commande groupée pour réduire les coûts.',
-    icon: Package,
-    action: 'Voir les produits',
-    href: '/produits',
-  },
-  {
-    title: 'Relances factures',
-    description: '2 factures en attente depuis plus de 30 jours. Envoyez des relances automatiques.',
-    icon: FileText,
-    action: 'Gérer les relances',
-    href: '/factures',
-  },
-  {
-    title: 'Rotation produits',
-    description: 'Les produits A, B, C ont une rotation lente. Envisagez une promotion.',
-    icon: TrendingUp,
-    action: 'Analyser',
-    href: '/dashboard',
-  },
+type AiRecoKey = 'feature' | 'follow_up' | 'rotation';
+
+const aiRecoDefs: Array<{
+  key: AiRecoKey;
+  icon: React.ElementType;
+  href: string;
+}> = [
+  { key: 'feature',   icon: Package,   href: '/produits'  },
+  { key: 'follow_up', icon: FileText,  href: '/factures'  },
+  { key: 'rotation',  icon: TrendingUp, href: '/dashboard' },
 ];
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function Workspace() {
+  const { t, i18n } = useTranslation()
+
+  // Derive direction from live language for sub-component layout decisions
+  const isRTL = i18n.language?.startsWith('ar')
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState('');
   const { user } = useAuth();
@@ -122,41 +133,58 @@ export function Workspace() {
     return localStorage.getItem('notifications-enabled') !== 'false';
   });
 
+  // ─── Month name map (i18n-aware) ───────────────────────────────────────────
+  // Used to build chart data labels; re-evaluated when language changes.
+  const monthNames = [
+    t('workspace.chart.months.jan'),
+    t('workspace.chart.months.feb'),
+    t('workspace.chart.months.mar'),
+    t('workspace.chart.months.apr'),
+    t('workspace.chart.months.may'),
+    t('workspace.chart.months.jun'),
+    t('workspace.chart.months.jul'),
+    t('workspace.chart.months.aug'),
+    t('workspace.chart.months.sep'),
+    t('workspace.chart.months.oct'),
+    t('workspace.chart.months.nov'),
+    t('workspace.chart.months.dec'),
+  ];
+
+  // ─── Notification toggle ───────────────────────────────────────────────────
   const handleToggleNotifications = (checked: boolean) => {
     setNotificationsEnabled(checked);
     localStorage.setItem('notifications-enabled', String(checked));
     window.dispatchEvent(new CustomEvent('notifications-toggle', { detail: { enabled: checked } }));
-    toast.success(checked ? 'Notifications activées' : 'Notifications désactivées');
+    toast.success(checked
+      ? t('workspace.tasks.notifications_on')
+      : t('workspace.tasks.notifications_off')
+    );
   };
 
+  // ─── Data fetching ─────────────────────────────────────────────────────────
   const fetchData = async () => {
     if (!user?.id) return;
-
     try {
       setIsLoading(true);
 
-      const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, devisRes, bcRes] = await Promise.all([
+      const [factRes, vpRes, depRes, prodRes, cliRes] = await Promise.all([
         supabase.from('factures').select('*').eq('user_id', user.id),
         supabase.from('ventes_passagers').select('*').eq('user_id', user.id),
         supabase.from('depenses').select('*').eq('user_id', user.id),
         supabase.from('produits').select('*').eq('user_id', user.id),
         supabase.from('clients').select('*').eq('user_id', user.id),
-        supabase.from('fournisseurs').select('*').eq('user_id', user.id),
-        supabase.from('devis').select('*').eq('user_id', user.id),
-        supabase.from('bons_commande').select('*').eq('user_id', user.id),
       ]);
 
-      const factures = (factRes.data || []);
-      const vp = (vpRes.data || []);
-      const depenses = (depRes.data || []);
-      const produits = (prodRes.data || []);
-      const clients = (cliRes.data || []);
+      const factures  = (factRes.data  || []);
+      const vp        = (vpRes.data    || []);
+      const depenses  = (depRes.data   || []);
+      const produits  = (prodRes.data  || []);
+      const clients   = (cliRes.data   || []);
 
-      const allInvoices = [...factures, ...vp];
+      const allInvoices   = [...factures, ...vp];
       const validInvoices = allInvoices.filter((f: any) => f.statut !== 'annulée');
-      const totalRevenue = validInvoices.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
+      const totalRevenue  = validInvoices.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
 
-      const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
       const monthsToShow = selectedRange === '1m' ? 1 : selectedRange === '1y' ? 12 : 6;
       const chartDataCalc: any[] = [];
 
@@ -164,14 +192,17 @@ export function Workspace() {
         const d = new Date();
         d.setMonth(d.getMonth() - i);
         const month = d.getMonth();
-        const year = d.getFullYear();
+        const year  = d.getFullYear();
+
         const monthRevenue = [
           ...factures.filter((f: any) => new Date(f.date_emission).getMonth() === month && new Date(f.date_emission).getFullYear() === year),
           ...vp.filter((v: any) => new Date(v.date).getMonth() === month && new Date(v.date).getFullYear() === year),
         ].reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0);
-        const monthExpense = depenses.filter((d: any) =>
-          new Date(d.date_depense).getMonth() === month && new Date(d.date_depense).getFullYear() === year
-        ).reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0);
+
+        const monthExpense = depenses.filter((dep: any) =>
+          new Date(dep.date_depense).getMonth() === month && new Date(dep.date_depense).getFullYear() === year
+        ).reduce((s: number, dep: any) => s + Number(dep.montant_ttc || 0), 0);
+
         chartDataCalc.push({
           name: monthNames[month],
           revenue: monthRevenue,
@@ -179,17 +210,14 @@ export function Workspace() {
         });
       }
 
-      const periodRevenue = chartDataCalc.reduce((sum, m) => sum + m.revenue, 0);
-      const revenueGrowth = chartDataCalc.length >= 2
-        ? ((chartDataCalc[chartDataCalc.length - 1].revenue - chartDataCalc[chartDataCalc.length - 2].revenue) / (chartDataCalc[chartDataCalc.length - 2].revenue || 1)) * 100
+      const periodRevenue  = chartDataCalc.reduce((sum, m) => sum + m.revenue, 0);
+      const revenueGrowth  = chartDataCalc.length >= 2
+        ? ((chartDataCalc[chartDataCalc.length - 1].revenue - chartDataCalc[chartDataCalc.length - 2].revenue)
+           / (chartDataCalc[chartDataCalc.length - 2].revenue || 1)) * 100
         : 0;
 
-      const invoicedPrev = chartDataCalc.length >= 2
-        ? chartDataCalc[chartDataCalc.length - 2].revenue
-        : 0;
-      const invoicedCurr = chartDataCalc.length >= 1
-        ? chartDataCalc[chartDataCalc.length - 1].revenue
-        : 0;
+      const invoicedPrev = chartDataCalc.length >= 2 ? chartDataCalc[chartDataCalc.length - 2].revenue : 0;
+      const invoicedCurr = chartDataCalc.length >= 1 ? chartDataCalc[chartDataCalc.length - 1].revenue : 0;
 
       setStats({
         invoiced: periodRevenue,
@@ -240,43 +268,30 @@ export function Workspace() {
   useEffect(() => {
     if (!user?.id) return;
     fetchData();
-  }, [user, selectedRange]);
+  }, [user, selectedRange, i18n.language]); // re-fetch when language changes to get translated month names
 
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
       .channel('workspace-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', filter: `user_id=eq.${user.id}` }, () => {
-        fetchData();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', filter: `user_id=eq.${user.id}` }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, selectedRange]);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel('workspace-changes-2')
-      .on('postgres_changes', { event: '*', schema: 'public', filter: `user_id=eq.${user.id}` }, () => {
-        fetchData();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
-
+  // ─── Tasks ─────────────────────────────────────────────────────────────────
   const addTask = async () => {
     if (!newTask.trim()) return;
     try {
-      const payload = { title: newTask, completed: false, priority: 'medium' };
-      const { error } = await supabase.from('tasks').insert([payload]);
+      const { error } = await supabase.from('tasks').insert([{ title: newTask, completed: false, priority: 'medium' }]);
       if (error) throw error;
       const { data: tasksData } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
       setTasks(tasksData || []);
       setNewTask('');
-      toast.success('Tâche ajoutée');
+      toast.success(t('workspace.tasks.task_added'));
     } catch (error) {
       console.error('Error adding task:', error);
-      toast.error("Erreur lors de l'ajout de la tâche");
+      toast.error(t('workspace.tasks.error_add'));
     }
   };
 
@@ -288,7 +303,7 @@ export function Workspace() {
       setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
     } catch (error) {
       console.error('Error toggling task:', error);
-      toast.error('Erreur lors de la mise à jour de la tâche');
+      toast.error(t('workspace.tasks.error_update'));
     }
   };
 
@@ -296,70 +311,110 @@ export function Workspace() {
     try {
       await supabase.from('tasks').delete().eq('id', id);
       setTasks(tasks.filter(t => t.id !== id));
-      toast.info('Tâche supprimée');
+      toast.info(t('workspace.tasks.task_deleted'));
     } catch (error) {
       console.error('Error deleting task:', error);
-      toast.error('Erreur lors de la suppression de la tâche');
+      toast.error(t('workspace.tasks.error_delete'));
     }
   };
 
+  // ─── Derived metrics (i18n labels resolved here) ──────────────────────────
   const metrics = [
     {
-      label: 'Facturé',
+      label: t('workspace.kpi.invoiced'),
       value: formatCurrency(stats.invoiced),
       icon: DollarSign,
       iconBg: 'bg-blue-500/10 text-blue-400',
       change: {
         value: `${changeStats.invoicedChange >= 0 ? '+' : ''}${changeStats.invoicedChange.toFixed(1)}%`,
         positive: changeStats.invoicedPositive,
-        label: 'vs mois dernier',
+        label: t('workspace.kpi.invoiced_vs'),
       },
     },
     {
-      label: 'Clients',
+      label: t('workspace.kpi.clients'),
       value: String(stats.clients),
       icon: Users,
       iconBg: 'bg-emerald-500/10 text-emerald-400',
       change: {
         value: `+${newClients}`,
         positive: true,
-        label: 'nouveaux ce mois',
+        label: t('workspace.kpi.clients_new'),
       },
     },
     {
-      label: 'Produits',
+      label: t('workspace.kpi.products'),
       value: String(stats.products),
       icon: Package,
       iconBg: 'bg-amber-500/10 text-amber-400',
       change: {
-        value: `${inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length} alerte(s)`,
+        value: `${inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length} ${t('workspace.kpi.products_alert')}`,
         positive: inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length === 0,
-        label: 'stock critique',
+        label: t('workspace.kpi.products_critical'),
       },
     },
     {
-      label: 'Croissance',
+      label: t('workspace.kpi.growth'),
       value: `${stats.monthlyGrowth >= 0 ? '+' : ''}${stats.monthlyGrowth.toFixed(1)}%`,
       icon: Target,
       iconBg: stats.monthlyGrowth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400',
       change: {
         value: `${stats.monthlyGrowth >= 0 ? '+' : ''}${stats.monthlyGrowth.toFixed(1)}%`,
         positive: stats.monthlyGrowth >= 0,
-        label: 'vs mois dernier',
+        label: t('workspace.kpi.growth_vs'),
       },
     },
   ];
 
+  // ─── Resolved AI recommendations ──────────────────────────────────────────
+  const aiRecommendations = aiRecoDefs.map(({ key, icon, href }) => ({
+    icon,
+    href,
+    title:       t(`workspace.ai.${key}_title`),
+    description: t(`workspace.ai.${key}_description`),
+    action:      t(`workspace.ai.${key}_button`),
+  }));
+
+  // ─── Resolved quick actions ───────────────────────────────────────────────
+  const quickActions = quickActionDefs.map(({ key, icon, href, iconBg, iconColor }) => ({
+    icon,
+    href,
+    iconBg,
+    iconColor,
+    label: t(`workspace.quick_actions.${key}`),
+  }));
+
+  // ─── Stock status label (via t) ────────────────────────────────────────────
+  const stockStatusLabel = (status: StockStatus) => t(`workspace.stock_table.status_${status}`);
+
+  // ─── Chart subtitle ────────────────────────────────────────────────────────
+  const chartSubtitle =
+    selectedRange === '1m' ? t('workspace.chart.subtitle_1m') :
+    selectedRange === '1y' ? t('workspace.chart.subtitle_1y') :
+    t('workspace.chart.subtitle_6m');
+
+  // ─── Custom chart tooltip ─────────────────────────────────────────────────
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="rounded-[8px] border p-4" style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}>
+        <div
+          className="rounded-[8px] border p-4"
+          style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+          // Tooltips should always be LTR-oriented for number readability
+          dir="ltr"
+        >
           <p className="text-sm font-semibold mb-2" style={{ color: 'var(--foreground)' }}>{label}</p>
           {payload.map((entry: any, idx: number) => (
             <div key={idx} className="flex items-center gap-2 text-sm">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ background: entry.color }} />
-              <span style={{ color: 'var(--muted-foreground)' }}>{entry.name === 'revenue' ? 'Revenus' : 'Dépenses'}:</span>
-              <span className="font-semibold" style={{ color: 'var(--foreground)' }}>{formatCurrency(entry.value)}</span>
+              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: entry.color }} />
+              <span style={{ color: 'var(--muted-foreground)' }}>
+                {entry.name === 'revenue'
+                  ? t('workspace.chart.tooltip_revenue')
+                  : t('workspace.chart.tooltip_expenses')}:
+              </span>
+              <span className="font-semibold" style={{ color: 'var(--foreground)' }}>
+                {formatCurrency(entry.value)}
+              </span>
             </div>
           ))}
         </div>
@@ -368,9 +423,18 @@ export function Workspace() {
     return null;
   };
 
+  // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 pb-8 animate-in fade-in duration-500">
-      {/* 4-Column Metric Cards */}
+    <div
+      className="space-y-6 pb-8 animate-in fade-in duration-500"
+      /*
+       * RTL Note: `dir` is already set on <html> by DashboardLayout / App.tsx.
+       * We set it here too so this component is self-contained and correct even
+       * when rendered in isolation (tests, Storybook, etc.).
+       */
+      dir={isRTL ? 'rtl' : 'ltr'}
+    >
+      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((metric, i) => (
           <motion.div
@@ -385,15 +449,25 @@ export function Workspace() {
                 <metric.icon className="h-5 w-5" />
               </div>
             </div>
-            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">{metric.label}</p>
-            <p className="text-2xl font-bold text-card-foreground mt-0.5 tracking-tight">{metric.value}</p>
+            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+              {metric.label}
+            </p>
+            {/*
+             * RTL Note: numeric values should always render LTR so digits read
+             * left-to-right regardless of page direction.
+             */}
+            <p className="text-2xl font-bold text-card-foreground mt-0.5 tracking-tight" dir="ltr">
+              {metric.value}
+            </p>
             {metric.change && (
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span className={cn(
                   "inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-[4px]",
                   metric.change.positive ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"
-                )}>
-                  {metric.change.positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                )} dir="ltr">
+                  {metric.change.positive
+                    ? <TrendingUp className="h-3 w-3" />
+                    : <TrendingDown className="h-3 w-3" />}
                   {metric.change.value}
                 </span>
                 <span className="text-xs text-muted-foreground">{metric.change.label}</span>
@@ -403,67 +477,120 @@ export function Workspace() {
         ))}
       </div>
 
-      {/* Main Grid: 12-column layout */}
+      {/* ── Main 12-col Grid ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* ============ LEFT COLUMN (7 cols) ============ */}
+        {/* ── Left / Start Column (7 cols) ─────────────────────────────────
+         *  RTL Note: CSS Grid column flow reverses automatically with dir=rtl.
+         *  `lg:col-span-7` will correctly appear on the RIGHT side in Arabic.
+         */}
         <div className="lg:col-span-7 space-y-6">
 
           {/* Performance Chart */}
           <Card className="shadow-none hover:shadow-none rounded-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
+              {/*
+               * RTL Note: `flex-row` items auto-reverse in RTL via dir attribute.
+               * ms-auto (margin-inline-start) keeps the Tabs at the logical end.
+               */}
               <div>
-                <CardTitle className="text-base font-semibold text-card-foreground">Performance de Facturation</CardTitle>
+                <CardTitle className="text-base font-semibold text-card-foreground">
+                  {t('workspace.chart.title')}
+                </CardTitle>
                 <CardDescription className="text-xs mt-0.5">
-                  {selectedRange === '1m' ? "Évolution sur les 30 derniers jours" :
-                   selectedRange === '1y' ? "Évolution sur les 12 derniers mois" :
-                   "Évolution sur les 6 derniers mois"}
+                  {chartSubtitle}
                 </CardDescription>
               </div>
-              <Tabs value={selectedRange} onValueChange={setSelectedRange}>
+              <Tabs value={selectedRange} onValueChange={setSelectedRange} className="ms-auto">
                 <TabsList className="bg-muted dark:bg-white/5 rounded-[4px] p-0.5">
-                  <TabsTrigger value="1m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">1M</TabsTrigger>
-                  <TabsTrigger value="6m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">6M</TabsTrigger>
-                  <TabsTrigger value="1y" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">1A</TabsTrigger>
+                  <TabsTrigger value="1m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
+                    {t('workspace.chart.filter_1m')}
+                  </TabsTrigger>
+                  <TabsTrigger value="6m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
+                    {t('workspace.chart.filter_6m')}
+                  </TabsTrigger>
+                  <TabsTrigger value="1y" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
+                    {t('workspace.chart.filter_1y')}
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
             <CardContent className={cn("h-[300px] pt-4 transition-opacity duration-300", isLoading && "opacity-40")}>
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#267E54" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#267E54" stopOpacity={0.02} />
-                    </linearGradient>
-                    <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#ef4444" stopOpacity={0.12} />
-                      <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} dy={8} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} dx={-4} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
-                  <Area type="monotone" dataKey="revenue" stroke="#267E54" strokeWidth={2.5} fillOpacity={1} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 5, fill: '#267E54', stroke: 'white', strokeWidth: 2 }} />
-                  <Area type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#expenseGrad)" dot={false} activeDot={{ r: 4, fill: '#ef4444', stroke: 'white', strokeWidth: 2 }} />
-                </AreaChart>
-              </ResponsiveContainer>
+              {/*
+               * RTL Note: Recharts itself doesn't natively support RTL axis mirroring.
+               * We keep the chart container dir=ltr so axes and data flow are correct.
+               * The surrounding UI text already inherits RTL from the parent dir.
+               */}
+              <div dir="ltr">
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#267E54" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#267E54" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.12} />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                      dy={8}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                      tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                      dx={-4}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
+                    <Area
+                      type="monotone" dataKey="revenue" stroke="#267E54" strokeWidth={2.5}
+                      fillOpacity={1} fill="url(#revenueGrad)" dot={false}
+                      activeDot={{ r: 5, fill: '#267E54', stroke: 'white', strokeWidth: 2 }}
+                    />
+                    <Area
+                      type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2}
+                      fillOpacity={1} fill="url(#expenseGrad)" dot={false}
+                      activeDot={{ r: 4, fill: '#ef4444', stroke: 'white', strokeWidth: 2 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Priority Inventory Management Table */}
+          {/* Priority Inventory Table */}
           <Card className="shadow-none hover:shadow-none rounded-sm">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base font-semibold text-card-foreground">Gestion Prioritaire du Stock</CardTitle>
+                  <CardTitle className="text-base font-semibold text-card-foreground">
+                    {t('workspace.stock_table.title')}
+                  </CardTitle>
                   <CardDescription className="text-xs mt-0.5">
-                    Produits triés par niveau de stock critique
+                    {t('workspace.stock_table.subtitle')}
                   </CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="text-xs h-8 bg-transparent border border-white/20 text-white hover:bg-white/10 rounded-sm transition-all duration-200" onClick={() => window.location.href = '/produits'}>
-                  Voir tout <ChevronRight className="h-3 w-3 ml-1" />
+                {/*
+                 * RTL Note: ms-auto pushes button to logical end (right in LTR, left in RTL).
+                 * ChevronRight flip: in RTL arrow pointing ← means "forward"; Tailwind's
+                 * `rtl:rotate-180` handles this transparently.
+                 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-8 bg-transparent border border-white/20 text-white hover:bg-white/10 rounded-sm transition-all duration-200 ms-auto"
+                  onClick={() => window.location.href = '/produits'}
+                >
+                  {t('workspace.stock_table.view_all')}
+                  <ChevronRight className="h-3 w-3 ms-1 rtl:rotate-180" />
                 </Button>
               </div>
             </CardHeader>
@@ -471,11 +598,25 @@ export function Workspace() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-border">
-                    <TableHead className="text-xs font-medium text-card-foreground h-9 px-5">Produit</TableHead>
-                    <TableHead className="text-xs font-medium text-card-foreground h-9">Référence</TableHead>
-                    <TableHead className="text-xs font-medium text-card-foreground h-9">Stock</TableHead>
-                    <TableHead className="text-xs font-medium text-card-foreground h-9 hidden md:table-cell">Niveau</TableHead>
-                    <TableHead className="text-xs font-medium text-card-foreground h-9 text-right pr-5">Statut</TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 px-5">
+                      {t('workspace.stock_table.col_product')}
+                    </TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9">
+                      {t('workspace.stock_table.col_reference')}
+                    </TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9">
+                      {t('workspace.stock_table.col_stock')}
+                    </TableHead>
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 hidden md:table-cell">
+                      {t('workspace.stock_table.col_level')}
+                    </TableHead>
+                    {/*
+                     * RTL Note: `text-end` (logical) aligns to the correct edge
+                     * in both LTR and RTL, unlike `text-right` which is physical.
+                     */}
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 text-end pe-5">
+                      {t('workspace.stock_table.col_status')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -483,25 +624,27 @@ export function Workspace() {
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-10 text-card-foreground/60 text-sm">
                         <Package className="h-8 w-8 mx-auto mb-2 opacity-30 text-card-foreground" />
-                        Aucun produit en stock
+                        {t('workspace.stock_table.empty')}
                       </TableCell>
                     </TableRow>
                   ) : (
                     inventoryItems.slice(0, 4).map((item) => {
-                      const cfg = stockConfig[item.status];
+                      const cfg = stockStyleConfig[item.status];
                       return (
                         <TableRow key={item.id} className="border-border">
                           <TableCell className="py-3.5 px-5">
                             <p className="text-sm font-medium text-card-foreground">{item.name}</p>
-                            <p className="text-xs text-card-foreground/70 mt-0.5">
-                              {item.stockActuel} / {Math.max(item.stockMin * 3, 1)} {item.unite}
+                            <p className="text-xs text-card-foreground/70 mt-0.5" dir="ltr">
+                              {item.stockActuel} / {Math.max(item.stockMin * 3, 1)} {t('workspace.stock_table.unit')}
                             </p>
                           </TableCell>
                           <TableCell className="py-3.5">
-                            <span className="text-xs text-card-foreground/70 font-mono">{item.reference || '—'}</span>
+                            <span className="text-xs text-card-foreground/70 font-mono" dir="ltr">
+                              {item.reference || '—'}
+                            </span>
                           </TableCell>
                           <TableCell className="py-3.5">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2" dir="ltr">
                               <span className={cn(
                                 "text-sm font-semibold",
                                 item.status === 'rupture' || item.status === 'critique' ? 'text-red-400' :
@@ -514,7 +657,12 @@ export function Workspace() {
                           </TableCell>
                           <TableCell className="py-3.5 hidden md:table-cell">
                             <div className="w-28">
-                              <div className="h-1.5 rounded-full bg-muted dark:bg-white/10 overflow-hidden">
+                              {/*
+                               * RTL Note: Progress bar fill direction.
+                               * We keep dir=ltr on this element so the bar always
+                               * fills left-to-right visually (conventional for progress).
+                               */}
+                              <div className="h-1.5 rounded-full bg-muted dark:bg-white/10 overflow-hidden" dir="ltr">
                                 <div
                                   className={cn("h-full rounded-full transition-all duration-500", cfg.barColor)}
                                   style={{ width: `${item.percentage}%` }}
@@ -522,9 +670,12 @@ export function Workspace() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell className="py-3.5 text-right pr-5">
-                            <span className={cn("inline-block text-xs font-semibold px-2 py-0.5 rounded-[4px] border", cfg.badgeClass)}>
-                              {cfg.label}
+                          <TableCell className="py-3.5 text-end pe-5">
+                            <span className={cn(
+                              "inline-block text-xs font-semibold px-2 py-0.5 rounded-[4px] border",
+                              cfg.badgeClass
+                            )}>
+                              {stockStatusLabel(item.status)}
                             </span>
                           </TableCell>
                         </TableRow>
@@ -536,15 +687,15 @@ export function Workspace() {
             </CardContent>
           </Card>
 
-          {/* Stats summary row */}
+          {/* Summary Stats Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
               <div className="h-10 w-10 rounded-[8px] bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0">
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Factures en attente</p>
-                <p className="text-lg font-bold text-card-foreground">{stats.pending}</p>
+                <p className="text-xs text-muted-foreground">{t('workspace.summary.pending_invoices')}</p>
+                <p className="text-lg font-bold text-card-foreground" dir="ltr">{stats.pending}</p>
               </div>
             </div>
             <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
@@ -552,8 +703,8 @@ export function Workspace() {
                 <Users className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Nouveaux clients</p>
-                <p className="text-lg font-bold text-card-foreground">{newClients}</p>
+                <p className="text-xs text-muted-foreground">{t('workspace.summary.new_clients')}</p>
+                <p className="text-lg font-bold text-card-foreground" dir="ltr">{newClients}</p>
               </div>
             </div>
             <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
@@ -561,27 +712,32 @@ export function Workspace() {
                 <AlertTriangle className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Alertes stock</p>
-                <p className="text-lg font-bold text-card-foreground">{inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length}</p>
+                <p className="text-xs text-muted-foreground">{t('workspace.summary.stock_alerts')}</p>
+                <p className="text-lg font-bold text-card-foreground" dir="ltr">
+                  {inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ============ RIGHT COLUMN (5 cols) ============ */}
+        {/* ── Right / End Column (5 cols) ──────────────────────────────────── */}
         <div className="lg:col-span-5 space-y-6">
 
           {/* AI Optimization Card */}
           <div className="rounded-[8px] bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-5 card-glow-active">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-9 w-9 rounded-[8px] bg-emerald-500/10 flex items-center justify-center">
+              <div className="h-9 w-9 rounded-[8px] bg-emerald-500/10 flex items-center justify-center shrink-0">
                 <Sparkles className="h-4.5 w-4.5 text-emerald-400" />
               </div>
-              <div>
-                <h3 className="text-sm font-semibold text-card-foreground">Optimisation IA</h3>
-                <p className="text-xs text-muted-foreground">Recommandations intelligentes</p>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-card-foreground">
+                  {t('workspace.ai.section_title')}
+                </h3>
+                <p className="text-xs text-muted-foreground">{t('workspace.ai.badge')}</p>
               </div>
-              <Badge className="ml-auto bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-semibold px-2 py-0.5">
+              {/* ms-auto = logical margin-start auto → pushes badge to the end */}
+              <Badge className="ms-auto shrink-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-semibold px-2 py-0.5">
                 {activeRecoIndex + 1}/{aiRecommendations.length}
               </Badge>
             </div>
@@ -589,9 +745,9 @@ export function Workspace() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeRecoIndex}
-                initial={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, x: isRTL ? -20 : 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                exit={{ opacity: 0, x: isRTL ? 20 : -20 }}
                 transition={{ duration: 0.2 }}
               >
                 {(() => {
@@ -613,7 +769,9 @@ export function Workspace() {
                         className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 mt-1 btn-glow-primary"
                         onClick={() => window.location.href = reco.href}
                       >
-                        {reco.action} <ArrowRight className="h-3 w-3 ml-1.5" />
+                        {reco.action}
+                        {/* ArrowRight flips automatically in RTL because dir is set on the root */}
+                        <ArrowRight className="h-3 w-3 ms-1.5 rtl:rotate-180" />
                       </Button>
                     </div>
                   );
@@ -638,7 +796,9 @@ export function Workspace() {
           {/* Quick Actions */}
           <Card className="shadow-none hover:shadow-none rounded-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold text-card-foreground">Actions Rapides</CardTitle>
+              <CardTitle className="text-base font-semibold text-card-foreground">
+                {t('workspace.quick_actions.section_title')}
+              </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-3 gap-3">
               {quickActions.map((action, i) => (
@@ -646,12 +806,12 @@ export function Workspace() {
                   key={i}
                   type="button"
                   onClick={() => window.location.href = action.href}
-                  className="flex flex-col items-center justify-center p-4 rounded-sm border border-border bg-card"
+                  className="flex flex-col items-center justify-center p-4 rounded-sm border border-border bg-card hover:bg-muted/50 transition-colors"
                 >
                   <div className={cn("p-2.5 rounded-sm mb-3", action.iconBg)}>
                     <action.icon className={cn("w-5 h-5", action.iconColor)} />
                   </div>
-                  <span className="text-xs font-medium text-foreground">{action.label}</span>
+                  <span className="text-xs font-medium text-foreground text-center">{action.label}</span>
                 </button>
               ))}
             </CardContent>
@@ -661,20 +821,30 @@ export function Workspace() {
           <Card className="shadow-none hover:shadow-none rounded-[8px] overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-semibold text-card-foreground">Tâches à faire</CardTitle>
+                <CardTitle className="text-base font-semibold text-card-foreground">
+                  {t('workspace.tasks.section_title')}
+                </CardTitle>
                 <Badge className="bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-[4px]">
                   {tasks.filter(t => !t.completed).length}
                 </Badge>
               </div>
+              {/*
+               * RTL Note: Input and button use flex-row which mirrors in RTL.
+               * The plus button appears on the LEFT in Arabic (logical end of input).
+               */}
               <div className="flex gap-2 mt-3">
                 <Input
-                  placeholder="Ajouter une tâche..."
+                  placeholder={t('workspace.tasks.input_placeholder')}
                   value={newTask}
                   onChange={(e) => setNewTask(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addTask()}
                   className="focus-visible:ring-emerald-500/30 h-9 text-sm rounded-[4px]"
                 />
-                <Button size="icon" onClick={addTask} className="bg-emerald-600 hover:bg-emerald-700 shrink-0 h-9 w-9 rounded-[4px]">
+                <Button
+                  size="icon"
+                  onClick={addTask}
+                  className="bg-emerald-600 hover:bg-emerald-700 shrink-0 h-9 w-9 rounded-[4px]"
+                >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
@@ -685,15 +855,15 @@ export function Workspace() {
                   {tasks.length === 0 ? (
                     <div className="text-center py-10 text-muted-foreground/60">
                       <CheckCircle2 className="h-10 w-10 mx-auto mb-2 opacity-20 text-muted-foreground" />
-                      <p className="text-sm">Tout est à jour !</p>
+                      <p className="text-sm">{t('workspace.tasks.empty_state')}</p>
                     </div>
                   ) : (
                     tasks.map((task) => (
                       <motion.div
                         key={task.id}
-                        initial={{ opacity: 0, x: -20 }}
+                        initial={{ opacity: 0, x: isRTL ? 20 : -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 20 }}
+                        exit={{ opacity: 0, x: isRTL ? -20 : 20 }}
                         className={cn(
                           "group flex items-center justify-between px-5 py-3 border-b border-border last:border-0",
                           task.completed ? "bg-muted" : ""
@@ -718,10 +888,14 @@ export function Workspace() {
                             {task.title}
                           </span>
                         </div>
+                        {/*
+                         * RTL Note: opacity-0 group-hover:opacity-100 with ms-auto
+                         * ensures the delete button is always at the logical end.
+                         */}
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0 rounded-[4px]"
+                          className="h-7 w-7 ms-2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 hover:bg-red-500/10 shrink-0 rounded-[4px]"
                           onClick={() => deleteTask(task.id)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -734,37 +908,95 @@ export function Workspace() {
             </CardContent>
           </Card>
 
-          {/* Quick Stat Footer */}
-          <div className={cn(
-            "rounded-sm border p-4 flex items-center justify-between transition-colors duration-200",
-            notificationsEnabled
-              ? "bg-emerald-500/10 border-emerald-500/20"
-              : "bg-muted border-border"
-          )}>
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "h-9 w-9 rounded-[8px] flex items-center justify-center transition-colors duration-200",
-                  notificationsEnabled ? "bg-emerald-500/10" : "bg-muted"
-                )}>
-                <Bell className={cn(
-                  "h-4.5 w-4.5 transition-colors duration-200",
-                  notificationsEnabled ? "text-emerald-400" : "text-muted-foreground"
-                )} />
+          {/* ────────────────────────────────────────────────────────────────
+            * Notification Toggle Card — RTL-aware layout
+            *
+            * Structure (works identically in LTR and RTL because every spacing
+            * primitive used here is "logical"):
+            *
+            *   ┌──────────────────────────────────────────────────────────────┐
+            *   │  [icon]  Title              ............................  [⏻] │   LTR
+            *   │          Subtitle                                            │
+            *   └──────────────────────────────────────────────────────────────┘
+            *
+            *   ┌──────────────────────────────────────────────────────────────┐
+            *   │ [⏻]  ............................            Title  [icon]   │   RTL
+            *   │                                            Subtitle          │
+            *   └──────────────────────────────────────────────────────────────┘
+            *
+            * Key Tailwind primitives:
+            *   - `flex` + `justify-between`  → naturally mirrors with dir=rtl
+            *   - `gap-3` / `gap-4`           → direction-agnostic spacing (no `space-x-*` needed)
+            *   - `text-start`                → logical text alignment (left in LTR, right in RTL)
+            *   - `min-w-0` on text wrapper   → allows long Arabic words to truncate cleanly
+            *   - NO `ml-*` / `mr-*` / `left-*` / `right-*` / `space-x-reverse`
+            */}
+          <div
+            className={cn(
+              "rounded-sm border p-4 transition-colors duration-200",
+              // Flex row — auto-reverses under dir=rtl. justify-between guarantees
+              // the icon-group and the switch always sit at OPPOSITE edges of the card.
+              "flex flex-row items-center justify-between gap-4",
+              notificationsEnabled
+                ? "bg-emerald-500/10 border-emerald-500/20"
+                : "bg-muted border-border",
+            )}
+          >
+            {/* ── Icon + Text group (logical start edge) ───────────────── */}
+            <div className="flex flex-row items-center gap-3 min-w-0 flex-1">
+              <div
+                className={cn(
+                  "h-9 w-9 rounded-[8px] flex items-center justify-center shrink-0 transition-colors duration-200",
+                  notificationsEnabled ? "bg-emerald-500/10" : "bg-muted",
+                )}
+              >
+                <Bell
+                  className={cn(
+                    "h-4.5 w-4.5 transition-colors duration-200",
+                    notificationsEnabled ? "text-emerald-400" : "text-muted-foreground",
+                  )}
+                />
               </div>
-              <div>
-                <p className={cn(
-                  "text-sm font-medium transition-colors duration-200",
-                  notificationsEnabled ? "text-card-foreground" : "text-muted-foreground"
-                )}>
-                  Rappels actifs
+
+              {/*
+               * Text block:
+               *   - `text-start` is the logical equivalent of `text-left` in LTR
+               *     and `text-right` in RTL — flips automatically.
+               *   - `min-w-0` lets the parent flex item shrink so the switch
+               *     never gets pushed off-screen by a long Arabic label.
+               */}
+              <div className="flex flex-col text-start min-w-0">
+                <p
+                  className={cn(
+                    "text-sm font-medium transition-colors duration-200 leading-tight",
+                    notificationsEnabled ? "text-card-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {t('workspace.tasks.notifications_active')}
                 </p>
-                <p className="text-xs text-muted-foreground">Notifications en temps réel</p>
+                <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                  {t('workspace.tasks.notifications_subtitle')}
+                </p>
               </div>
             </div>
+
+            {/*
+             * Switch — sits at the logical end edge thanks to `justify-between`.
+             * `shrink-0` prevents Radix's flex sibling from squashing it.
+             * No margin utilities needed; the parent's gap-4 + justify-between
+             * handles spacing in both directions cleanly.
+             *
+             * Note: switch.tsx was updated to mirror the thumb transform under
+             * `dir=rtl` so the toggle animation reads correctly in Arabic.
+             */}
             <Switch
               checked={notificationsEnabled}
               onCheckedChange={handleToggleNotifications}
-              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-muted data-[state=unchecked]:border-[#267E54] dark:data-[state=unchecked]:border-[#2ECC71]"
+              className={cn(
+                "shrink-0",
+                "data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-muted",
+                "data-[state=unchecked]:border-[#267E54] dark:data-[state=unchecked]:border-[#2ECC71]",
+              )}
               thumbClassName="data-[state=unchecked]:bg-[#267E54] dark:data-[state=unchecked]:bg-[#2ECC71]"
             />
           </div>

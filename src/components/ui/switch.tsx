@@ -19,7 +19,12 @@ const Switch = React.forwardRef<
   >
     <SwitchPrimitives.Thumb
       className={cn(
-        "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-none ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0",
+        // RTL Note: the checked-state transform uses physical translate-x-5 in LTR
+        // and is mirrored to -translate-x-5 in RTL via the rtl: variant so the thumb
+        // always slides toward the "on" side of the track regardless of direction.
+        "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-none ring-0 transition-transform",
+        "data-[state=unchecked]:translate-x-0",
+        "data-[state=checked]:translate-x-5 rtl:data-[state=checked]:-translate-x-5",
         thumbClassName
       )}
     />

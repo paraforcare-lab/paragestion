@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, FileText, Download, CheckCircle,
   Clock, AlertCircle, Ban, Receipt, DollarSign, ArrowLeft,
@@ -16,9 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { FactureForm } from '@/components/forms/FactureForm'
 import { FactureDocument } from '@/components/documents/FactureDocument'
 import {
@@ -60,17 +59,10 @@ interface StatutOption {
   bgColor: string;
 }
 
-const statusOptions: StatutOption[] = [
-  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
-  { value: 'en_attente', label: 'En attente', icon: Clock, color: 'text-rose-700', bgColor: 'dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 bg-rose-50 text-rose-700 border border-rose-200/50' },
-  { value: 'reste_a_payer', label: 'Reste à payer', icon: AlertCircle, color: 'text-orange-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-orange-50 text-orange-700 border border-orange-200/50' },
-  { value: 'payée', label: 'Payée', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'annulée', label: 'Annulée', icon: Ban, color: 'text-red-700', bgColor: 'dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 bg-red-50 text-red-700 border border-red-200/50' },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 export function FacturesList() {
+  const { t, i18n } = useTranslation()
   const { user } = useAuth();
   const [factures, setFactures] = useState<Facture[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,6 +78,14 @@ export function FacturesList() {
   const [printingFacture, setPrintingFacture] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
+  const statusOptions: StatutOption[] = [
+    { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
+    { value: 'en_attente', label: t('shared.status.pending'), icon: Clock, color: 'text-rose-700', bgColor: 'dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 bg-rose-50 text-rose-700 border border-rose-200/50' },
+    { value: 'reste_a_payer', label: t('shared.status.partial'), icon: AlertCircle, color: 'text-orange-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-orange-50 text-orange-700 border border-orange-200/50' },
+    { value: 'payée', label: t('shared.status.paid'), icon: CheckCircle, color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+    { value: 'annulée', label: t('shared.status.cancelled'), icon: Ban, color: 'text-red-700', bgColor: 'dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20 bg-red-50 text-red-700 border border-red-200/50' },
+  ];
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -136,7 +136,7 @@ export function FacturesList() {
       setFactures(mapped);
     } catch (error) {
       console.error('Failed to fetch factures', error);
-      toast.error('Erreur lors du chargement des factures');
+      toast.error(t('factures.toast_load_error'));
       setFactures([]);
     } finally {
       setIsLoading(false);
@@ -205,10 +205,10 @@ export function FacturesList() {
     try {
       const { error } = await supabase.from('factures').delete().eq('id', factureToDelete);
       if (error) throw error;
-      toast.success('Facture supprimée avec succès');
+      toast.success(t('factures.toast_deleted'));
       fetchFactures();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('shared.toast.delete_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setFactureToDelete(null);
@@ -279,7 +279,7 @@ export function FacturesList() {
       setShowForm(true);
     } catch (error) {
       console.error('Error loading facture:', error);
-      toast.error('Erreur lors du chargement de la facture');
+      toast.error(t('factures.toast_load_detail_error'));
     }
   };
 
@@ -291,10 +291,10 @@ export function FacturesList() {
         .eq('id', id)
         .eq('user_id', user?.id);
       if (error) throw error;
-      toast.success('Facture marquée comme payée');
+      toast.success(t('factures.toast_marked_paid'));
       fetchFactures();
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(t('shared.toast.update_error'));
     }
   };
 
@@ -369,17 +369,17 @@ export function FacturesList() {
 
       if (updateError) throw updateError;
 
-      toast.success(`Facture annulée. Avoir ${numeroAvoir} créé avec succès !`);
+      toast.success(t('factures.toast_cancelled', { number: numeroAvoir }));
       fetchFactures();
     } catch (error: any) {
       console.error('Error cancelling facture:', error);
-      toast.error(error.message || 'Erreur lors de l\'annulation de la facture');
+      toast.error(error.message || t('factures.toast_cancel_error'));
     }
   };
 
   const handleDownload = async (facture: Facture) => {
     try {
-      toast.info('Préparation du PDF...');
+      toast.info(t('shared.toast.pdf_preparing'));
 
       const [factureResult, allProductsResult] = await Promise.all([
         supabase.from('factures').select('*, client:clients(*)').eq('id', facture.id).single(),
@@ -424,7 +424,7 @@ export function FacturesList() {
       };
       setPrintingFacture(mappedFacture);
     } catch (error) {
-      toast.error('Erreur lors du chargement des détails de la facture');
+      toast.error(t('factures.toast_load_detail_error'));
     }
   };
 
@@ -496,10 +496,10 @@ export function FacturesList() {
         .eq('id', id)
         .eq('user_id', user?.id);
       if (error) throw error;
-      toast.success('Statut mis à jour');
+      toast.success(t('shared.toast.status_updated'));
       fetchFactures();
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour du statut');
+      toast.error(t('shared.toast.update_error'));
     }
   };
 
@@ -585,8 +585,8 @@ export function FacturesList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer la facture"
-        description="Êtes-vous sûr de vouloir supprimer cette facture ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_invoice')}
+        description={t('shared.confirm_delete.body_invoice')}
       />
 
       <div style={{ display: 'none' }}>
@@ -603,10 +603,10 @@ export function FacturesList() {
             </Button>
             <div>
               <h2 className="text-2xl font-bold text-foreground">
-                {editingFacture ? 'Modifier la facture' : 'Nouvelle Facture'}
+                {editingFacture ? t('factures.dialog_edit') : t('factures.dialog_create')}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {editingFacture ? `Modification de la facture ${editingFacture.numero}` : 'Créez une nouvelle facture'}
+                {editingFacture ? t('factures.dialog_subtitle_edit', { number: editingFacture.numero }) : t('factures.dialog_subtitle_create')}
               </p>
             </div>
           </div>
@@ -628,16 +628,16 @@ export function FacturesList() {
                 <Receipt className="h-5 w-5 text-rose-500" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-foreground">Factures</h2>
-                <p className="text-sm text-muted-foreground">Gérez vos factures et suivez les paiements</p>
+                <h2 className="text-2xl font-bold text-foreground">{t('factures.page_title')}</h2>
+                <p className="text-sm text-muted-foreground">{t('factures.page_subtitle')}</p>
               </div>
             </div>
             <Button
               onClick={openNewForm}
               className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle Facture
+              <Plus className="me-2 h-4 w-4" />
+              {t('factures.new_button')}
             </Button>
           </div>
 
@@ -648,7 +648,7 @@ export function FacturesList() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
                   <Input
                     type="search"
-                    placeholder="Rechercher par numéro ou client..."
+                    placeholder={t('factures.search_ph')}
                     className="pl-9 h-10 dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -656,11 +656,11 @@ export function FacturesList() {
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="h-10 w-[140px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
-                    <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
-                    <SelectValue placeholder="Statut" />
+                    <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
+                    <SelectValue placeholder={t('shared.table.status')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tous les statuts</SelectItem>
+                    <SelectItem value="all">{t('shared.filters.all_statuses')}</SelectItem>
                     {statusOptions.map(opt => (
                       <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                     ))}
@@ -668,14 +668,14 @@ export function FacturesList() {
                 </Select>
                 <Select value={timeFilter} onValueChange={setTimeFilter}>
                   <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
-                    <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
-                    <SelectValue placeholder="Période" />
+                    <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
+                    <SelectValue placeholder={t('shared.filters.all_periods')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Toutes les périodes</SelectItem>
-                    <SelectItem value="30days">30 derniers jours</SelectItem>
-                    <SelectItem value="thisMonth">Ce mois</SelectItem>
-                    <SelectItem value="thisYear">Cette année</SelectItem>
+                    <SelectItem value="all">{t('shared.filters.all_periods')}</SelectItem>
+                    <SelectItem value="30days">{t('shared.filters.last_30_days')}</SelectItem>
+                    <SelectItem value="thisMonth">{t('shared.filters.this_month')}</SelectItem>
+                    <SelectItem value="thisYear">{t('shared.filters.this_year')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -684,12 +684,12 @@ export function FacturesList() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b dark:border-white/5 border-slate-100">
-                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
-                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
-                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.client')}</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.number')}</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.date')}</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.amount')}</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('shared.table.status')}</TableHead>
+                      <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -698,7 +698,7 @@ export function FacturesList() {
                         <TableCell colSpan={6} className="h-48 text-center">
                           <div className="flex flex-col items-center justify-center gap-3">
                             <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                            <p className="text-sm text-muted-foreground font-medium">Chargement des factures...</p>
+                            <p className="text-sm text-muted-foreground font-medium">{t('factures.loading')}</p>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -711,8 +711,8 @@ export function FacturesList() {
                             </div>
                             <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                               {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
-                                ? 'Aucune facture trouvée'
-                                : 'Aucune facture créée'}
+                                ? t('factures.empty_filtered')
+                                : t('factures.empty_all')}
                             </p>
                             {!searchQuery && statusFilter === 'all' && timeFilter === 'all' && (
                               <Button
@@ -720,8 +720,8 @@ export function FacturesList() {
                                 className="mt-1 rounded-sm text-sm"
                                 onClick={openNewForm}
                               >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Créer votre première facture
+                                <Plus className="me-2 h-4 w-4" />
+                                {t('factures.create_first')}
                               </Button>
                             )}
                           </div>
@@ -757,16 +757,16 @@ export function FacturesList() {
                               </div>
                             </TableCell>
                             <TableCell className="px-4 py-4">
-                              <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{facture.numero}</span>
+                              <span dir="ltr" className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{facture.numero}</span>
                             </TableCell>
                             <TableCell className="px-4 py-4">
-                              <span className="text-sm dark:text-muted-foreground text-slate-500">
-                                {format(new Date(facture.dateEmission), 'dd MMM yyyy', { locale: fr })}
+                              <span dir="ltr" className="text-sm dark:text-muted-foreground text-slate-500">
+                                {formatDate(facture.dateEmission, 'dd MMM yyyy', i18n.language)}
                               </span>
                             </TableCell>
-                            <TableCell className="px-4 py-4 text-right">
-                              <span className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(facture.montantTtc)}</span>
-                              <ArrowUpRight className="h-3 w-3 dark:text-muted-foreground text-slate-400 inline-block ml-1 -mt-0.5" />
+                            <TableCell className="px-4 py-4 text-start">
+                              <span dir="ltr" className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(facture.montantTtc)}</span>
+                              <ArrowUpRight className="h-3 w-3 dark:text-muted-foreground text-slate-400 inline-block ms-1 -mt-0.5" />
                             </TableCell>
                             <TableCell className="px-4 py-4 text-center">
                               <Select
@@ -799,7 +799,7 @@ export function FacturesList() {
                                 </SelectContent>
                               </Select>
                             </TableCell>
-                            <TableCell className="px-4 py-4 text-right">
+                            <TableCell className="px-4 py-4 text-start">
                               <div className="flex justify-end gap-0.5">
                                 {!['payée', 'reste_a_payer'].includes(facture.statut) && (
                                   <Button
@@ -807,7 +807,7 @@ export function FacturesList() {
                                     size="icon"
                                     className="h-8 w-8 dark:text-muted-foreground dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-sm"
                                     onClick={() => handleMarkAsPaid(facture.id)}
-                                    title="Marquer comme payée"
+                                    title={t('factures.tooltip_mark_paid')}
                                   >
                                     <CheckCircle className="h-4 w-4" />
                                   </Button>
@@ -817,7 +817,7 @@ export function FacturesList() {
                                   size="icon"
                                   className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                                   onClick={() => handleDownload(facture)}
-                                  title="Télécharger PDF"
+                                  title={t('shared.actions.download_pdf')}
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
@@ -826,7 +826,7 @@ export function FacturesList() {
                                   size="icon"
                                   className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                                   onClick={() => handleEdit(facture)}
-                                  title="Modifier"
+                                  title={t('shared.actions.edit')}
                                 >
                                   <FileEdit className="h-4 w-4" />
                                 </Button>
@@ -839,7 +839,7 @@ export function FacturesList() {
                                       setFactureToDelete(facture.id);
                                       setDeleteConfirmOpen(true);
                                     }}
-                                    title="Supprimer"
+                                    title={t('shared.actions.delete')}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -849,7 +849,7 @@ export function FacturesList() {
                                     size="icon"
                                     className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                                     onClick={() => handleAnnuler(facture)}
-                                    title="Annuler la facture (créer un avoir)"
+                                    title={t('factures.tooltip_cancel')}
                                   >
                                     <Ban className="h-4 w-4" />
                                   </Button>
@@ -865,8 +865,8 @@ export function FacturesList() {
 
                 {!isLoading && paginatedFactures.length > 0 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
-                    <p className="text-xs dark:text-muted-foreground text-slate-400">
-                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFactures.length)} sur {filteredFactures.length}
+                    <p className="text-xs dark:text-muted-foreground text-slate-400" dir="ltr">
+                      {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFactures.length)} {t('shared.pagination.of')} {filteredFactures.length}
                     </p>
                     <div className="flex items-center gap-1">
                       <Button
@@ -876,7 +876,7 @@ export function FacturesList() {
                         disabled={currentPage === 1}
                         onClick={() => handlePageChange(currentPage - 1)}
                       >
-                        <ChevronLeft className="h-4 w-4" />
+                        <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                       </Button>
                       {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                         <Button
@@ -901,7 +901,7 @@ export function FacturesList() {
                         disabled={currentPage === totalPages}
                         onClick={() => handlePageChange(currentPage + 1)}
                       >
-                        <ChevronRight className="h-4 w-4" />
+                        <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                       </Button>
                     </div>
                   </div>
@@ -912,7 +912,7 @@ export function FacturesList() {
             <div className="lg:col-span-1">
               <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
                 <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
-                  <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">30 Derniers Jours</CardTitle>
+                  <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">{t('factures.sidebar_title')}</CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 py-4 space-y-4">
                   <div className="flex items-center gap-3">
@@ -920,10 +920,10 @@ export function FacturesList() {
                       <FileText className="h-4 w-4 dark:text-primary text-sky-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs dark:text-muted-foreground text-slate-500">Brouillon</p>
-                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{drafted30.length} facture{drafted30.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_draft')}</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{drafted30.length} {drafted30.length !== 1 ? t('factures.sidebar_invoice_other') : t('factures.sidebar_invoice_one')}</p>
                     </div>
-                    <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
+                    <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                       {formatCurrency(drafted30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
                     </span>
                   </div>
@@ -933,10 +933,10 @@ export function FacturesList() {
                       <Send className="h-4 w-4 dark:text-primary text-rose-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs dark:text-muted-foreground text-slate-500">Envoyé</p>
-                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{sent30.length} facture{sent30.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_sent')}</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{sent30.length} {sent30.length !== 1 ? t('factures.sidebar_invoice_other') : t('factures.sidebar_invoice_one')}</p>
                     </div>
-                    <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
+                    <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                       {formatCurrency(sent30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
                     </span>
                   </div>
@@ -946,18 +946,18 @@ export function FacturesList() {
                       <CheckCircle className="h-4 w-4 dark:text-primary text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs dark:text-muted-foreground text-slate-500">Payée</p>
-                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{paid30.length} facture{paid30.length !== 1 ? 's' : ''}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_paid')}</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{paid30.length} {paid30.length !== 1 ? t('factures.sidebar_invoice_other') : t('factures.sidebar_invoice_one')}</p>
                     </div>
-                    <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
+                    <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                       {formatCurrency(paid30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
                     </span>
                   </div>
 
                   <div className="pt-3 border-t dark:border-white/5 border-slate-100">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">Total</p>
-                      <p className="text-base font-bold text-rose-500">{formatCurrency(total30Amount)}</p>
+                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{t('factures.sidebar_total')}</p>
+                      <p dir="ltr" className="text-base font-bold text-rose-500">{formatCurrency(total30Amount)}</p>
                     </div>
                   </div>
                 </CardContent>

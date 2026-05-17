@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, Trash2, ShoppingCart, Receipt, CreditCard, X,
   ShoppingBag, CalendarDays, Filter, ChevronLeft, ChevronRight,
-  Printer, Eye, User, TrendingUp, DollarSign, FileSpreadsheet, Package
+  Printer, Eye, User, TrendingUp, DollarSign, FileSpreadsheet, Package,
+  Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +63,7 @@ interface Produit {
 const ITEMS_PER_PAGE = 10;
 
 export default function VentesPassagers() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [ventes, setVentes] = useState<VentePassager[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
@@ -119,7 +122,7 @@ export default function VentesPassagers() {
       setVentes(mappedData);
     } catch (error) {
       console.error('Error fetching sales:', error);
-      toast.error('Erreur lors du chargement des ventes');
+      toast.error(t('ventes.toast_load_error'));
       setVentes([]);
     } finally {
       setLoading(false);
@@ -138,7 +141,7 @@ export default function VentesPassagers() {
       setProduits(Array.isArray(data) ? data.map(mapProduit) : []);
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Erreur lors du chargement des produits');
+      toast.error(t('ventes.toast_load_error'));
       setProduits([]);
     }
   };
@@ -149,7 +152,7 @@ export default function VentesPassagers() {
 
   const handleSubmit = async () => {
     if (panier.length === 0) {
-      toast.error('Le panier est vide');
+      toast.error(t('ventes.toast_cart_empty'));
       return;
     }
 
@@ -208,14 +211,14 @@ export default function VentesPassagers() {
       }
       await ensureLowStockNotifications(user?.id);
 
-      toast.success('Vente enregistrée avec succès');
+      toast.success(t('ventes.toast_sale_success'));
       setIsDialogOpen(false);
       setPanier([]);
       fetchVentes();
       fetchProduits();
     } catch (error: any) {
       console.error('Error:', error);
-      toast.error(error.message || 'Erreur lors de l\'enregistrement');
+      toast.error(error.message || t('ventes.toast_save_error'));
     }
   };
 
@@ -223,17 +226,17 @@ export default function VentesPassagers() {
     try {
       const { error } = await supabase.from('ventes_passagers').delete().eq('id', id);
       if (error) throw error;
-      toast.success('Vente supprimée');
+      toast.success(t('ventes.toast_deleted'));
       fetchVentes();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('ventes.toast_delete_error'));
     }
   };
 
   const handlePrint = (vente: VentePassager) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      toast.error('Veuillez autoriser les popups');
+      toast.error(t('ventes.toast_popup_blocked'));
       return;
     }
     printWindow.document.write(`
@@ -265,7 +268,7 @@ export default function VentesPassagers() {
       const searchLower = searchTerm.toLowerCase().trim();
       if (!searchLower) return true;
       const matchesNumero = (v.numero || '').toLowerCase().includes(searchLower);
-      const matchesDate = v.date && new Date(v.date).toLocaleDateString('fr-FR').includes(searchLower);
+      const matchesDate = v.date && new Date(v.date).toLocaleDateString(dateBcp47).includes(searchLower);
       return matchesNumero || matchesDate;
     });
 
@@ -319,21 +322,53 @@ export default function VentesPassagers() {
       setDetailVente({ ...vente, lignes: lignes || [] });
       setIsDetailOpen(true);
     } catch {
-      toast.error('Erreur lors du chargement des détails');
+      toast.error(t('ventes.toast_detail_error'));
     }
   };
 
+  // ─── Sidebar period switcher ─────────────────────────────────────────────
+  type SidebarPeriod = 'today' | 'thisMonth' | 'thisYear' | 'all'
+  const [sidebarPeriod, setSidebarPeriod] = useState<SidebarPeriod>('today')
+
+  // Locale helper for date formatting (matches the active UI language)
+  const { i18n } = useTranslation()
+  const dateBcp47 = i18n.language?.startsWith('ar') ? 'ar-MA'
+    : i18n.language?.startsWith('en') ? 'en-US'
+    : 'fr-FR'
+
   const totalVentes = ventes.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayVentesList = ventes.filter(v => new Date(v.date) >= todayStart);
-  const todayCount = todayVentesList.length;
-  const todayRevenue = todayVentesList.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
-  const todayAvgBasket = todayCount > 0 ? todayRevenue / todayCount : 0;
-  const todayTva = todayVentesList.reduce((sum, v) => sum + (v.montantTva || 0), 0);
+  // Cutoff dates for each period
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const yearStart  = new Date(now.getFullYear(), 0, 1)
 
-  // Weekly sparkline data (last 7 days)
+  function getCutoff(period: SidebarPeriod): Date {
+    switch (period) {
+      case 'today':     return todayStart
+      case 'thisMonth': return monthStart
+      case 'thisYear':  return yearStart
+      default:          return new Date(0)
+    }
+  }
+
+  // Filtered list for the currently selected sidebar period
+  const sidebarVentes = useMemo(() => {
+    const cutoff = getCutoff(sidebarPeriod)
+    return ventes.filter(v => new Date(v.date) >= cutoff)
+  }, [ventes, sidebarPeriod])
+
+  const sidebarCount   = sidebarVentes.length
+  const sidebarRevenue = sidebarVentes.reduce((sum, v) => sum + (v.montantTtc || 0), 0)
+  const sidebarAvg     = sidebarCount > 0 ? sidebarRevenue / sidebarCount : 0
+  const sidebarTva     = sidebarVentes.reduce((sum, v) => sum + (v.montantTva || 0), 0)
+
+  // Keep a today snapshot for the sparkline (always today regardless of period switch)
+  const todayVentesList = ventes.filter(v => new Date(v.date) >= todayStart);
+  const todayRevenue    = todayVentesList.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
+
+  // Weekly sparkline data (last 7 days) — labels use the active locale
   const weekDays: { label: string; total: number }[] = useMemo(() => {
     const result: { label: string; total: number }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -349,12 +384,12 @@ export default function VentesPassagers() {
         })
         .reduce((s, v) => s + (v.montantTtc || 0), 0);
       result.push({
-        label: d.toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 3),
+        label: d.toLocaleDateString(dateBcp47, { weekday: 'short' }).slice(0, 3),
         total: dayTotal,
       });
     }
     return result;
-  }, [ventes]);
+  }, [ventes, dateBcp47]);
 
   const maxSparkValue = Math.max(...weekDays.map(d => d.total), 1);
 
@@ -367,8 +402,8 @@ export default function VentesPassagers() {
             <ShoppingBag className="h-5 w-5 text-emerald-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Ventes Passagers</h2>
-            <p className="text-sm text-muted-foreground">Gérez vos ventes directes sans facture nominative</p>
+            <h2 className="text-2xl font-bold text-foreground">{t('ventes.page_title')}</h2>
+            <p className="text-sm text-muted-foreground">{t('ventes.page_subtitle')}</p>
           </div>
         </div>
 
@@ -376,7 +411,7 @@ export default function VentesPassagers() {
           <DialogTrigger render={
             <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
               <Plus className="mr-2 h-4 w-4" />
-              Nouvelle Vente
+              {t('ventes.new_button')}
             </Button>
           } />
           <DialogContent className="sm:max-w-[1000px] w-[95vw] !p-0 gap-0 max-h-[90vh] overflow-y-auto rounded-lg shadow-[0_0_0_1px_rgba(0,0,0,0.03),0_20px_60px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.08)]">
@@ -386,8 +421,8 @@ export default function VentesPassagers() {
                   <ShoppingCart className="h-6 w-6 text-emerald-600" />
                 </div>
                 <div>
-                  <DialogTitle className="text-2xl font-bold dark:text-card-foreground text-slate-900">Nouvelle Vente Passager</DialogTitle>
-                  <p className="text-sm dark:text-muted-foreground text-slate-500 mt-0.5">Ajoutez des produits au panier et finalisez la vente</p>
+                  <DialogTitle className="text-2xl font-bold dark:text-card-foreground text-slate-900">{t('ventes.dialog_create')}</DialogTitle>
+                  <p className="text-sm dark:text-muted-foreground text-slate-500 mt-0.5">{t('ventes.dialog_subtitle_create')}</p>
                 </div>
               </div>
             </DialogHeader>
@@ -397,7 +432,7 @@ export default function VentesPassagers() {
               <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white overflow-hidden">
                 <div className="flex items-center gap-2.5 px-6 py-4 border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
                   <ShoppingCart className="h-5 w-5 text-emerald-600" />
-                  <span className="text-sm font-bold text-slate-800">Information de Vente</span>
+                  <span className="text-sm font-bold text-slate-800">{t('ventes.sale_info')}</span>
                 </div>
                 <div className="p-6 space-y-4">
                   <ProductSelector
@@ -425,7 +460,7 @@ export default function VentesPassagers() {
                       } else {
                         setPanier([...panier, {
                           produitId: produit.id,
-                          designation: produit.designation || 'Produit',
+                          designation: produit.designation || t('shared.table.product'),
                           quantite: qte,
                           prixUnitaireHt: puHt,
                           tva: tvaRate,
@@ -435,17 +470,17 @@ export default function VentesPassagers() {
                           prixAchatHt: Number(produit.prixAchatHt ?? 0)
                         }]);
                       }
-                      toast.success(`${produit.designation || 'Produit'} ajouté au panier`);
+                      toast.success(t('ventes.toast_item_added', { name: produit.designation || t('shared.table.product') }));
                     }}
                     trigger={
                       <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm shadow-none text-base">
                         <ShoppingCart className="mr-2 h-5 w-5" />
-                        Sélectionner un produit
+                        {t('ventes.select_product')}
                       </Button>
                     }
                   />
                   <p className="text-xs text-slate-400 text-center">
-                    Cherchez par nom, référence ou marque. Cliquez sur un produit, définissez la quantité, puis ajoutez au panier.
+                    {t('ventes.select_product_hint')}
                   </p>
                 </div>
               </div>
@@ -455,7 +490,9 @@ export default function VentesPassagers() {
                 <div className="flex items-center justify-between px-6 py-4 border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
                   <div className="flex items-center gap-2.5">
                     <Package className="h-5 w-5 text-emerald-600" />
-                    <span className="text-sm font-bold text-slate-800">Panier <span className="text-slate-400 font-normal">({panier.length} article{panier.length !== 1 ? 's' : ''})</span></span>
+                    <span className="text-sm font-bold text-slate-800">
+                      {t('ventes.cart_title')} <span className="text-slate-400 font-normal">({t(panier.length === 1 ? 'ventes.cart_item_one' : 'ventes.cart_item_other', { count: panier.length })})</span>
+                    </span>
                   </div>
                 </div>
 
@@ -464,11 +501,11 @@ export default function VentesPassagers() {
                     <Table>
                       <TableHeader>
                         <TableRow className="border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/30">
-                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4">Désignation</TableHead>
-                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Qté</TableHead>
-                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">PU HT</TableHead>
-                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">TVA</TableHead>
-                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">Total TTC</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4">{t('ventes.col_designation')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">{t('ventes.col_qty')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">{t('ventes.col_unit_price')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">{t('ventes.col_vat')}</TableHead>
+                          <TableHead className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-5 py-4 text-right">{t('ventes.col_total')}</TableHead>
                           <TableHead className="w-14 px-5 py-4"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -511,8 +548,8 @@ export default function VentesPassagers() {
                                   <circle cx="38" cy="14" r="3" fill="#10B981" stroke="white" strokeWidth="1.5" />
                                 </svg>
                                 <div>
-                                  <p className="text-sm font-semibold text-slate-500">Panier vide</p>
-                                  <p className="text-xs text-slate-400 mt-1">Sélectionnez un produit pour commencer</p>
+                                  <p className="text-sm font-semibold text-slate-500">{t('ventes.cart_empty_title')}</p>
+                                  <p className="text-xs text-slate-400 mt-1">{t('ventes.cart_empty_hint')}</p>
                                 </div>
                               </div>
                             </TableCell>
@@ -529,15 +566,15 @@ export default function VentesPassagers() {
                     <div className="flex justify-end">
                       <div className="flex items-center gap-8">
                         <div className="text-right">
-                          <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">Total HT</p>
+                          <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">{t('ventes.total_ht')}</p>
                           <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">TVA</p>
+                          <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">{t('ventes.total_vat')}</p>
                           <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
                         </div>
                         <div className="text-right border-l border-emerald-200 pl-8">
-                          <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">Total TTC</p>
+                          <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">{t('ventes.total_ttc')}</p>
                           <p className="text-2xl font-black text-emerald-600">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTtc, 0))}</p>
                         </div>
                       </div>
@@ -553,7 +590,7 @@ export default function VentesPassagers() {
                 onClick={() => setIsDialogOpen(false)}
                 className="h-10 px-5 rounded-sm dark:border-white/10 dark:text-muted-foreground border-slate-300 text-slate-600 font-semibold text-sm shadow-none"
               >
-                Annuler
+                {t('ventes.btn_cancel')}
               </Button>
               <Button
                 onClick={handleSubmit}
@@ -561,7 +598,7 @@ export default function VentesPassagers() {
                 className="h-10 px-5 rounded-sm bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-none"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
-                Valider la vente
+                {t('ventes.btn_validate')}
               </Button>
             </div>
           </DialogContent>
@@ -577,7 +614,7 @@ export default function VentesPassagers() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
               <Input
                 type="text"
-                placeholder="Rechercher par numéro ou date..."
+                placeholder={t('ventes.search_ph')}
                 className="pl-9 h-10 dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -586,13 +623,13 @@ export default function VentesPassagers() {
             <Select value={timeFilter} onValueChange={setTimeFilter}>
               <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
                 <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
-                <SelectValue placeholder="Période" />
+                <SelectValue placeholder={t('ventes.filter_all')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les périodes</SelectItem>
-                <SelectItem value="today">Aujourd'hui</SelectItem>
-                <SelectItem value="thisWeek">Cette semaine</SelectItem>
-                <SelectItem value="thisMonth">Ce mois</SelectItem>
+                <SelectItem value="all">{t('ventes.filter_all')}</SelectItem>
+                <SelectItem value="today">{t('ventes.filter_today')}</SelectItem>
+                <SelectItem value="thisWeek">{t('ventes.filter_week')}</SelectItem>
+                <SelectItem value="thisMonth">{t('ventes.filter_month')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -602,12 +639,12 @@ export default function VentesPassagers() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b dark:border-white/5 border-slate-100">
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">N° Vente</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Détails</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('ventes.col_client')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('ventes.col_number')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('ventes.col_date')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">{t('ventes.col_details')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('ventes.col_status')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">{t('ventes.col_actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -616,7 +653,7 @@ export default function VentesPassagers() {
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement des ventes...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('ventes.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -629,8 +666,8 @@ export default function VentesPassagers() {
                         </div>
                         <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                           {searchTerm || timeFilter !== 'all'
-                            ? 'Aucune vente trouvée'
-                            : 'Aucune vente enregistrée'}
+                            ? t('ventes.empty_filtered')
+                            : t('ventes.empty_all')}
                         </p>
                         {!searchTerm && timeFilter === 'all' && (
                           <Button
@@ -639,7 +676,7 @@ export default function VentesPassagers() {
                             onClick={() => setIsDialogOpen(true)}
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Créer votre première vente
+                            {t('ventes.create_first')}
                           </Button>
                         )}
                       </div>
@@ -657,8 +694,8 @@ export default function VentesPassagers() {
                             <User className="h-4 w-4 dark:text-muted-foreground text-slate-400" />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold dark:text-card-foreground text-slate-800">Client de passage</p>
-                            <p className="text-xs dark:text-muted-foreground text-slate-400">Vente comptoir</p>
+                            <p className="text-sm font-semibold dark:text-card-foreground text-slate-800">{t('ventes.walk_in_client')}</p>
+                            <p className="text-xs dark:text-muted-foreground text-slate-400">{t('ventes.counter_sale')}</p>
                           </div>
                         </div>
                       </TableCell>
@@ -667,7 +704,7 @@ export default function VentesPassagers() {
                       </TableCell>
                       <TableCell className="px-4 py-5">
                         <span className="text-sm dark:text-muted-foreground text-slate-500">
-                          {new Date(vente.date).toLocaleDateString('fr-FR', {
+                          {new Date(vente.date).toLocaleDateString(dateBcp47, {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
@@ -687,7 +724,7 @@ export default function VentesPassagers() {
                       <TableCell className="px-4 py-5 text-center">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                          Complétée
+                          {t('ventes.status_completed')}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-5 text-right">
@@ -697,7 +734,7 @@ export default function VentesPassagers() {
                             size="icon"
                             className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                             onClick={() => handlePrint(vente)}
-                            title="Imprimer le ticket"
+                            title={t('shared.actions.print_receipt')}
                           >
                             <Printer className="h-4 w-4" />
                           </Button>
@@ -706,7 +743,7 @@ export default function VentesPassagers() {
                             size="icon"
                             className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                             onClick={() => handleViewDetail(vente)}
-                            title="Voir le détail"
+                            title={t('shared.actions.view_detail')}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -715,7 +752,7 @@ export default function VentesPassagers() {
                             size="icon"
                             className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                             onClick={() => handleDelete(vente.id?.toString())}
-                            title="Supprimer"
+                            title={t('shared.actions.delete')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -730,7 +767,7 @@ export default function VentesPassagers() {
             {!loading && paginatedVentes.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
                 <p className="text-xs dark:text-muted-foreground text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredVentes.length)} sur {filteredVentes.length}
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredVentes.length)} {t('shared.pagination.of')} {filteredVentes.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -740,7 +777,7 @@ export default function VentesPassagers() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -765,7 +802,7 @@ export default function VentesPassagers() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -776,78 +813,139 @@ export default function VentesPassagers() {
         {/* Right Column - Summary */}
         <div className="lg:col-span-1 space-y-4">
           <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
-            <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
-              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">Aujourd'hui au Comptoir</CardTitle>
+
+            {/* ── Card header: title + period toggle buttons ─────────── */}
+            <CardHeader className="px-4 py-3 border-b dark:border-white/5 border-slate-100 space-y-3">
+              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">
+                {t(`ventes.sidebar_title_${sidebarPeriod}`)}
+              </CardTitle>
+
+              {/* Period toggle pill group */}
+              <div className="flex items-center gap-1 p-0.5 rounded-sm bg-slate-100 dark:bg-white/5 w-full">
+                {([ 'today', 'thisMonth', 'thisYear', 'all' ] as SidebarPeriod[]).map((period) => {
+                  const labelKey = {
+                    today:     'ventes.sidebar_period_today',
+                    thisMonth: 'ventes.sidebar_period_month',
+                    thisYear:  'ventes.sidebar_period_year',
+                    all:       'ventes.sidebar_period_all',
+                  }[period]
+                  const isActive = sidebarPeriod === period
+                  return (
+                    <button
+                      key={period}
+                      type="button"
+                      onClick={() => setSidebarPeriod(period)}
+                      className={cn(
+                        'flex-1 text-[10px] font-semibold px-1 py-1 rounded-[3px] transition-all duration-150 truncate',
+                        isActive
+                          ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200',
+                      )}
+                    >
+                      {t(labelKey)}
+                    </button>
+                  )
+                })}
+              </div>
             </CardHeader>
+
             <CardContent className="px-4 py-4 space-y-5">
-              {/* Today Count */}
+
+              {/* Sales count */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
                   <ShoppingBag className="h-4 w-4 dark:text-primary text-emerald-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Ventes du jour</p>
-                  <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{todayCount} vente{todayCount !== 1 ? 's' : ''}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">
+                    {t('ventes.sidebar_sales_count')}
+                  </p>
+                  <p className="text-lg font-bold dark:text-card-foreground text-slate-800" dir="ltr">
+                    {sidebarCount}{' '}
+                    <span className="text-sm font-normal text-slate-400 dark:text-muted-foreground">
+                      {sidebarCount === 1
+                        ? t('ventes.sidebar_sale_one')
+                        : t('ventes.sidebar_sale_other')}
+                    </span>
+                  </p>
                 </div>
               </div>
 
-              {/* Today Revenue */}
+              {/* Revenue */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
                   <DollarSign className="h-4 w-4 dark:text-primary text-emerald-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Chiffre d'affaires</p>
-                  <p className="text-lg font-bold text-emerald-600">{formatCurrency(todayRevenue)}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">
+                    {t('ventes.sidebar_revenue')}
+                  </p>
+                  <p className="text-lg font-bold text-emerald-600" dir="ltr">
+                    {formatCurrency(sidebarRevenue)}
+                  </p>
                 </div>
               </div>
 
-              {/* Divider */}
+              {/* Average basket + VAT */}
               <div className="border-t dark:border-white/5 border-slate-100 pt-4 space-y-3">
-                {/* Average Basket */}
-                <div className="flex items-center justify-between">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Panier moyen</p>
-                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(todayAvgBasket)}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs dark:text-muted-foreground text-slate-500 truncate">
+                    {t('ventes.sidebar_avg')}
+                  </p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800 shrink-0" dir="ltr">
+                    {formatCurrency(sidebarAvg)}
+                  </p>
                 </div>
-                {/* TVA Collected */}
-                <div className="flex items-center justify-between">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">TVA collectée</p>
-                  <p className="text-sm font-semibold dark:text-muted-foreground text-slate-600">{formatCurrency(todayTva)}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs dark:text-muted-foreground text-slate-500 truncate">
+                    {t('ventes.sidebar_vat')}
+                  </p>
+                  <p className="text-sm font-semibold dark:text-muted-foreground text-slate-600 shrink-0" dir="ltr">
+                    {formatCurrency(sidebarTva)}
+                  </p>
                 </div>
               </div>
 
-              {/* Sparkline */}
+              {/* Weekly sparkline — always shows last 7 days regardless of period */}
               <div className="border-t dark:border-white/5 border-slate-100 pt-4">
-                <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider mb-3">Tendance semaine</p>
-                <svg viewBox="0 0 200 60" className="w-full h-16">
-                  <defs>
-                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  {(() => {
-                    const points = weekDays.map((d, i) => ({
-                      x: (i / (weekDays.length - 1)) * 180 + 10,
-                      y: 55 - (d.total / maxSparkValue) * 40,
-                    }));
-                    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-                    const areaPath = linePath + ` L${points[points.length - 1].x},55 L${points[0].x},55 Z`;
-                    return (
-                      <>
-                        <path d={areaPath} fill="url(#sparkGrad)" />
-                        <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        {points.map((p, i) => (
-                          <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#10B981" stroke="white" strokeWidth="1.5" />
-                        ))}
-                      </>
-                    );
-                  })()}
-                </svg>
-                <div className="flex justify-between mt-1">
-                  {weekDays.map((d, i) => (
-                    <span key={i} className="text-[10px] dark:text-muted-foreground text-slate-400">{d.label}</span>
-                  ))}
+                <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider mb-3">
+                  {t('ventes.sidebar_trend')}
+                </p>
+                {/* Sparkline SVG is direction-independent; wrap in dir=ltr so SVG
+                    coordinates are not mirrored by the parent RTL context */}
+                <div dir="ltr">
+                  <svg viewBox="0 0 200 60" className="w-full h-16">
+                    <defs>
+                      <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    {(() => {
+                      const points = weekDays.map((d, i) => ({
+                        x: (i / (weekDays.length - 1)) * 180 + 10,
+                        y: 55 - (d.total / maxSparkValue) * 40,
+                      }));
+                      const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+                      const areaPath = linePath + ` L${points[points.length - 1].x},55 L${points[0].x},55 Z`;
+                      return (
+                        <>
+                          <path d={areaPath} fill="url(#sparkGrad)" />
+                          <path d={linePath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          {points.map((p, i) => (
+                            <circle key={i} cx={p.x} cy={p.y} r="2.5" fill="#10B981" stroke="white" strokeWidth="1.5" />
+                          ))}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                  <div className="flex justify-between mt-1">
+                    {weekDays.map((d, i) => (
+                      <span key={i} className="text-[10px] dark:text-muted-foreground text-slate-400">
+                        {d.label}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -864,7 +962,7 @@ export default function VentesPassagers() {
                 <Receipt className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold">Détail de la vente</DialogTitle>
+                <DialogTitle className="text-lg font-bold">{t('ventes.detail_title')}</DialogTitle>
                 <p className="text-sm text-muted-foreground">{detailVente?.numero}</p>
               </div>
             </div>
@@ -873,7 +971,7 @@ export default function VentesPassagers() {
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <CalendarDays className="h-4 w-4" />
-                {new Date(detailVente.date).toLocaleDateString('fr-FR', {
+                {new Date(detailVente.date).toLocaleDateString(dateBcp47, {
                   day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
                 })}
               </div>
@@ -883,16 +981,16 @@ export default function VentesPassagers() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b dark:border-white/10 border-slate-100">
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase">Produit</TableHead>
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">Qté</TableHead>
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">PU HT</TableHead>
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">Total TTC</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase">{t('ventes.detail_col_product')}</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">{t('ventes.detail_col_qty')}</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">{t('ventes.detail_col_price')}</TableHead>
+                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">{t('ventes.detail_col_total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {detailVente.lignes.map((l: any, i: number) => (
                         <TableRow key={i} className="border-b dark:border-white/10 border-slate-100 last:border-0">
-                          <TableCell className="py-3 text-sm dark:text-card-foreground">{l.designation || 'Produit'}</TableCell>
+                          <TableCell className="py-3 text-sm dark:text-card-foreground">{l.designation || t('shared.table.product')}</TableCell>
                           <TableCell className="py-3 text-right text-sm font-medium dark:text-card-foreground">{l.quantite}</TableCell>
                           <TableCell className="py-3 text-right text-sm dark:text-muted-foreground text-slate-500">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
                           <TableCell className="py-3 text-right text-sm font-bold dark:text-card-foreground">{formatCurrency(l.montant_ttc || 0)}</TableCell>
@@ -905,15 +1003,15 @@ export default function VentesPassagers() {
 
               <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-100 bg-slate-50/50 p-4 space-y-1.5">
                 <div className="flex justify-between text-sm">
-                  <span className="dark:text-muted-foreground text-slate-500">Total HT</span>
+                  <span className="dark:text-muted-foreground text-slate-500">{t('ventes.detail_total_ht')}</span>
                   <span className="font-medium dark:text-card-foreground text-slate-800">{formatCurrency(detailVente.montantHt)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="dark:text-muted-foreground text-slate-500">TVA</span>
+                  <span className="dark:text-muted-foreground text-slate-500">{t('ventes.detail_total_vat')}</span>
                   <span className="font-medium dark:text-card-foreground text-slate-800">{formatCurrency(detailVente.montantTva)}</span>
                 </div>
                 <div className="flex justify-between text-base font-bold pt-1.5 border-t dark:border-white/10 border-slate-200">
-                  <span className="dark:text-card-foreground text-slate-800">Total TTC</span>
+                  <span className="dark:text-card-foreground text-slate-800">{t('ventes.detail_total_ttc')}</span>
                   <span className="text-emerald-600">{formatCurrency(detailVente.montantTtc)}</span>
                 </div>
               </div>
@@ -925,7 +1023,7 @@ export default function VentesPassagers() {
               onClick={() => setIsDetailOpen(false)}
               className="rounded-sm h-10 dark:border-white/10 dark:text-muted-foreground"
             >
-              Fermer
+              {t('shared.actions.close')}
             </Button>
             {detailVente && (
               <Button
@@ -933,7 +1031,7 @@ export default function VentesPassagers() {
                 onClick={() => { handlePrint(detailVente); setIsDetailOpen(false); }}
               >
                 <Printer className="mr-2 h-4 w-4" />
-                Imprimer le ticket
+                {t('shared.actions.print_receipt')}
               </Button>
             )}
           </DialogFooter>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download, ShoppingCart, Package,
   FileText, Clock, CheckCircle, Ban, Truck, Send, ChevronLeft,
@@ -23,9 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -66,17 +65,10 @@ interface StatutOption {
   bgColor: string;
 }
 
-const statusOptions: StatutOption[] = [
-  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'envoyé', label: 'Envoyé', icon: Send, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'confirmé', label: 'Confirmé', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'livré', label: 'Livré', icon: Truck, color: 'text-violet-700', bgColor: 'bg-violet-50 text-violet-700 border border-violet-200/50' },
-  { value: 'annulé', label: 'Annulé', icon: Ban, color: 'text-rose-700', bgColor: 'bg-rose-50 text-rose-700 border border-rose-200/50' },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 export function BonsCommandeList() {
+  const { t, i18n } = useTranslation()
   const { user } = useAuth();
   const [bons, setBons] = useState<BonCommande[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,6 +81,14 @@ export function BonsCommandeList() {
   const [selectedBon, setSelectedBon] = useState<any>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bonToDelete, setBonToDelete] = useState<number | null>(null);
+
+  const statusOptions: StatutOption[] = [
+    { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
+    { value: 'envoyé', label: t('shared.status.sent'), icon: Send, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
+    { value: 'confirmé', label: t('shared.status.confirmed'), icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+    { value: 'livré', label: t('shared.status.delivered'), icon: Truck, color: 'text-violet-700', bgColor: 'bg-violet-50 text-violet-700 border border-violet-200/50' },
+    { value: 'annulé', label: t('shared.status.cancelled'), icon: Ban, color: 'text-rose-700', bgColor: 'bg-rose-50 text-rose-700 border border-rose-200/50' },
+  ];
 
   const componentRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +125,7 @@ export function BonsCommandeList() {
       setBons(Array.isArray(data) ? (data || []).map(mapBonCommande) : []);
     } catch (error) {
       console.error('Failed to fetch bons de commande', error);
-      toast.error('Erreur lors du chargement');
+      toast.error(t('shared.toast.loading_error'));
     } finally {
       setIsLoading(false);
     }
@@ -184,11 +184,11 @@ export function BonsCommandeList() {
     try {
       const { error } = await supabase.from('bons_commande').delete().eq('id', bonToDelete);
       if (error) throw error;
-      toast.success('Bon de commande supprimé');
+      toast.success(t('bons_commande.toast_deleted'));
       fetchBons();
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('shared.toast.delete_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setBonToDelete(null);
@@ -231,13 +231,13 @@ export function BonsCommandeList() {
       setIsDialogOpen(true);
     } catch (error) {
       console.error('Error loading bon:', error);
-      toast.error('Erreur lors du chargement du bon de commande');
+      toast.error(t('bons_commande.toast_load_error'));
     }
   };
 
   const handleDownload = async (bon: BonCommande) => {
     try {
-      toast.info('Préparation du PDF...');
+      toast.info(t('shared.toast.pdf_preparing'));
 
       const { data: bonData, error } = await supabase
         .from('bons_commande')
@@ -280,7 +280,7 @@ export function BonsCommandeList() {
       setSelectedBon(mappedBon);
       setTimeout(() => handlePrint(), 100);
     } catch (error) {
-      toast.error('Erreur lors du téléchargement');
+      toast.error(t('shared.toast.loading_error'));
     }
   };
 
@@ -293,12 +293,12 @@ export function BonsCommandeList() {
       });
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error || 'Erreur lors de la mise à jour');
+        throw new Error(err.error || t('shared.toast.update_error'));
       }
-      toast.success('Statut mis à jour');
+      toast.success(t('shared.toast.status_updated'));
       fetchBons();
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour du statut');
+      toast.error(t('shared.toast.update_error'));
     }
   };
 
@@ -364,8 +364,8 @@ export function BonsCommandeList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer le bon de commande"
-        description="Êtes-vous sûr de vouloir supprimer ce bon de commande ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_order')}
+        description={t('shared.confirm_delete.body_order')}
       />
 
       <div className="hidden">
@@ -379,9 +379,9 @@ export function BonsCommandeList() {
             <ShoppingCart className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Bons de Commande</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('bons_commande.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Gérez vos commandes auprès des fournisseurs
+              {t('bons_commande.page_subtitle')}
             </p>
           </div>
         </div>
@@ -395,8 +395,8 @@ export function BonsCommandeList() {
               onClick={openNewForm}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau Bon
+              <Plus className="me-2 h-4 w-4" />
+              {t('bons_commande.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900">
@@ -404,12 +404,12 @@ export function BonsCommandeList() {
               <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingBon ? 'Modifier le bon de commande' : 'Nouveau Bon de Commande'}
+                    {editingBon ? t('bons_commande.dialog_edit') : t('bons_commande.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingBon
-                      ? `Modification du bon ${editingBon.numero}`
-                      : 'Créez un nouveau bon de commande pour vos fournisseurs'}
+                      ? t('bons_commande.dialog_subtitle_edit', { number: editingBon.numero })
+                      : t('bons_commande.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -441,7 +441,7 @@ export function BonsCommandeList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 type="search"
-                placeholder="Rechercher par numéro ou fournisseur..."
+                placeholder={t('bons_commande.search_ph')}
                 className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -449,11 +449,11 @@ export function BonsCommandeList() {
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-10 w-[140px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm">
-                <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
-                <SelectValue placeholder="Statut" />
+                <Filter className="h-3.5 w-3.5 text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.table.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="all">{t('shared.filters.all_statuses')}</SelectItem>
                 {statusOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
@@ -466,13 +466,13 @@ export function BonsCommandeList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/5">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Fournisseur</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">N° Bon</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Livraison</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.supplier')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.bon_number')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.date')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.delivery')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.amount')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('shared.table.status')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -481,7 +481,7 @@ export function BonsCommandeList() {
                     <TableCell colSpan={7} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('shared.empty.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -494,8 +494,8 @@ export function BonsCommandeList() {
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
                           {searchQuery || statusFilter !== 'all'
-                            ? 'Aucun bon trouvé'
-                            : 'Aucun bon de commande créé'}
+                            ? t('bons_commande.empty_filtered')
+                            : t('bons_commande.empty_all')}
                         </p>
                         {!searchQuery && statusFilter === 'all' && (
                           <Button
@@ -503,8 +503,8 @@ export function BonsCommandeList() {
                             className="mt-1 rounded-[4px] text-sm"
                             onClick={openNewForm}
                           >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Créer votre premier bon
+                            <Plus className="me-2 h-4 w-4" />
+                            {t('bons_commande.create_first')}
                           </Button>
                         )}
                       </div>
@@ -540,22 +540,22 @@ export function BonsCommandeList() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium text-slate-700 dark:text-white">{bon.numero}</span>
+                          <span dir="ltr" className="text-sm font-mono font-medium text-slate-700 dark:text-white">{bon.numero}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm text-slate-500 dark:text-slate-400">
-                            {format(new Date(bon.dateCommande || bon.date), 'dd MMM yyyy', { locale: fr })}
+                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
+                            {formatDate(bon.dateCommande || bon.date, 'dd MMM yyyy', i18n.language)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm text-slate-500 dark:text-slate-400">
+                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
                             {bon.dateLivraisonPrevue
-                              ? format(new Date(bon.dateLivraisonPrevue), 'dd MMM yyyy', { locale: fr })
+                              ? formatDate(bon.dateLivraisonPrevue, 'dd MMM yyyy', i18n.language)
                               : '-'}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold text-slate-800 dark:text-white">
+                        <TableCell className="px-4 py-5 text-start">
+                          <span dir="ltr" className="text-sm font-bold text-slate-800 dark:text-white">
                             {formatCurrency(bon.montantTtc)}
                           </span>
                         </TableCell>
@@ -591,14 +591,14 @@ export function BonsCommandeList() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
+                        <TableCell className="px-4 py-5 text-start">
                           <div className="flex justify-end gap-0.5">
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
                               onClick={() => handleDownload(bon)}
-                              title="Télécharger PDF"
+                              title={t('shared.actions.download_pdf')}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
@@ -607,7 +607,7 @@ export function BonsCommandeList() {
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
                               onClick={() => handleEdit(bon)}
-                              title="Modifier"
+                              title={t('shared.actions.edit')}
                             >
                               <FileEdit className="h-4 w-4" />
                             </Button>
@@ -620,7 +620,7 @@ export function BonsCommandeList() {
                                   setBonToDelete(bon.id);
                                   setDeleteConfirmOpen(true);
                                 }}
-                                title="Supprimer"
+                                title={t('shared.actions.delete')}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -630,7 +630,7 @@ export function BonsCommandeList() {
                                 size="icon"
                                 className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px] dark:hover:text-red-400 dark:hover:bg-white/5 dark:rounded-sm"
                                 onClick={() => handleStatusChange(bon.id, 'annulé')}
-                                title="Annuler"
+                                title={t('shared.status.cancelled')}
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>
@@ -646,8 +646,8 @@ export function BonsCommandeList() {
 
             {!isLoading && paginatedBons.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">
-                <p className="text-xs text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredBons.length)} sur {filteredBons.length}
+                <p className="text-xs text-slate-400" dir="ltr">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredBons.length)} {t('shared.pagination.of')} {filteredBons.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -657,7 +657,7 @@ export function BonsCommandeList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -682,7 +682,7 @@ export function BonsCommandeList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -694,57 +694,93 @@ export function BonsCommandeList() {
         <div className="lg:col-span-1">
           <Card className="border border-slate-200 shadow-none rounded-[6px] dark:border-white/10 dark:rounded-sm">
             <CardHeader className="px-4 py-4 border-b border-slate-100 dark:border-white/5">
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-white">Analyse des Achats</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-white">{t('bons_commande.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
+
+              {/* ── Montant engagé ce mois ───────────────────────────── */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0 dark:rounded-sm dark:bg-primary/10 dark:border-primary/20">
                   <ShoppingCart className="h-4 w-4 text-emerald-600 dark:text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Montant engagé ce mois</p>
-                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(monthValue)}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                    {t('bons_commande.sidebar_committed')}
+                  </p>
+                  <p dir="ltr" className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(monthValue)}
+                  </p>
                 </div>
               </div>
 
+              {/* ── Commandes passées ────────────────────────────────── */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0 dark:rounded-sm dark:bg-primary/10 dark:border-primary/20">
                   <Package className="h-4 w-4 text-emerald-600 dark:text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Commandes passées</p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">{monthCount} commande{monthCount !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                    {t('bons_commande.sidebar_orders')}
+                  </p>
+                  {/*
+                   * RTL: number always reads LTR; plural resolved via proper
+                   * locale keys instead of appending a hardcoded English 's'.
+                   * AR: "١ أمر" / "٣ أوامر"
+                   * FR: "1 commande" / "3 commandes"
+                   * EN: "1 order" / "3 orders"
+                   */}
+                  <p className="text-lg font-bold text-slate-800 dark:text-white" dir="ltr">
+                    {monthCount}{' '}
+                    <span className="text-sm font-normal text-slate-400 dark:text-muted-foreground">
+                      {monthCount === 1
+                        ? t('bons_commande.sidebar_order_one')
+                        : t('bons_commande.sidebar_order_other')}
+                    </span>
+                  </p>
                 </div>
               </div>
 
+              {/* ── Status breakdown ─────────────────────────────────── */}
               <div className="border-t border-slate-100 pt-4 space-y-3 dark:border-white/5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">En attente</span>
-                  <span className="font-semibold text-amber-600">{pendingOrders}</span>
+                  <span className="text-slate-500 dark:text-muted-foreground">
+                    {t('bons_commande.sidebar_pending')}
+                  </span>
+                  <span dir="ltr" className="font-semibold text-amber-600">{pendingOrders}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Livrées</span>
-                  <span className="font-semibold text-violet-600 dark:text-slate-400">{deliveredOrders}</span>
+                  <span className="text-slate-500 dark:text-muted-foreground">
+                    {t('bons_commande.sidebar_delivered')}
+                  </span>
+                  <span dir="ltr" className="font-semibold text-violet-600 dark:text-slate-400">{deliveredOrders}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Annulées</span>
-                  <span className="font-semibold text-rose-500 dark:text-slate-400">{cancelledOrders}</span>
+                  <span className="text-slate-500 dark:text-muted-foreground">
+                    {t('bons_commande.sidebar_cancelled')}
+                  </span>
+                  <span dir="ltr" className="font-semibold text-rose-500 dark:text-slate-400">{cancelledOrders}</span>
                 </div>
               </div>
 
+              {/* ── Link to suppliers ────────────────────────────────── */}
               <div className="border-t border-slate-100 pt-4 dark:border-white/5">
                 <Link
                   to="/fournisseurs"
                   className="flex items-center gap-2 rounded-[6px] bg-slate-50 border border-slate-200/50 px-3 py-2.5 hover:bg-slate-100 transition-colors dark:rounded-sm dark:bg-slate-900/40 dark:border-white/10 dark:hover:bg-slate-900/60"
                 >
-                  <Building2 className="h-4 w-4 text-slate-500" />
-                  <div className="flex-1">
-                    <p className="text-[11px] font-semibold text-slate-600">Voir les fournisseurs</p>
-                    <p className="text-[11px] text-slate-400">Accéder à la liste</p>
+                  <Building2 className="h-4 w-4 text-slate-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                      {t('bons_commande.sidebar_view_suppliers')}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-muted-foreground">
+                      {t('bons_commande.sidebar_access_list')}
+                    </p>
                   </div>
-                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-400" />
+                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 shrink-0 rtl:rotate-180" />
                 </Link>
               </div>
+
             </CardContent>
           </Card>
         </div>

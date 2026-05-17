@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Users, Building2, User,
   ChevronLeft, ChevronRight, Mail, Phone, MapPin
@@ -46,6 +47,7 @@ interface Client {
 const ITEMS_PER_PAGE = 10;
 
 export function ClientsList() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +73,7 @@ export function ClientsList() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        toast.error('Erreur: ' + error.message);
+        toast.error(t('clients.toast_load_error'));
         setClients([]);
         setIsLoading(false);
         return;
@@ -102,10 +104,10 @@ export function ClientsList() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      toast.success('Client supprimé avec succès');
+      toast.success(t('clients.toast_deleted'));
       fetchClients();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('clients.toast_load_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setClientToDelete(null);
@@ -159,8 +161,8 @@ export function ClientsList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer le client"
-        description="Êtes-vous sûr de vouloir supprimer ce client ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_client')}
+        description={t('shared.confirm_delete.body_client')}
       />
 
       {/* Header */}
@@ -170,9 +172,9 @@ export function ClientsList() {
             <Users className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Clients</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('clients.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Gérez votre base de données clients
+              {t('clients.page_subtitle')}
             </p>
           </div>
         </div>
@@ -187,7 +189,7 @@ export function ClientsList() {
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau Client
+              {t('clients.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900 dark:border-white/10">
@@ -195,12 +197,12 @@ export function ClientsList() {
               <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900 dark:border-white/10">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingClient ? 'Modifier le client' : 'Nouveau Client'}
+                    {editingClient ? t('clients.dialog_edit') : t('clients.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingClient
-                      ? `Modification du client ${editingClient.nom}`
-                      : 'Ajoutez un nouveau client à votre base de données'}
+                      ? t('clients.dialog_subtitle_edit', { name: editingClient.nom })
+                      : t('clients.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -231,7 +233,7 @@ export function ClientsList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
             <Input
               type="text"
-              placeholder="Rechercher par nom, code, email ou téléphone..."
+              placeholder={t('clients.search_ph')}
               className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-400"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -243,12 +245,12 @@ export function ClientsList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/5">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[120px] dark:text-slate-400">Code</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Client</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Type</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Contact</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">ICE</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[120px] dark:text-slate-400">{t('clients.col_code')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_client')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_type')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_contact')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_ice')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">{t('clients.col_actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -257,7 +259,7 @@ export function ClientsList() {
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement des clients...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('clients.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -269,7 +271,7 @@ export function ClientsList() {
                           <Users className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
-                          {searchQuery ? 'Aucun client trouvé' : 'Aucun client enregistré'}
+                          {searchQuery ? t('clients.empty_filtered') : t('clients.empty_all')}
                         </p>
                         {!searchQuery && (
                           <Button
@@ -278,7 +280,7 @@ export function ClientsList() {
                             onClick={openNewForm}
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Ajouter votre premier client
+                            {t('clients.create_first')}
                           </Button>
                         )}
                       </div>
@@ -329,7 +331,7 @@ export function ClientsList() {
                             ) : (
                               <User className="h-3 w-3 mr-1" />
                             )}
-                            {client.type === 'entreprise' ? 'Entreprise' : 'Particulier'}
+                            {client.type === 'entreprise' ? t('clients.type_company') : t('clients.type_individual')}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
@@ -363,7 +365,7 @@ export function ClientsList() {
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:text-slate-500 dark:hover:text-white dark:hover:bg-white/5"
                               onClick={() => handleEdit(client)}
-                              title="Modifier"
+                              title={t('shared.actions.edit')}
                             >
                               <FileEdit className="h-4 w-4" />
                             </Button>
@@ -375,7 +377,7 @@ export function ClientsList() {
                                 setClientToDelete(client.id);
                                 setDeleteConfirmOpen(true);
                               }}
-                              title="Supprimer"
+                              title={t('shared.actions.delete')}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -391,7 +393,7 @@ export function ClientsList() {
             {!isLoading && paginatedClients.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">
                 <p className="text-xs text-slate-400 dark:text-slate-500">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClients.length)} sur {filteredClients.length}
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClients.length)} {t('shared.pagination.of')} {filteredClients.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -401,7 +403,7 @@ export function ClientsList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -426,7 +428,7 @@ export function ClientsList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -438,7 +440,7 @@ export function ClientsList() {
         <div className="lg:col-span-1 space-y-4">
           <Card className="border border-slate-200 shadow-none rounded-[6px] dark:bg-slate-900/60 dark:border-white/10">
             <CardHeader className="px-4 py-4 border-b border-slate-100 dark:border-white/5">
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">Aperçu des Clients</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('clients.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
@@ -446,8 +448,8 @@ export function ClientsList() {
                   <Users className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Total clients</p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">{clientsCount}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('clients.sidebar_total')}</p>
+                  <p className="text-lg font-bold text-slate-800 dark:text-white" dir="ltr">{clientsCount}</p>
                 </div>
               </div>
 
@@ -455,16 +457,16 @@ export function ClientsList() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-sky-500 dark:text-sky-400" />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Entreprises</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{t('clients.sidebar_companies')}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{entreprisesCount}</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300" dir="ltr">{entreprisesCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Particuliers</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{t('clients.sidebar_individuals')}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{particuliersCount}</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300" dir="ltr">{particuliersCount}</span>
                 </div>
               </div>
 
@@ -482,10 +484,10 @@ export function ClientsList() {
                   </div>
                   <div className="flex justify-between mt-1.5">
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                      {((entreprisesCount / clientsCount) * 100).toFixed(0)}% entreprises
+                      {((entreprisesCount / clientsCount) * 100).toFixed(0)}% {t('clients.sidebar_companies').toLowerCase()}
                     </span>
                     <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                      {((particuliersCount / clientsCount) * 100).toFixed(0)}% particuliers
+                      {((particuliersCount / clientsCount) * 100).toFixed(0)}% {t('clients.sidebar_individuals').toLowerCase()}
                     </span>
                   </div>
                 </div>

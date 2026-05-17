@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -25,26 +26,27 @@ import { Building2, User, Mail, Phone, MapPin, CreditCard, Save, Loader2, Truck 
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 
-const fournisseurSchema = z.object({
-  nom: z.string().min(2, { message: 'Le nom doit contenir au moins 2 caractères' }),
-  type: z.enum(['particulier', 'entreprise']),
-  contact: z.string().optional().or(z.literal('')),
-  email: z.string().optional().or(z.literal('')),
-  telephone: z.string().optional().or(z.literal('')),
-  adresse: z.string().optional().or(z.literal('')),
-  ville: z.string().optional().or(z.literal('')),
-  ice: z.string().optional().or(z.literal('')),
-});
-
-type FournisseurFormValues = z.infer<typeof fournisseurSchema>;
-
 interface FournisseurFormProps {
   initialData?: any;
   onSuccess?: () => void;
 }
 
 export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
+
+  const fournisseurSchema = z.object({
+    nom: z.string().min(2, { message: t('shared.validation.name_min') }),
+    type: z.enum(['particulier', 'entreprise']),
+    contact: z.string().optional().or(z.literal('')),
+    email: z.string().optional().or(z.literal('')),
+    telephone: z.string().optional().or(z.literal('')),
+    adresse: z.string().optional().or(z.literal('')),
+    ville: z.string().optional().or(z.literal('')),
+    ice: z.string().optional().or(z.literal('')),
+  });
+
+  type FournisseurFormValues = z.infer<typeof fournisseurSchema>;
   
   const form = useForm<FournisseurFormValues>({
     resolver: zodResolver(fournisseurSchema),
@@ -112,7 +114,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
       isInitialized.current = false;
       if (onSuccess) onSuccess();
     } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de l\'enregistrement du fournisseur');
+      toast.error(error.message || t('shared.toast.save_error'));
       console.error(error);
     }
   }
@@ -127,24 +129,24 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
             name="type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-sm font-semibold dark:text-slate-300">Type de fournisseur</FormLabel>
+                <FormLabel className="text-sm font-semibold dark:text-slate-300">{t('shared.form.type_label')}</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
-                      <SelectValue placeholder="Sélectionnez" />
+                      <SelectValue placeholder={t('shared.form.select_placeholder')} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="dark:bg-[#0F172A] dark:border-white/10">
                     <SelectItem value="entreprise" className="dark:text-white dark:focus:bg-white/5">
                       <div className="flex items-center gap-2">
                         <Building2 className="h-4 w-4 text-purple-500" />
-                        <span>Entreprise</span>
+                        <span>{t('fournisseurs.type_company')}</span>
                       </div>
                     </SelectItem>
                     <SelectItem value="particulier" className="dark:text-white dark:focus:bg-white/5">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-amber-500" />
-                        <span>Particulier</span>
+                        <span>{t('fournisseurs.type_individual')}</span>
                       </div>
                     </SelectItem>
                   </SelectContent>
@@ -160,7 +162,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-sm font-semibold dark:text-slate-300">
-                  {isEntreprise ? 'Nom de la société *' : 'Nom complet *'}
+                  {isEntreprise ? t('shared.form.company_name') : t('shared.form.full_name')}
                 </FormLabel>
                 <FormControl>
                   <div className="relative">
@@ -182,7 +184,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Mail className="h-4 w-4 text-primary" />
-            Informations de contact
+            {t('shared.form.contact_info')}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -190,7 +192,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">Email</FormLabel>
+                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.email')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -212,7 +214,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
               name="telephone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">Téléphone</FormLabel>
+                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.phone')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -234,7 +236,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <MapPin className="h-4 w-4 text-primary" />
-            Adresse
+            {t('shared.form.address_section')}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -242,7 +244,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
               name="adresse"
               render={({ field }) => (
                 <FormItem className="md:col-span-2">
-                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">Adresse complète</FormLabel>
+                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.full_address')}</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <MapPin className="absolute left-4 top-4 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -263,7 +265,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
               name="ville"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">Ville</FormLabel>
+                  <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.city')}</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="Casablanca" 
@@ -283,7 +285,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
           <div className="space-y-4 p-4 rounded-[6px] bg-sky-50/30 border border-sky-200/50 dark:bg-[#0F172A] dark:border-white/10">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground dark:text-white">
               <CreditCard className="h-4 w-4 text-purple-500" />
-              Informations fiscales
+              {t('shared.form.fiscal_info_short')}
             </div>
             
             <FormField
@@ -312,7 +314,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
           name="contact"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-sm font-semibold dark:text-slate-300">Personne de contact</FormLabel>
+              <FormLabel className="text-sm font-semibold dark:text-slate-300">{t('shared.form.contact_person')}</FormLabel>
               <FormControl>
                 <Input 
                   placeholder="Nom du responsable des commandes" 
@@ -335,12 +337,12 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
             {form.formState.isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Enregistrement...
+                {t('shared.actions.saving')}
               </>
             ) : (
               <>
                 <Save className="mr-2 h-5 w-5" />
-                {initialData?.id ? 'Modifier le fournisseur' : 'Enregistrer le fournisseur'}
+                {initialData?.id ? t('fournisseurs.dialog_edit') : t('fournisseurs.dialog_create')}
               </>
             )}
           </Button>

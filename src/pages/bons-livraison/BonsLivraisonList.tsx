@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download, Truck, Package, Clock,
   CheckCircle, Ban, ChevronLeft, ChevronRight, CalendarDays, Filter,
@@ -24,7 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS, ar as arLocale } from 'date-fns/locale'
 import {
   Dialog,
   DialogContent,
@@ -68,16 +69,15 @@ interface StatutOption {
   bgColor: string;
 }
 
-const statusOptions: StatutOption[] = [
-  { value: 'en_attente', label: 'En cours', icon: Clock, color: 'text-sky-700', bgColor: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
-  { value: 'livré', label: 'Reçu', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'partiel', label: 'Partiel', icon: Clock, color: 'text-orange-700', bgColor: 'bg-orange-50 text-orange-700 border border-orange-200/50' },
-  { value: 'annulé', label: 'Annulé', icon: Ban, color: 'text-slate-600', bgColor: 'bg-slate-50 text-slate-600 border border-slate-200/50' },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 export function BonsLivraisonList() {
+  const { t, i18n } = useTranslation()
+
+  // Resolve the date-fns locale from the active UI language
+  const dateFnsLocale = i18n.language?.startsWith('ar') ? arLocale
+    : i18n.language?.startsWith('en') ? enUS
+    : fr
   const { user } = useAuth();
   const [bons, setBons] = useState<BonLivraison[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +92,13 @@ export function BonsLivraisonList() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bonToDelete, setBonToDelete] = useState<number | null>(null);
+
+  const statusOptions: StatutOption[] = [
+    { value: 'en_attente', label: t('shared.status.in_progress'), icon: Clock, color: 'text-sky-700', bgColor: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
+    { value: 'livré', label: t('shared.status.received'), icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+    { value: 'partiel', label: t('shared.status.partial'), icon: Clock, color: 'text-orange-700', bgColor: 'bg-orange-50 text-orange-700 border border-orange-200/50' },
+    { value: 'annulé', label: t('shared.status.cancelled'), icon: Ban, color: 'text-slate-600', bgColor: 'bg-slate-50 text-slate-600 border border-slate-200/50' },
+  ];
 
   const componentRef = useRef<HTMLDivElement>(null);
 
@@ -128,7 +135,7 @@ export function BonsLivraisonList() {
       setBons(Array.isArray(data) ? (data || []).map(mapBonLivraison) : []);
     } catch (error) {
       console.error('Failed to fetch bons de livraison', error);
-      toast.error('Erreur lors du chargement');
+      toast.error(t('shared.toast.loading_error'));
     } finally {
       setIsLoading(false);
     }
@@ -187,11 +194,11 @@ export function BonsLivraisonList() {
     try {
       const { error } = await supabase.from('bons_livraison').delete().eq('id', bonToDelete);
       if (error) throw error;
-      toast.success('Bon de livraison supprimé');
+      toast.success(t('bons_livraison.toast_deleted'));
       fetchBons();
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('shared.toast.delete_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setBonToDelete(null);
@@ -234,13 +241,13 @@ export function BonsLivraisonList() {
       setIsDialogOpen(true);
     } catch (error) {
       console.error('Error loading bon:', error);
-      toast.error('Erreur lors du chargement du bon de livraison');
+      toast.error(t('bons_livraison.toast_load_error'));
     }
   };
 
   const handleDownload = async (bon: BonLivraison) => {
     try {
-      toast.info('Préparation du PDF...');
+      toast.info(t('shared.toast.pdf_preparing'));
 
       const { data: bonData, error } = await supabase
         .from('bons_livraison')
@@ -285,7 +292,7 @@ export function BonsLivraisonList() {
       setTimeout(() => handlePrint(), 100);
     } catch (error: any) {
       console.error('Download error:', error);
-      toast.error(error.message || 'Erreur lors du téléchargement');
+      toast.error(error.message || t('shared.toast.loading_error'));
     }
   };
 
@@ -337,10 +344,10 @@ export function BonsLivraisonList() {
         .eq('user_id', user?.id);
       if (error) throw error;
 
-      toast.success('Statut mis à jour');
+      toast.success(t('shared.toast.status_updated'));
       fetchBons();
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour du statut');
+      toast.error(t('shared.toast.update_error'));
     }
   };
 
@@ -354,7 +361,7 @@ export function BonsLivraisonList() {
       setDetailBon({ ...bon, lignes: lignesData || [] });
       setIsDetailOpen(true);
     } catch {
-      toast.error('Erreur lors du chargement des détails');
+      toast.error(t('shared.toast.loading_error'));
     }
   };
 
@@ -421,8 +428,8 @@ export function BonsLivraisonList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer le bon de livraison"
-        description="Êtes-vous sûr de vouloir supprimer ce bon de livraison ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_delivery')}
+        description={t('shared.confirm_delete.body_delivery')}
       />
 
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
@@ -436,9 +443,9 @@ export function BonsLivraisonList() {
             <Truck className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Bons de Livraison</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('bons_livraison.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Gérez les livraisons de vos fournisseurs
+              {t('bons_livraison.page_subtitle')}
             </p>
           </div>
         </div>
@@ -452,8 +459,8 @@ export function BonsLivraisonList() {
               onClick={openNewForm}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau Bon
+              <Plus className="me-2 h-4 w-4" />
+              {t('bons_livraison.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900">
@@ -461,12 +468,12 @@ export function BonsLivraisonList() {
               <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingBon ? 'Modifier le bon de livraison' : 'Nouveau Bon de Livraison'}
+                    {editingBon ? t('bons_livraison.dialog_edit') : t('bons_livraison.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingBon
-                      ? `Modification du bon ${editingBon.numero}`
-                      : 'Créez un nouveau bon de livraison pour vos fournisseurs'}
+                      ? t('bons_livraison.dialog_subtitle_edit', { number: editingBon.numero })
+                      : t('bons_livraison.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -498,7 +505,7 @@ export function BonsLivraisonList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 type="search"
-                placeholder="Rechercher par numéro ou fournisseur..."
+                placeholder={t('bons_livraison.search_ph')}
                 className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -506,11 +513,11 @@ export function BonsLivraisonList() {
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-10 w-[140px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm">
-                <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
-                <SelectValue placeholder="Statut" />
+                <Filter className="h-3.5 w-3.5 text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.table.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="all">{t('shared.filters.all_statuses')}</SelectItem>
                 {statusOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
@@ -523,12 +530,12 @@ export function BonsLivraisonList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/5">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Fournisseur</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">N° Bon</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.supplier')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.bon_number')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.date')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.amount')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('shared.table.status')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -537,7 +544,7 @@ export function BonsLivraisonList() {
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('shared.empty.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -550,8 +557,8 @@ export function BonsLivraisonList() {
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
                           {searchQuery || statusFilter !== 'all'
-                            ? 'Aucun bon trouvé'
-                            : 'Aucun bon de livraison créé'}
+                            ? t('bons_livraison.empty_filtered')
+                            : t('bons_livraison.empty_all')}
                         </p>
                         {!searchQuery && statusFilter === 'all' && (
                           <Button
@@ -559,8 +566,8 @@ export function BonsLivraisonList() {
                             className="mt-1 rounded-[4px] text-sm"
                             onClick={openNewForm}
                           >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Créer votre premier bon
+                            <Plus className="me-2 h-4 w-4" />
+                            {t('bons_livraison.create_first')}
                           </Button>
                         )}
                       </div>
@@ -596,25 +603,25 @@ export function BonsLivraisonList() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium text-slate-700 dark:text-white">{bon.numero}</span>
+                          <span dir="ltr" className="text-sm font-mono font-medium text-slate-700 dark:text-white">{bon.numero}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm text-slate-500 dark:text-slate-400">
+                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
                             {(() => {
                               try {
                                 const dateStr = bon.dateLivraison || bon.date;
                                 if (!dateStr) return '-';
                                 const date = new Date(dateStr);
                                 if (isNaN(date.getTime())) return '-';
-                                return format(date, 'dd MMM yyyy', { locale: fr });
+                                return format(date, 'dd MMM yyyy', { locale: dateFnsLocale });
                               } catch {
                                 return '-';
                               }
                             })()}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold text-slate-800 dark:text-white">
+                        <TableCell className="px-4 py-5 text-start">
+                          <span dir="ltr" className="text-sm font-bold text-slate-800 dark:text-white">
                             {formatCurrency(bon.montantTtc || bon.montant_ttc || 0)}
                           </span>
                         </TableCell>
@@ -650,14 +657,14 @@ export function BonsLivraisonList() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
+                        <TableCell className="px-4 py-5 text-start">
                           <div className="flex justify-end gap-0.5">
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
                               onClick={() => handleDownload(bon)}
-                              title="Imprimer"
+                              title={t('shared.actions.print')}
                             >
                               <Printer className="h-4 w-4" />
                             </Button>
@@ -666,7 +673,7 @@ export function BonsLivraisonList() {
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
                               onClick={() => handleViewDetail(bon)}
-                              title="Détails"
+                              title={t('shared.actions.view')}
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -679,7 +686,7 @@ export function BonsLivraisonList() {
                                   setBonToDelete(bon.id);
                                   setDeleteConfirmOpen(true);
                                 }}
-                                title="Supprimer"
+                                title={t('shared.actions.delete')}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -689,7 +696,7 @@ export function BonsLivraisonList() {
                                 size="icon"
                                 className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px] dark:hover:text-red-400 dark:hover:bg-white/5 dark:rounded-sm"
                                 onClick={() => handleStatusChange(bon.id, 'annulé')}
-                                title="Annuler"
+                                title={t('shared.status.cancelled')}
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>
@@ -705,8 +712,8 @@ export function BonsLivraisonList() {
 
             {!isLoading && paginatedBons.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">
-                <p className="text-xs text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredBons.length)} sur {filteredBons.length}
+                <p className="text-xs text-slate-400" dir="ltr">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredBons.length)} {t('shared.pagination.of')} {filteredBons.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -716,7 +723,7 @@ export function BonsLivraisonList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -741,7 +748,7 @@ export function BonsLivraisonList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -753,52 +760,90 @@ export function BonsLivraisonList() {
         <div className="lg:col-span-1">
           <Card className="border border-slate-200 shadow-none rounded-[6px] dark:border-white/10 dark:rounded-sm">
             <CardHeader className="px-4 py-4 border-b border-slate-100 dark:border-white/5">
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-white">Suivi des Réceptions</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-white">
+                {t('bons_livraison.sidebar_title')}
+              </CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
+
+              {/* ── Bons ce mois-ci ─────────────────────────────────── */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0 dark:rounded-sm dark:bg-primary/10 dark:border-primary/20">
                   <Package className="h-4 w-4 text-emerald-600 dark:text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Bons ce mois-ci</p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">{monthCount} bon{monthCount !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                    {t('bons_livraison.sidebar_this_month')}
+                  </p>
+                  {/*
+                   * RTL: number always reads LTR; plural resolved via proper
+                   * locale keys instead of appending a hardcoded English 's'.
+                   */}
+                  <p className="text-lg font-bold text-slate-800 dark:text-white" dir="ltr">
+                    {monthCount}{' '}
+                    <span className="text-sm font-normal text-slate-400 dark:text-muted-foreground">
+                      {monthCount === 1
+                        ? t('bons_livraison.sidebar_note_one')
+                        : t('bons_livraison.sidebar_note_other')}
+                    </span>
+                  </p>
                 </div>
               </div>
 
+              {/* ── Valeur stocks entrants ───────────────────────────── */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0 dark:rounded-sm dark:bg-primary/10 dark:border-primary/20">
                   <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Valeur stocks entrants</p>
-                  <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(monthValue)}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                    {t('bons_livraison.sidebar_incoming_value')}
+                  </p>
+                  <p dir="ltr" className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(monthValue)}
+                  </p>
                 </div>
               </div>
 
+              {/* ── En attente de réception ──────────────────────────── */}
               <div className="border-t border-slate-100 pt-4 flex items-center gap-3 dark:border-white/5">
                 <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-sky-50 border border-sky-200/50 shrink-0 dark:rounded-sm dark:bg-primary/10 dark:border-primary/20">
                   <Clock className="h-4 w-4 text-sky-600 dark:text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">En attente de réception</p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">{pendingReceipts} bon{pendingReceipts !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-slate-500 dark:text-muted-foreground">
+                    {t('bons_livraison.sidebar_awaiting')}
+                  </p>
+                  <p className="text-lg font-bold text-slate-800 dark:text-white" dir="ltr">
+                    {pendingReceipts}{' '}
+                    <span className="text-sm font-normal text-slate-400 dark:text-muted-foreground">
+                      {pendingReceipts === 1
+                        ? t('bons_livraison.sidebar_note_one')
+                        : t('bons_livraison.sidebar_note_other')}
+                    </span>
+                  </p>
                 </div>
               </div>
 
+              {/* ── Link to products ─────────────────────────────────── */}
               <div className="border-t border-slate-100 pt-4 dark:border-white/5">
                 <Link
                   to="/produits"
                   className="flex items-center gap-2 rounded-[6px] bg-slate-50 border border-slate-200/50 px-3 py-2.5 hover:bg-slate-100 transition-colors dark:rounded-sm dark:bg-slate-900/40 dark:border-white/10 dark:hover:bg-slate-900/60"
                 >
-                  <ShoppingBag className="h-4 w-4 text-slate-500" />
-                  <div className="flex-1">
-                    <p className="text-[11px] font-semibold text-slate-600">Vérifier les stocks</p>
-                    <p className="text-[11px] text-slate-400">Accéder aux produits</p>
+                  <ShoppingBag className="h-4 w-4 text-slate-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                      {t('bons_livraison.sidebar_check_stock')}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-muted-foreground">
+                      {t('bons_livraison.sidebar_access_products')}
+                    </p>
                   </div>
-                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-400" />
+                  <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 shrink-0 rtl:rotate-180" />
                 </Link>
               </div>
+
             </CardContent>
           </Card>
         </div>
@@ -813,7 +858,7 @@ export function BonsLivraisonList() {
                 <Truck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-bold dark:text-white">Détail du bon</DialogTitle>
+                <DialogTitle className="text-lg font-bold dark:text-white">{t('bons_livraison.detail_title')}</DialogTitle>
                 <p className="text-sm text-muted-foreground">{detailBon?.numero}</p>
               </div>
             </div>
@@ -828,7 +873,7 @@ export function BonsLivraisonList() {
                     if (!dateStr) return '-';
                     const date = new Date(dateStr);
                     if (isNaN(date.getTime())) return '-';
-                    return format(date, 'dd MMMM yyyy', { locale: fr });
+                    return format(date, 'dd MMMM yyyy', { locale: dateFnsLocale });
                   } catch { return '-'; }
                 })()}
                 <span className="mx-2 text-slate-300 dark:text-slate-600">·</span>
@@ -842,19 +887,19 @@ export function BonsLivraisonList() {
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b border-slate-100 dark:border-white/5">
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase">Produit</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Qté</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">PU HT</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-right">Total TTC</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase">{t('bons_livraison.detail_col_product')}</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start">{t('bons_livraison.detail_col_qty')}</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start">{t('bons_livraison.detail_col_unit_price')}</TableHead>
+                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start">{t('bons_livraison.detail_col_total')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {detailBon.lignes.map((l: any, i: number) => (
                         <TableRow key={i} className="border-b border-slate-100 last:border-0 dark:border-white/5">
                           <TableCell className="py-3 text-sm dark:text-white">{l.designation || 'Produit'}</TableCell>
-                          <TableCell className="py-3 text-right text-sm font-medium dark:text-white">{l.quantite}</TableCell>
-                          <TableCell className="py-3 text-right text-sm text-slate-500 dark:text-slate-400">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
-                          <TableCell className="py-3 text-right text-sm font-bold dark:text-white">{formatCurrency(l.montant_ttc || 0)}</TableCell>
+                          <TableCell className="py-3 text-start text-sm font-medium dark:text-white" dir="ltr">{l.quantite}</TableCell>
+                          <TableCell className="py-3 text-start text-sm text-slate-500 dark:text-slate-400" dir="ltr">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
+                          <TableCell className="py-3 text-start text-sm font-bold dark:text-white" dir="ltr">{formatCurrency(l.montant_ttc || 0)}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -864,16 +909,16 @@ export function BonsLivraisonList() {
 
               <div className="rounded-[6px] border border-slate-100 bg-slate-50/50 p-4 space-y-1.5 dark:border-white/10 dark:bg-slate-900/60 dark:rounded-sm">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">Total HT</span>
-                  <span className="font-medium text-slate-800 dark:text-white">{formatCurrency(detailBon.montantHt)}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('bons_livraison.detail_total_ht')}</span>
+                  <span dir="ltr" className="font-medium text-slate-800 dark:text-white">{formatCurrency(detailBon.montantHt)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">TVA</span>
-                  <span className="font-medium text-slate-800 dark:text-white">{formatCurrency(detailBon.montantTva)}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{t('bons_livraison.detail_tva')}</span>
+                  <span dir="ltr" className="font-medium text-slate-800 dark:text-white">{formatCurrency(detailBon.montantTva)}</span>
                 </div>
                 <div className="flex justify-between text-base font-bold pt-1.5 border-t border-slate-200 dark:border-white/10">
-                  <span className="text-slate-800 dark:text-white">Total TTC</span>
-                  <span className="text-emerald-600 dark:text-emerald-400">{formatCurrency(detailBon.montantTtc)}</span>
+                  <span className="text-slate-800 dark:text-white">{t('bons_livraison.detail_total_ttc')}</span>
+                  <span dir="ltr" className="text-emerald-600 dark:text-emerald-400">{formatCurrency(detailBon.montantTtc)}</span>
                 </div>
               </div>
             </div>
@@ -884,15 +929,15 @@ export function BonsLivraisonList() {
               onClick={() => setIsDetailOpen(false)}
               className="rounded-[4px] h-10"
             >
-              Fermer
+              {t('shared.actions.close')}
             </Button>
             {detailBon && (
               <Button
                 className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-[4px] h-10 shadow-none"
                 onClick={() => { handleEdit(detailBon); setIsDetailOpen(false); }}
               >
-                <FileEdit className="mr-2 h-4 w-4" />
-                Modifier
+                <FileEdit className="me-2 h-4 w-4" />
+                {t('shared.actions.edit')}
               </Button>
             )}
           </DialogFooter>

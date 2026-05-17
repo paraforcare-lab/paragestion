@@ -6,56 +6,202 @@ import { supabase } from './supabase.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const DOCUMENT_CONFIG: Record<string, { title: string; entityLabel: string; labels: Record<string, string> }> = {
-  facture: {
-    title: 'FACTURE',
-    entityLabel: 'Client',
-    labels: {
-      numero: 'Numéro',
-      date: 'Date',
-      reference: 'Référence',
-      modePaiement: 'Mode de Règlement',
-      echeance: 'Échéance',
-      agent: 'Agent',
+interface DocumentLabels {
+  title: string;
+  entityLabel: string;
+  labels: Record<string, string>;
+  itemCols: string[];
+  totals: { ht: string; ttc: string; vatPrefix: string; dhs: string };
+  words: { arrête: string; dirhams: string; centimes: string };
+  signature: { client: string; company: string };
+  footer: { generatedBy: string };
+  devis: { validité: string; conditions: string };
+  notes: string;
+  payment: string;
+  headerIce: string;
+}
+
+const DOCUMENT_LABELS: Record<string, Record<string, DocumentLabels>> = {
+  fr: {
+    facture: {
+      title: 'FACTURE',
+      entityLabel: 'Client',
+      labels: { numero: 'Numéro', date: 'Date', reference: 'Référence', modePaiement: 'Mode de Règlement', echeance: 'Échéance', agent: 'Agent' },
+      itemCols: ['Référence', 'Désignation', 'Qté', 'PU HT', 'Montant HT'],
+      totals: { ht: 'Total HT', ttc: 'Total TTC', vatPrefix: 'TVA', dhs: 'DHS' },
+      words: { arrête: 'Arrêté le présent document à la somme de :', dirhams: 'dirhams', centimes: 'centimes' },
+      signature: { client: 'Cachet et Signature du Client', company: 'Cachet et Signature de la Société' },
+      footer: { generatedBy: 'Généré par ParaGestion' },
+      devis: { validité: "Validité de l'offre:", conditions: 'Conditions de règlement:' },
+      notes: 'Notes:',
+      payment: 'Mode de paiement:',
+      headerIce: 'I.C.E:',
+    },
+    devis: {
+      title: 'DEVIS',
+      entityLabel: 'Client',
+      labels: { numero: 'Numéro', date: 'Date', reference: 'Référence', modePaiement: 'Mode de Règlement', echeance: 'Échéance', agent: 'Agent' },
+      itemCols: ['Référence', 'Désignation', 'Qté', 'PU HT', 'Montant HT'],
+      totals: { ht: 'Total HT', ttc: 'Total TTC', vatPrefix: 'TVA', dhs: 'DHS' },
+      words: { arrête: 'Arrêté le présent document à la somme de :', dirhams: 'dirhams', centimes: 'centimes' },
+      signature: { client: 'Cachet et Signature du Client', company: 'Cachet et Signature de la Société' },
+      footer: { generatedBy: 'Généré par ParaGestion' },
+      devis: { validité: "Validité de l'offre:", conditions: 'Conditions de règlement:' },
+      notes: 'Notes:',
+      payment: 'Mode de paiement:',
+      headerIce: 'I.C.E:',
+    },
+    bon_commande: {
+      title: 'BON DE COMMANDE',
+      entityLabel: 'Fournisseur',
+      labels: { numero: 'Numéro', date: 'Date', reference: 'Référence', modePaiement: 'Mode de Règlement', echeance: 'Échéance', agent: 'Agent' },
+      itemCols: ['Référence', 'Désignation', 'Qté', 'PU HT', 'Montant HT'],
+      totals: { ht: 'Total HT', ttc: 'Total TTC', vatPrefix: 'TVA', dhs: 'DHS' },
+      words: { arrête: 'Arrêté le présent document à la somme de :', dirhams: 'dirhams', centimes: 'centimes' },
+      signature: { client: 'Cachet et Signature du Fournisseur', company: 'Cachet et Signature de la Société' },
+      footer: { generatedBy: 'Généré par ParaGestion' },
+      devis: { validité: "Validité de l'offre:", conditions: 'Conditions de règlement:' },
+      notes: 'Notes:',
+      payment: 'Mode de paiement:',
+      headerIce: 'I.C.E:',
+    },
+    bon_livraison: {
+      title: 'BON DE LIVRAISON',
+      entityLabel: 'Fournisseur',
+      labels: { numero: 'Numéro', date: 'Date', reference: 'Référence', modePaiement: 'Mode de Règlement', echeance: 'Échéance', agent: 'Agent' },
+      itemCols: ['Référence', 'Désignation', 'Qté', 'PU HT', 'Montant HT'],
+      totals: { ht: 'Total HT', ttc: 'Total TTC', vatPrefix: 'TVA', dhs: 'DHS' },
+      words: { arrête: 'Arrêté le présent document à la somme de :', dirhams: 'dirhams', centimes: 'centimes' },
+      signature: { client: 'Cachet et Signature du Fournisseur', company: 'Cachet et Signature de la Société' },
+      footer: { generatedBy: 'Généré par ParaGestion' },
+      devis: { validité: "Validité de l'offre:", conditions: 'Conditions de règlement:' },
+      notes: 'Notes:',
+      payment: 'Mode de paiement:',
+      headerIce: 'I.C.E:',
     },
   },
-  devis: {
-    title: 'DEVIS',
-    entityLabel: 'Client',
-    labels: {
-      numero: 'Numéro',
-      date: 'Date',
-      reference: 'Référence',
-      modePaiement: 'Mode de Règlement',
-      echeance: 'Échéance',
-      agent: 'Agent',
+  en: {
+    facture: {
+      title: 'INVOICE',
+      entityLabel: 'Client',
+      labels: { numero: 'No.', date: 'Date', reference: 'Reference', modePaiement: 'Payment Method', echeance: 'Due Date', agent: 'Agent' },
+      itemCols: ['Reference', 'Description', 'Qty', 'Unit Price', 'Total'],
+      totals: { ht: 'Total (excl. tax)', ttc: 'Total (incl. tax)', vatPrefix: 'VAT', dhs: 'MAD' },
+      words: { arrête: 'Total amount in words:', dirhams: 'MAD', centimes: 'Centimes' },
+      signature: { client: 'Client Signature & Stamp', company: 'Company Signature & Stamp' },
+      footer: { generatedBy: 'Generated by ParaGestion' },
+      devis: { validité: 'Offer validity:', conditions: 'Payment terms:' },
+      notes: 'Notes:',
+      payment: 'Payment method:',
+      headerIce: 'ICE:',
+    },
+    devis: {
+      title: 'QUOTE',
+      entityLabel: 'Client',
+      labels: { numero: 'No.', date: 'Date', reference: 'Reference', modePaiement: 'Payment Method', echeance: 'Valid Until', agent: 'Agent' },
+      itemCols: ['Reference', 'Description', 'Qty', 'Unit Price', 'Total'],
+      totals: { ht: 'Total (excl. tax)', ttc: 'Total (incl. tax)', vatPrefix: 'VAT', dhs: 'MAD' },
+      words: { arrête: 'Total amount in words:', dirhams: 'MAD', centimes: 'Centimes' },
+      signature: { client: 'Client Signature & Stamp', company: 'Company Signature & Stamp' },
+      footer: { generatedBy: 'Generated by ParaGestion' },
+      devis: { validité: 'Offer validity:', conditions: 'Payment terms:' },
+      notes: 'Notes:',
+      payment: 'Payment method:',
+      headerIce: 'ICE:',
+    },
+    bon_commande: {
+      title: 'PURCHASE ORDER',
+      entityLabel: 'Supplier',
+      labels: { numero: 'No.', date: 'Date', reference: 'Reference', modePaiement: 'Payment Method', echeance: 'Due Date', agent: 'Agent' },
+      itemCols: ['Reference', 'Description', 'Qty', 'Unit Price', 'Total'],
+      totals: { ht: 'Total (excl. tax)', ttc: 'Total (incl. tax)', vatPrefix: 'VAT', dhs: 'MAD' },
+      words: { arrête: 'Total amount in words:', dirhams: 'MAD', centimes: 'Centimes' },
+      signature: { client: 'Supplier Signature & Stamp', company: 'Company Signature & Stamp' },
+      footer: { generatedBy: 'Generated by ParaGestion' },
+      devis: { validité: 'Offer validity:', conditions: 'Payment terms:' },
+      notes: 'Notes:',
+      payment: 'Payment method:',
+      headerIce: 'ICE:',
+    },
+    bon_livraison: {
+      title: 'DELIVERY NOTE',
+      entityLabel: 'Supplier',
+      labels: { numero: 'No.', date: 'Date', reference: 'Reference', modePaiement: 'Payment Method', echeance: 'Due Date', agent: 'Agent' },
+      itemCols: ['Reference', 'Description', 'Qty', 'Unit Price', 'Total'],
+      totals: { ht: 'Total (excl. tax)', ttc: 'Total (incl. tax)', vatPrefix: 'VAT', dhs: 'MAD' },
+      words: { arrête: 'Total amount in words:', dirhams: 'MAD', centimes: 'Centimes' },
+      signature: { client: 'Supplier Signature & Stamp', company: 'Company Signature & Stamp' },
+      footer: { generatedBy: 'Generated by ParaGestion' },
+      devis: { validité: 'Offer validity:', conditions: 'Payment terms:' },
+      notes: 'Notes:',
+      payment: 'Payment method:',
+      headerIce: 'ICE:',
     },
   },
-  bon_commande: {
-    title: 'BON DE COMMANDE',
-    entityLabel: 'Fournisseur',
-    labels: {
-      numero: 'Numéro',
-      date: 'Date',
-      reference: 'Référence',
-      modePaiement: 'Mode de Règlement',
-      echeance: 'Échéance',
-      agent: 'Agent',
+  ar: {
+    facture: {
+      title: 'فاتورة',
+      entityLabel: 'العميل',
+      labels: { numero: 'الرقم', date: 'التاريخ', reference: 'المرجع', modePaiement: 'طريقة الدفع', echeance: 'تاريخ الاستحقاق', agent: 'الوكيل' },
+      itemCols: ['المرجع', 'البيان', 'الكمية', 'ثمن الوحدة', 'المبلغ'],
+      totals: { ht: 'المجموع (خ.ض)', ttc: 'المجموع شامل الرسوم', vatPrefix: 'ض.ق.م', dhs: 'درهم' },
+      words: { arrête: 'المبلغ الإجمالي بالحروف:', dirhams: 'درهما', centimes: 'سنتيما' },
+      signature: { client: 'ختم وتوقيع العميل', company: 'ختم وتوقيع الشركة' },
+      footer: { generatedBy: 'تم الإنشاء بواسطة ParaGestion' },
+      devis: { validité: 'صلاحية العرض:', conditions: 'شروط الدفع:' },
+      notes: 'ملاحظات:',
+      payment: 'طريقة الدفع:',
+      headerIce: 'I.C.E:',
     },
-  },
-  bon_livraison: {
-    title: 'BON DE LIVRAISON',
-    entityLabel: 'Fournisseur',
-    labels: {
-      numero: 'Numéro',
-      date: 'Date',
-      reference: 'Référence',
-      modePaiement: 'Mode de Règlement',
-      echeance: 'Échéance',
-      agent: 'Agent',
+    devis: {
+      title: 'عرض سعر',
+      entityLabel: 'العميل',
+      labels: { numero: 'الرقم', date: 'التاريخ', reference: 'المرجع', modePaiement: 'طريقة الدفع', echeance: 'تاريخ الصلاحية', agent: 'الوكيل' },
+      itemCols: ['المرجع', 'البيان', 'الكمية', 'ثمن الوحدة', 'المبلغ'],
+      totals: { ht: 'المجموع (خ.ض)', ttc: 'المجموع شامل الرسوم', vatPrefix: 'ض.ق.م', dhs: 'درهم' },
+      words: { arrête: 'المبلغ الإجمالي بالحروف:', dirhams: 'درهما', centimes: 'سنتيما' },
+      signature: { client: 'ختم وتوقيع العميل', company: 'ختم وتوقيع الشركة' },
+      footer: { generatedBy: 'تم الإنشاء بواسطة ParaGestion' },
+      devis: { validité: 'صلاحية العرض:', conditions: 'شروط الدفع:' },
+      notes: 'ملاحظات:',
+      payment: 'طريقة الدفع:',
+      headerIce: 'I.C.E:',
+    },
+    bon_commande: {
+      title: 'أمر شراء',
+      entityLabel: 'المورد',
+      labels: { numero: 'الرقم', date: 'التاريخ', reference: 'المرجع', modePaiement: 'طريقة الدفع', echeance: 'تاريخ الاستحقاق', agent: 'الوكيل' },
+      itemCols: ['المرجع', 'البيان', 'الكمية', 'ثمن الوحدة', 'المبلغ'],
+      totals: { ht: 'المجموع (خ.ض)', ttc: 'المجموع شامل الرسوم', vatPrefix: 'ض.ق.م', dhs: 'درهم' },
+      words: { arrête: 'المبلغ الإجمالي بالحروف:', dirhams: 'درهما', centimes: 'سنتيما' },
+      signature: { client: 'ختم وتوقيع المورد', company: 'ختم وتوقيع الشركة' },
+      footer: { generatedBy: 'تم الإنشاء بواسطة ParaGestion' },
+      devis: { validité: 'صلاحية العرض:', conditions: 'شروط الدفع:' },
+      notes: 'ملاحظات:',
+      payment: 'طريقة الدفع:',
+      headerIce: 'I.C.E:',
+    },
+    bon_livraison: {
+      title: 'إيصال تسليم',
+      entityLabel: 'المورد',
+      labels: { numero: 'الرقم', date: 'التاريخ', reference: 'المرجع', modePaiement: 'طريقة الدفع', echeance: 'تاريخ الاستحقاق', agent: 'الوكيل' },
+      itemCols: ['المرجع', 'البيان', 'الكمية', 'ثمن الوحدة', 'المبلغ'],
+      totals: { ht: 'المجموع (خ.ض)', ttc: 'المجموع شامل الرسوم', vatPrefix: 'ض.ق.م', dhs: 'درهم' },
+      words: { arrête: 'المبلغ الإجمالي بالحروف:', dirhams: 'درهما', centimes: 'سنتيما' },
+      signature: { client: 'ختم وتوقيع المورد', company: 'ختم وتوقيع الشركة' },
+      footer: { generatedBy: 'تم الإنشاء بواسطة ParaGestion' },
+      devis: { validité: 'صلاحية العرض:', conditions: 'شروط الدفع:' },
+      notes: 'ملاحظات:',
+      payment: 'طريقة الدفع:',
+      headerIce: 'I.C.E:',
     },
   },
 };
+
+function getDocumentLabels(docType: string, language: string = 'fr'): DocumentLabels {
+  const lang = language?.startsWith('ar') ? 'ar' : language?.startsWith('en') ? 'en' : 'fr';
+  return DOCUMENT_LABELS[lang]?.[docType] || DOCUMENT_LABELS.fr.facture;
+}
 
 const NUMBER_UNITS = [
   '', 'mille', 'million', 'milliard',
@@ -145,13 +291,15 @@ function numberToWords(n: number): string {
   return result.trim();
 }
 
-function numberToWordsCurrency(amount: number): string {
-  const euros = Math.floor(amount);
-  const cents = Math.round((amount - euros) * 100);
+function numberToWordsCurrency(amount: number, labels?: DocumentLabels): string {
+  const whole = Math.floor(amount);
+  const cents = Math.round((amount - whole) * 100);
+  const d = labels?.words.dirhams || 'dirhams';
+  const c = labels?.words.centimes || 'centimes';
 
-  let result = numberToWords(euros) + ' dirhams';
+  let result = numberToWords(whole) + ' ' + d;
   if (cents > 0) {
-    result += ' et ' + numberToWords(cents) + ' centimes';
+    result += ' et ' + numberToWords(cents) + ' ' + c;
   }
   return result.charAt(0).toUpperCase() + result.slice(1);
 }
@@ -163,10 +311,11 @@ function formatCurrency(value: number, decimals: number = 2): string {
   }).format(value);
 }
 
-function formatDate(dateStr: string): string {
+function formatDate(dateStr: string, language?: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  return new Intl.DateTimeFormat('fr-FR').format(d);
+  const locale = language?.startsWith('ar') ? 'ar-MA' : language?.startsWith('en') ? 'en-US' : 'fr-FR';
+  return new Intl.DateTimeFormat(locale).format(d);
 }
 
 interface TvaBucket {
@@ -203,6 +352,7 @@ export interface DocumentItem {
 
 export interface DocumentData {
   documentType: 'facture' | 'devis' | 'bon_commande' | 'bon_livraison';
+  language?: string;
   userId?: string;
   numero: string;
   date: string;
@@ -241,9 +391,9 @@ export interface DocumentData {
 }
 
 function generateHTML(data: DocumentData): string {
-  const config = DOCUMENT_CONFIG[data.documentType] || DOCUMENT_CONFIG.facture;
-  const title = config.title;
-  const entityLabel = config.entityLabel;
+  const L = getDocumentLabels(data.documentType, data.language);
+  const title = L.title;
+  const entityLabel = L.entityLabel;
 
   let totalHT = 0;
   let totalTVA = 0;
@@ -272,36 +422,39 @@ function generateHTML(data: DocumentData): string {
   }).join('');
 
   const tvaBuckets = computeTvaBuckets(data.items);
+  const dhs = L.totals.dhs;
   const tvaRows = tvaBuckets.length > 0
     ? tvaBuckets.map(b => `
       <tr>
-        <td style="padding:4px 8px;border:1px solid #000;text-align:left;">TVA ${b.rate}%</td>
-        <td style="padding:4px 8px;border:1px solid #000;text-align:right;font-weight:600;">${formatCurrency(b.montantTva)} DHS</td>
+        <td style="padding:4px 8px;border:1px solid #000;text-align:left;">${L.totals.vatPrefix} ${b.rate}%</td>
+        <td style="padding:4px 8px;border:1px solid #000;text-align:right;font-weight:600;">${formatCurrency(b.montantTva)} ${dhs}</td>
       </tr>`).join('')
     : `
       <tr>
-        <td style="padding:4px 8px;border:1px solid #000;text-align:left;">TVA 0%</td>
-        <td style="padding:4px 8px;border:1px solid #000;text-align:right;font-weight:600;">0,00 DHS</td>
+        <td style="padding:4px 8px;border:1px solid #000;text-align:left;">${L.totals.vatPrefix} 0%</td>
+        <td style="padding:4px 8px;border:1px solid #000;text-align:right;font-weight:600;">0,00 ${dhs}</td>
       </tr>`;
 
-  const amountInWords = numberToWordsCurrency(totalTTC);
-  const echeance = data.echeance ? formatDate(data.echeance) : null;
+  const amountInWords = numberToWordsCurrency(totalTTC, L);
+  const echeance = data.echeance ? formatDate(data.echeance, data.language) : null;
 
   const clientLines = [
     `<strong>${entityLabel}:</strong> ${data.client.nom}`,
     data.client.adresse ? data.client.adresse : null,
     data.client.ville ? data.client.ville : null,
-    data.client.telephone ? 'Tél: ' + data.client.telephone : null,
+    data.client.telephone ? (data.language?.startsWith('ar') ? 'هاتف: ' : data.language?.startsWith('en') ? 'Tel: ' : 'Tél: ') + data.client.telephone : null,
     data.client.email ? 'Email: ' + data.client.email : null,
-    data.client.ice ? 'ICE: ' + data.client.ice : null,
+    data.client.ice ? (data.language?.startsWith('ar') ? 'I.C.E: ' : 'ICE: ') + data.client.ice : null,
   ].filter(Boolean).join('<br>');
 
-  const itemCols = ['Référence', 'Désignation', 'Qté', 'PU HT', 'Montant HT'];
+  const itemCols = L.itemCols;
 
   const isFirstPage = true;
+  const htmlLang = data.language?.startsWith('ar') ? 'ar' : data.language?.startsWith('en') ? 'en' : 'fr';
+  const htmlDir = htmlLang === 'ar' ? 'rtl' : 'ltr';
 
   return `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${htmlLang}" dir="${htmlDir}">
 <head>
 <meta charset="UTF-8">
 <style>
@@ -450,12 +603,12 @@ function generateHTML(data: DocumentData): string {
       }
       <div>
         <div class="brand-name">${data.company.nom || 'ParaGestion'}</div>
-        <div class="brand-sub">Solution de Gestion</div>
+        <div class="brand-sub">${data.language?.startsWith('ar') ? 'حل الإدارة' : data.language?.startsWith('en') ? 'Management Solution' : 'Solution de Gestion'}</div>
       </div>
     </div>
     <div class="title-right">
       <div class="doc-title">${title}</div>
-      <div class="doc-ice">I.C.E: ${data.company.ice}</div>
+      <div class="doc-ice">${L.headerIce} ${data.company.ice}</div>
     </div>
   </div>
 
@@ -463,13 +616,13 @@ function generateHTML(data: DocumentData): string {
   <table class="metadata-table">
     <thead>
       <tr>
-        ${Object.values(config.labels).map(l => `<th>${l}</th>`).join('')}
+        ${Object.values(L.labels).map(l => `<th>${l}</th>`).join('')}
       </tr>
     </thead>
     <tbody>
       <tr>
         <td>${data.numero}</td>
-        <td>${formatDate(data.date)}</td>
+        <td>${formatDate(data.date, data.language)}</td>
         <td>${data.reference || '-'}</td>
         <td>${data.modePaiement || '-'}</td>
         <td>${echeance || '-'}</td>
@@ -487,11 +640,11 @@ function generateHTML(data: DocumentData): string {
   <table class="items-table">
     <thead>
       <tr>
-        <th class="ref">Référence</th>
-        <th class="des">Désignation</th>
-        <th class="qty">Qté</th>
-        <th class="pu">PU HT</th>
-        <th class="mht">Montant HT</th>
+        <th class="ref">${L.itemCols[0]}</th>
+        <th class="des">${L.itemCols[1]}</th>
+        <th class="qty">${L.itemCols[2]}</th>
+        <th class="pu">${L.itemCols[3]}</th>
+        <th class="mht">${L.itemCols[4]}</th>
       </tr>
     </thead>
     <tbody>
@@ -502,19 +655,19 @@ function generateHTML(data: DocumentData): string {
   <!-- TOTALS + WORDS -->
   <div class="totals-wrapper">
     <div class="words-block">
-      <p class="label">Arrêté le présent document à la somme de :</p>
-      <p class="amount">${amountInWords} Dirhams DHS</p>
-      ${data.modePaiement ? '<p class="payment">Mode de paiement: ' + data.modePaiement + '</p>' : ''}
+      <p class="label">${L.words.arrête}</p>
+      <p class="amount">${amountInWords}</p>
+      ${data.modePaiement ? '<p class="payment">' + L.payment + ' ' + data.modePaiement + '</p>' : ''}
     </div>
     <table class="totals-table">
       <tr>
-        <td>Total HT</td>
-        <td class="value-cell">${formatCurrency(totalHT)} DHS</td>
+        <td>${L.totals.ht}</td>
+        <td class="value-cell">${formatCurrency(totalHT)} ${dhs}</td>
       </tr>
       ${tvaRows}
       <tr class="total-ttc">
-        <td>Total TTC</td>
-        <td class="value-cell">${formatCurrency(totalTTC)} DHS</td>
+        <td>${L.totals.ttc}</td>
+        <td class="value-cell">${formatCurrency(totalTTC)} ${dhs}</td>
       </tr>
     </table>
   </div>
@@ -522,15 +675,15 @@ function generateHTML(data: DocumentData): string {
   <!-- DEVIS-SPECIFIC -->
   ${data.documentType === 'devis' && (data.echeance || data.conditionsPaiement) ? `
   <div class="devis-extra">
-    ${data.echeance ? '<div><strong>Validité de l\'offre:</strong> ' + formatDate(data.echeance) + '</div>' : ''}
-    ${data.conditionsPaiement ? '<div><strong>Conditions de règlement:</strong> ' + data.conditionsPaiement + '</div>' : ''}
+    ${data.echeance ? '<div><strong>' + L.devis.validité + '</strong> ' + formatDate(data.echeance, data.language) + '</div>' : ''}
+    ${data.conditionsPaiement ? '<div><strong>' + L.devis.conditions + '</strong> ' + data.conditionsPaiement + '</div>' : ''}
   </div>
   ` : ''}
 
   <!-- NOTES -->
   ${data.notes ? `
   <div class="notes-section">
-    <strong>Notes:</strong> ${data.notes}
+    <strong>${L.notes}</strong> ${data.notes}
   </div>
   ` : ''}
 
@@ -538,22 +691,22 @@ function generateHTML(data: DocumentData): string {
   <div class="signatures">
     <div class="signature-box">
       <div class="signature-line"></div>
-      <div class="signature-label">Cachet et Signature du ${entityLabel}</div>
+      <div class="signature-label">${L.signature.client}</div>
     </div>
     <div class="signature-box">
       <div class="signature-line"></div>
-      <div class="signature-label">Cachet et Signature de la Société</div>
+      <div class="signature-label">${L.signature.company}</div>
     </div>
   </div>
 
   <!-- FOOTER -->
   <div class="footer">
-    ${data.company.formeJuridique && data.company.capital ? data.company.formeJuridique + ' au Capital de ' + data.company.capital + ' — ' : ''}
+    ${data.company.formeJuridique && data.company.capital ? data.company.formeJuridique + (data.language?.startsWith('en') ? ' with capital of ' : ' au Capital de ') + data.company.capital + ' — ' : ''}
     ${data.company.rc ? 'R.C: ' + data.company.rc + ' — ' : ''}
-    ${data.company.if_number ? 'I.F: ' + data.company.if_number + ' — ' : ''}
-    ${data.company.ice ? 'I.C.E: ' + data.company.ice : ''}
+    ${data.company.if_number ? (data.language?.startsWith('ar') ? 'I.F: ' : 'I.F: ') + data.company.if_number + ' — ' : ''}
+    ${data.company.ice ? (data.language?.startsWith('ar') ? 'I.C.E: ' : 'ICE: ') + data.company.ice : ''}
     <br>
-    <span class="app-credit">Généré par ParaGestion</span>
+    <span class="app-credit">${L.footer.generatedBy}</span>
   </div>
 </div>
 </body>
@@ -620,7 +773,7 @@ export async function generatePDF(data: DocumentData): Promise<Buffer> {
 
   try {
     const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
+    await page.setContent(html, { waitUntil: 'networkidle0' as any });
 
     const pdf = await page.pdf({
       format: 'A4',
@@ -641,29 +794,30 @@ export async function generatePDFController(req: any, res: any) {
 
     if (!data.documentType || !data.items || !data.numero || !data.date) {
       return res.status(400).json({
-        error: 'Champs requis manquants: documentType, items, numero, date',
+        error: 'Missing required fields: documentType, items, numero, date',
       });
     }
 
-    if (!DOCUMENT_CONFIG[data.documentType]) {
+    const supportedTypes = ['facture', 'devis', 'bon_commande', 'bon_livraison'];
+    if (!supportedTypes.includes(data.documentType)) {
       return res.status(400).json({
-        error: `Type de document invalide: ${data.documentType}. Types supportés: ${Object.keys(DOCUMENT_CONFIG).join(', ')}`,
+        error: `Type de document invalide: ${data.documentType}. Types supportés: ${supportedTypes.join(', ')}`,
       });
     }
 
     if (!Array.isArray(data.items) || data.items.length === 0) {
       return res.status(400).json({
-        error: 'La liste des articles (items) est vide ou invalide',
+        error: 'Items list is empty or invalid',
       });
     }
 
     if (!data.client?.nom) {
-      return res.status(400).json({ error: 'Le nom du client est requis' });
+      return res.status(400).json({ error: 'Client name is required' });
     }
 
     if (!data.company?.rc || !data.company?.if_number || !data.company?.ice) {
       return res.status(400).json({
-        error: 'Informations société requises: rc, if_number, ice',
+        error: 'Company info required: rc, if_number, ice',
       });
     }
 
@@ -671,8 +825,8 @@ export async function generatePDFController(req: any, res: any) {
 
     const pdfBuffer = await generatePDF(data);
 
-    const config = DOCUMENT_CONFIG[data.documentType];
-    const filename = `${config.title.replace(/\s+/g, '_')}_${data.numero.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    const L = getDocumentLabels(data.documentType, data.language);
+    const filename = `${L.title.replace(/\s+/g, '_')}_${data.numero.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
     res.set({
       'Content-Type': 'application/pdf',

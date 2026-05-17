@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -17,30 +18,32 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { ImageUpload } from '@/components/ui/ImageUpload'
 
-const produitSchema = z.object({
-  reference: z.string().optional(),
-  nom: z.string().min(2, { message: 'Le nom est requis.' }),
-  description: z.string().optional(),
-  marque: z.string().optional(),
-  barcode: z.string().optional(),
-  prixVenteHt: z.coerce.number().min(0),
-  prixAchatHt: z.coerce.number().min(0),
-  tauxTva: z.coerce.number().min(0).max(100),
-  stockActuel: z.coerce.number().int(),
-  stockMin: z.coerce.number().int().optional(),
-  unite: z.string().optional(),
-  imageUrl: z.string().optional(),
-});
-
-type ProduitFormValues = z.infer<typeof produitSchema>;
-
 interface ProduitFormProps {
   initialData?: any;
   onSuccess?: () => void;
 }
 
 export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
+
+  const produitSchema = z.object({
+    reference: z.string().optional(),
+    nom: z.string().min(2, { message: t('shared.validation.product_name_required') }),
+    description: z.string().optional(),
+    marque: z.string().optional(),
+    barcode: z.string().optional(),
+    prixVenteHt: z.coerce.number().min(0),
+    prixAchatHt: z.coerce.number().min(0),
+    tauxTva: z.coerce.number().min(0).max(100),
+    stockActuel: z.coerce.number().int(),
+    stockMin: z.coerce.number().int().optional(),
+    unite: z.string().optional(),
+    imageUrl: z.string().optional(),
+  });
+
+  type ProduitFormValues = z.infer<typeof produitSchema>;
+
   const form = useForm<ProduitFormValues>({
     resolver: zodResolver(produitSchema) as any,
     defaultValues: {
@@ -108,7 +111,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
       toast.success('Produit enregistré avec succès');
       if (onSuccess) onSuccess();
     } catch (error: any) {
-      toast.error(error.message || 'Erreur lors de l\'enregistrement du produit');
+      toast.error(error.message || t('shared.toast.save_error'));
       console.error(error);
     }
   }
@@ -127,7 +130,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
                      <ImageUpload
                        value={field.value || undefined}
                        onChange={field.onChange}
-                       label="Image du produit"
+                       label={t('shared.form.image_label')}
                      />
                    </FormControl>
                    <FormMessage />
@@ -142,7 +145,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
              name="reference"
              render={({ field }) => (
                <FormItem>
-                 <FormLabel>Référence</FormLabel>
+                 <FormLabel>{t('shared.form.ref')}</FormLabel>
                  <FormControl>
                    <Input placeholder="REF-001" {...field} />
                  </FormControl>
@@ -156,7 +159,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
              name="barcode"
              render={({ field }) => (
                <FormItem>
-                 <FormLabel>Code-barres (EAN)</FormLabel>
+                 <FormLabel>{t('shared.form.barcode')}</FormLabel>
                  <FormControl>
                    <Input placeholder="6111234567890" {...field} />
                  </FormControl>
@@ -172,7 +175,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="nom"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nom du produit</FormLabel>
+                <FormLabel>{t('shared.form.product_name')}</FormLabel>
                 <FormControl>
                   <Input placeholder="Ordinateur Portable" {...field} />
                 </FormControl>
@@ -186,7 +189,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="marque"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Marque / Laboratoire</FormLabel>
+                <FormLabel>{t('shared.form.brand')}</FormLabel>
                 <FormControl>
                   <Input placeholder="Ex: Vichy, Bioderma..." {...field} />
                 </FormControl>
@@ -201,7 +204,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>{t('shared.form.description_label')}</FormLabel>
               <FormControl>
                 <Input placeholder="Description détaillée..." {...field} />
               </FormControl>
@@ -216,7 +219,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="prixAchatHt"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Prix Achat HT</FormLabel>
+                <FormLabel>{t('shared.form.buy_price_ht')}</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} />
                 </FormControl>
@@ -230,7 +233,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="prixVenteHt"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Prix Vente HT</FormLabel>
+                <FormLabel>{t('shared.form.sale_price_ht')}</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} />
                 </FormControl>
@@ -244,7 +247,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="tauxTva"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>TVA (%)</FormLabel>
+                <FormLabel>{t('shared.form.vat_pct')}</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.1" {...field} />
                 </FormControl>
@@ -260,7 +263,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="stockActuel"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Stock Actuel</FormLabel>
+                <FormLabel>{t('shared.form.stock_current')}</FormLabel>
                 <FormControl>
                   <Input type="number" {...field} />
                 </FormControl>
@@ -274,7 +277,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="stockMin"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Stock Minimum</FormLabel>
+                <FormLabel>{t('shared.form.stock_min')}</FormLabel>
                 <FormControl>
                   <Input type="number" {...field} />
                 </FormControl>
@@ -288,7 +291,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             name="unite"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Unité</FormLabel>
+                <FormLabel>{t('shared.form.unit')}</FormLabel>
                 <FormControl>
                   <Input placeholder="pièce, kg, litre..." {...field} />
                 </FormControl>
@@ -302,7 +305,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
 
          <div className="flex justify-end pt-6 border-t mt-6">
            <Button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 h-10 rounded-[4px] shadow-none">
-             Enregistrer le produit
+             {t('shared.actions.save')}
            </Button>
          </div>
        </form>

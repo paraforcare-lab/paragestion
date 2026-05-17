@@ -9,56 +9,57 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useTranslation } from 'react-i18next'
 
 const navigationGroups = [
   {
     id: 'general',
-    title: 'Tableau de Bord',
+    titleKey: 'navigation.dashboard',
     items: [
-      { name: 'Espace de Travail', href: '/', icon: Sparkles },
-      { name: 'Tableau de Bord', href: '/dashboard', icon: LayoutDashboard },
+      { nameKey: 'navigation.workspace', href: '/', icon: Sparkles },
+      { nameKey: 'navigation.dashboard', href: '/dashboard', icon: LayoutDashboard },
     ]
   },
   {
     id: 'vente',
-    title: 'Ventes',
+    titleKey: 'nav.ventes',
     items: [
-      { name: 'Factures', href: '/factures', icon: FileText },
-      { name: 'Devis', href: '/devis', icon: FileCheck },
-      { name: 'Ventes Passagers', href: '/ventes-passagers', icon: ShoppingCart },
-      { name: 'Avoirs', href: '/avoirs', icon: Receipt },
-      { name: 'Bons de Livraison', href: '/bons-livraison', icon: Truck },
+      { nameKey: 'navigation.invoices', href: '/factures', icon: FileText },
+      { nameKey: 'navigation.quotes', href: '/devis', icon: FileCheck },
+      { nameKey: 'navigation.counter_sales', href: '/ventes-passagers', icon: ShoppingCart },
+      { nameKey: 'navigation.credit_notes', href: '/avoirs', icon: Receipt },
+      { nameKey: 'navigation.delivery_notes', href: '/bons-livraison', icon: Truck },
     ]
   },
   {
     id: 'achat',
-    title: 'Achats',
+    titleKey: 'nav.achats',
     items: [
-      { name: 'Bons de Commande', href: '/bons-commande', icon: ClipboardList },
-      { name: 'Dépenses', href: '/depenses', icon: DollarSign },
+      { nameKey: 'navigation.purchase_orders', href: '/bons-commande', icon: ClipboardList },
+      { nameKey: 'navigation.expenses', href: '/depenses', icon: DollarSign },
     ]
   },
   {
     id: 'contacts',
-    title: 'Contacts',
+    titleKey: 'nav.contacts',
     items: [
-      { name: 'Clients', href: '/clients', icon: Users },
-      { name: 'Fournisseurs', href: '/fournisseurs', icon: Building2 },
+      { nameKey: 'navigation.clients', href: '/clients', icon: Users },
+      { nameKey: 'navigation.suppliers', href: '/fournisseurs', icon: Building2 },
     ]
   },
   {
     id: 'stock',
-    title: 'Stock',
+    titleKey: 'nav.stock',
     items: [
-      { name: 'Produits', href: '/produits', icon: Package },
+      { nameKey: 'navigation.products', href: '/produits', icon: Package },
     ]
   },
   {
     id: 'systeme',
-    title: 'Système',
+    titleKey: 'nav.systeme',
     items: [
-      { name: 'Paramètres', href: '/parametres', icon: Settings },
-      { name: 'Import / Export', href: '/import-export', icon: Database },
+      { nameKey: 'navigation.settings', href: '/parametres', icon: Settings },
+      { nameKey: 'navigation.import_export', href: '/import-export', icon: Database },
     ]
   }
 ];
@@ -74,6 +75,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showTopShadow, setShowTopShadow] = useState(false);
   const [showBottomShadow, setShowBottomShadow] = useState(false);
@@ -116,7 +118,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
         "fixed lg:relative inset-y-0 left-0",
         isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       )}>
-        {/* Toggle Button (Desktop) */}
         <Button
           variant="secondary"
           size="icon"
@@ -128,7 +129,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
 
-        {/* Close Button (Mobile) */}
         <Button
           variant="ghost"
           size="icon"
@@ -138,7 +138,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           <X className="h-6 w-6" />
         </Button>
 
-        {/* Logo Section */}
         <div className={cn(
           "flex h-20 items-center shrink-0 transition-all duration-300",
           isCollapsed ? "justify-center px-4" : "px-6"
@@ -155,13 +154,12 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             {!isCollapsed && (
               <div className="flex flex-col leading-none animate-in fade-in slide-in-from-left-2 duration-300">
                 <span className="text-xl font-black text-white">Para<span className="text-emerald-400">Gestion</span></span>
-                <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-widest mt-1">Management</span>
+                <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-widest mt-1">{t('app.tagline')}</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Scrollable Menu */}
         <div className="relative flex-1 flex flex-col min-h-0">
           <div className={cn(
             "absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-[#0F172A] dark:from-[#0B1222] to-transparent z-10 pointer-events-none transition-opacity",
@@ -178,7 +176,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                 <div key={group.id} className="space-y-1">
                   {!isCollapsed && (
                     <div className="px-3 py-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                      {group.title}
+                      {t(group.titleKey)}
                     </div>
                   )}
                   <div className="space-y-1">
@@ -187,10 +185,10 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                                       (item.href !== '/' && location.pathname.startsWith(item.href));
                       return (
                         <Link
-                          key={item.name}
+                          key={item.nameKey}
                           to={item.href}
                           onClick={onMobileClose}
-                          title={isCollapsed ? item.name : undefined}
+                          title={isCollapsed ? t(item.nameKey) : undefined}
                           className={cn(
                             isActive 
                               ? 'bg-white/10 text-white' 
@@ -209,7 +207,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                               'flex-shrink-0 transition-all duration-200'
                             )}
                           />
-                          {!isCollapsed && <span className="truncate">{item.name}</span>}
+                          {!isCollapsed && <span className="truncate">{t(item.nameKey)}</span>}
                         </Link>
                       );
                     })}
@@ -225,7 +223,6 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
           )} />
         </div>
 
-        {/* User Profile & Logout */}
         <div className="p-4 shrink-0">
           <div className={cn(
             "flex items-center",
@@ -243,7 +240,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                   {user?.email?.split('@')[0]}
                 </p>
                 <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                  Administrateur
+                  {t('header.administrator')}
                 </p>
               </div>
             )}
@@ -258,7 +255,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
             )}
           >
             <LogOut className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
-            {!isCollapsed && <span className="font-medium">Se déconnecter</span>}
+            {!isCollapsed && <span className="font-medium">{t('header.logout')}</span>}
           </Button>
         </div>
       </div>

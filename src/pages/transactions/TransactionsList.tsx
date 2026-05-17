@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   FileText, TrendingUp, ShoppingCart, Truck, CreditCard, DollarSign, Receipt,
   Search, ChevronLeft, ChevronRight
@@ -22,9 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -46,15 +45,6 @@ interface Transaction {
 
 const ITEMS_PER_PAGE = 10;
 
-const typeConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  facture: { label: 'Facture', icon: FileText, color: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
-  devis: { label: 'Devis', icon: TrendingUp, color: 'bg-purple-50 text-purple-700 border border-purple-200/50' },
-  commande: { label: 'Commande', icon: ShoppingCart, color: 'bg-orange-50 text-orange-700 border border-orange-200/50' },
-  livraison: { label: 'Livraison', icon: Truck, color: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  depense: { label: 'Dépense', icon: CreditCard, color: 'bg-red-50 text-red-700 border border-red-200/50' },
-  vente: { label: 'Vente', icon: DollarSign, color: 'bg-teal-50 text-teal-700 border border-teal-200/50' },
-};
-
 const statusStyles: Record<string, string> = {
   payée: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50',
   reste_a_payer: 'bg-amber-50 text-amber-700 border border-amber-200/50',
@@ -65,6 +55,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export function TransactionsList() {
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +63,25 @@ export function TransactionsList() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const navigate = useNavigate();
+
+  const typeConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+    facture: { label: t('transactions.type_invoice'), icon: FileText, color: 'bg-sky-50 text-sky-700 border border-sky-200/50' },
+    devis: { label: t('transactions.type_quote'), icon: TrendingUp, color: 'bg-purple-50 text-purple-700 border border-purple-200/50' },
+    commande: { label: t('transactions.type_order'), icon: ShoppingCart, color: 'bg-orange-50 text-orange-700 border border-orange-200/50' },
+    livraison: { label: t('transactions.type_delivery'), icon: Truck, color: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+    depense: { label: t('transactions.type_expense'), icon: CreditCard, color: 'bg-red-50 text-red-700 border border-red-200/50' },
+    vente: { label: t('transactions.type_sale'), icon: DollarSign, color: 'bg-teal-50 text-teal-700 border border-teal-200/50' },
+  };
+
+  const typeOptions = [
+    { value: 'all', label: t('transactions.filter_all') },
+    { value: 'facture', label: t('transactions.filter_invoices') },
+    { value: 'devis', label: t('transactions.filter_quotes') },
+    { value: 'commande', label: t('transactions.filter_orders') },
+    { value: 'livraison', label: t('transactions.filter_deliveries') },
+    { value: 'depense', label: t('transactions.filter_expenses') },
+    { value: 'vente', label: t('transactions.filter_sales') },
+  ];
 
   useEffect(() => {
     if (user?.id) {
@@ -177,7 +187,7 @@ export function TransactionsList() {
       setTransactions(allTransactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      toast.error('Erreur lors du chargement des transactions');
+      toast.error(t('transactions.toast_load_error'));
     } finally {
       setIsLoading(false);
     }
@@ -195,12 +205,8 @@ export function TransactionsList() {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      return format(new Date(dateStr), 'dd MMM yyyy', { locale: fr });
-    } catch {
-      return '-';
-    }
+  const formatDateLocale = (dateStr: string) => {
+    return formatDate(dateStr, 'dd MMM yyyy', i18n.language);
   };
 
   const filteredTransactions = useMemo(() => {
@@ -235,16 +241,6 @@ export function TransactionsList() {
 
   const totalAmount = filteredTransactions.reduce((sum, t) => sum + (t.montantTtc || 0), 0);
 
-  const typeOptions = [
-    { value: 'all', label: 'Tous' },
-    { value: 'facture', label: 'Factures' },
-    { value: 'devis', label: 'Devis' },
-    { value: 'commande', label: 'B. Commande' },
-    { value: 'livraison', label: 'B. Livraison' },
-    { value: 'depense', label: 'Dépenses' },
-    { value: 'vente', label: 'Ventes' },
-  ];
-
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
@@ -254,9 +250,9 @@ export function TransactionsList() {
             <Receipt className="h-5 w-5 text-indigo-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Transactions</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('transactions.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Historique de toutes vos transactions
+              {t('transactions.page_subtitle')}
             </p>
           </div>
         </div>
@@ -271,7 +267,7 @@ export function TransactionsList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 type="text"
-                placeholder="Rechercher par numéro, client..."
+                placeholder={t('transactions.search_ph')}
                 className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -279,7 +275,7 @@ export function TransactionsList() {
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger className="h-10 w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
-                <SelectValue placeholder="Type" />
+                <SelectValue placeholder={t('transactions.filter_all')} />
               </SelectTrigger>
               <SelectContent>
                 {typeOptions.map(opt => (
@@ -295,13 +291,13 @@ export function TransactionsList() {
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-slate-100">
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Type</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Client / Fournisseur</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant TTC</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Statut</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('transactions.col_type')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('transactions.col_number')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('transactions.col_entity')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('transactions.col_date')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">{t('transactions.col_amount')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('transactions.col_status')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">{t('transactions.col_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -310,7 +306,7 @@ export function TransactionsList() {
                       <TableCell colSpan={7} className="h-48 text-center">
                         <div className="flex flex-col items-center justify-center gap-3">
                           <div className="h-8 w-8 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-                          <p className="text-sm text-muted-foreground font-medium">Chargement des transactions...</p>
+                          <p className="text-sm text-muted-foreground font-medium">{t('transactions.loading')}</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -322,7 +318,7 @@ export function TransactionsList() {
                             <Receipt className="h-8 w-8 text-slate-300" />
                           </div>
                           <p className="text-sm text-slate-500 font-medium">
-                            {searchQuery || typeFilter !== 'all' ? 'Aucune transaction trouvée' : 'Aucune transaction enregistrée'}
+                            {searchQuery || typeFilter !== 'all' ? t('transactions.empty_filtered') : t('transactions.empty_all')}
                           </p>
                         </div>
                       </TableCell>
@@ -357,7 +353,7 @@ export function TransactionsList() {
                           </TableCell>
                           <TableCell className="px-4 py-5">
                             <span className="text-xs text-slate-400">
-                              {formatDate(transaction.date)}
+                              {formatDateLocale(transaction.date)}
                             </span>
                           </TableCell>
                           <TableCell className="px-4 py-5 text-right">
@@ -380,7 +376,7 @@ export function TransactionsList() {
                               className="h-8 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-[4px]"
                               onClick={() => navigate(getNavigationPath(transaction.type, transaction.id))}
                             >
-                              Voir
+                              {t('shared.actions.view')}
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -394,7 +390,7 @@ export function TransactionsList() {
             {!isLoading && paginatedTransactions.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
                 <p className="text-xs text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredTransactions.length)} sur {filteredTransactions.length}
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredTransactions.length)} {t('shared.pagination.of')} {filteredTransactions.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -404,7 +400,7 @@ export function TransactionsList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -429,7 +425,7 @@ export function TransactionsList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -441,7 +437,7 @@ export function TransactionsList() {
         <div className="lg:col-span-1 space-y-4">
           <Card className="border border-slate-200 shadow-none rounded-[6px]">
             <CardHeader className="px-4 py-4 border-b border-slate-100">
-              <CardTitle className="text-sm font-semibold text-slate-700">Résumé des Transactions</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700">{t('transactions.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
@@ -449,8 +445,8 @@ export function TransactionsList() {
                   <Receipt className="h-4 w-4 text-indigo-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Total transactions</p>
-                  <p className="text-lg font-bold text-slate-800">{filteredTransactions.length}</p>
+                  <p className="text-xs text-slate-500">{t('transactions.sidebar_total')}</p>
+                  <p className="text-lg font-bold text-slate-800" dir="ltr">{filteredTransactions.length}</p>
                 </div>
               </div>
 
@@ -460,14 +456,14 @@ export function TransactionsList() {
                     <DollarSign className="h-4 w-4 text-emerald-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-500">Montant total TTC</p>
-                    <p className="text-lg font-bold text-emerald-600">{formatCurrency(totalAmount)}</p>
+                    <p className="text-xs text-slate-500">{t('transactions.sidebar_amount')}</p>
+                    <p className="text-lg font-bold text-emerald-600" dir="ltr">{formatCurrency(totalAmount)}</p>
                   </div>
                 </div>
               </div>
 
               <div className="border-t border-slate-100 pt-4 space-y-2.5">
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Par type</p>
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{t('transactions.sidebar_by_type')}</p>
                 {typeOptions.filter(o => o.value !== 'all').map(opt => {
                   const count = filteredTransactions.filter(t => t.type === opt.value).length;
                   const typeCfg = typeConfig[opt.value];
@@ -479,7 +475,7 @@ export function TransactionsList() {
                         <TypeIcon className="h-3.5 w-3.5 text-slate-400" />
                         <span className="text-xs text-slate-500">{typeCfg.label}</span>
                       </div>
-                      <span className="text-xs font-semibold text-slate-700">{count}</span>
+                      <span className="text-xs font-semibold text-slate-700" dir="ltr">{count}</span>
                     </div>
                   );
                 })}

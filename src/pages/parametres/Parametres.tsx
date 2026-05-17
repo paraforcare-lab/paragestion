@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -75,34 +76,8 @@ interface ParametresFormValues {
   activerFiligrane: boolean;
 }
 
-const parametresSchema = z.object({
-  nomSociete: z.string().min(2, 'Le nom est requis'),
-  adresse: z.string().min(5, 'L\'adresse est requise'),
-  ville: z.string().min(2, 'La ville est requise'),
-  codePostal: z.string().min(4, 'Le code postal est requis'),
-  telephone: z.string().min(8, 'Le téléphone est requis'),
-  email: z.string().email('Email invalide'),
-  siteWeb: z.string(),
-  ice: z.string(),
-  rc: z.string(),
-  ifNumber: z.string(),
-  tpPatente: z.string(),
-  cnss: z.string(),
-  capitalSocial: z.string(),
-  formeJuridique: z.string(),
-  banque: z.string(),
-  rib: z.string(),
-  swift: z.string(),
-  logoUrl: z.string(),
-  couleurPrincipale: z.string(),
-  conditionsPaiementDefaut: z.string(),
-  piedPageDefaut: z.string(),
-  activerDroitTimbre: z.boolean(),
-  watermarkText: z.string(),
-  activerFiligrane: z.boolean(),
-});
-
 export function Parametres() {
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -121,6 +96,33 @@ export function Parametres() {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const parametresSchema = z.object({
+    nomSociete: z.string().min(2, t('parametres.validation.name_required')),
+    adresse: z.string().min(5, t('parametres.validation.address_required')),
+    ville: z.string().min(2, t('parametres.validation.city_required')),
+    codePostal: z.string().min(4, t('parametres.validation.postal_required')),
+    telephone: z.string().min(8, t('parametres.validation.phone_required')),
+    email: z.string().email(t('parametres.validation.email_invalid')),
+    siteWeb: z.string(),
+    ice: z.string(),
+    rc: z.string(),
+    ifNumber: z.string(),
+    tpPatente: z.string(),
+    cnss: z.string(),
+    capitalSocial: z.string(),
+    formeJuridique: z.string(),
+    banque: z.string(),
+    rib: z.string(),
+    swift: z.string(),
+    logoUrl: z.string(),
+    couleurPrincipale: z.string(),
+    conditionsPaiementDefaut: z.string(),
+    piedPageDefaut: z.string(),
+    activerDroitTimbre: z.boolean(),
+    watermarkText: z.string(),
+    activerFiligrane: z.boolean(),
+  });
   
   const form = useForm<ParametresFormValues>({
     resolver: zodResolver(parametresSchema),
@@ -234,7 +236,7 @@ export function Parametres() {
         }
       } catch (error) {
         console.error('Failed to fetch parametres', error);
-        toast.error('Erreur de chargement des paramètres');
+        toast.error(t('parametres.toast_load_error'));
       } finally {
         setIsLoading(false);
       }
@@ -282,21 +284,21 @@ export function Parametres() {
   const onInvalid = (formErrors: any) => {
     const fieldNames = Object.keys(formErrors)
     const tabs: string[] = []
-    if (fieldNames.some(f => ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].includes(f))) tabs.push('Informations')
-    if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].includes(f))) tabs.push('Fiscalité')
-    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText', 'activerFiligrane'].includes(f))) tabs.push('Personnalisation')
+    if (fieldNames.some(f => ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].includes(f))) tabs.push(t('parametres.tab_info'))
+    if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].includes(f))) tabs.push(t('parametres.tab_fiscal'))
+    if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText', 'activerFiligrane'].includes(f))) tabs.push(t('parametres.tab_appearance'))
 
     const first = tabs[0]
-    if (first === 'Informations') setActiveTab('general')
-    else if (first === 'Fiscalité') setActiveTab('fiscal')
-    else if (first === 'Personnalisation') setActiveTab('personalisation')
+    if (first === t('parametres.tab_info')) setActiveTab('general')
+    else if (first === t('parametres.tab_fiscal')) setActiveTab('fiscal')
+    else if (first === t('parametres.tab_appearance')) setActiveTab('personalisation')
 
-    toast.error(`Validation échouée dans : ${tabs.join(', ')}. Corrigez les champs en rouge.`)
+    toast.error(t('parametres.toast_validation_error', { tabs: tabs.join(', ') }))
   }
 
   async function onSubmit(data: ParametresFormValues) {
     if (!user?.id) {
-      toast.error('Vous devez être connecté pour enregistrer les paramètres');
+      toast.error(t('parametres.toast_must_login'));
       return;
     }
     
@@ -370,10 +372,10 @@ export function Parametres() {
       setIsModified(false);
       form.reset(data);
       localStorage.setItem(CACHED_PARAMS_KEY, JSON.stringify(data));
-      toast.success('Paramètres enregistrés avec succès');
+      toast.success(t('parametres.toast_saved'));
     } catch (err: any) {
       console.error('Error saving parametres:', err);
-      toast.error(`Erreur: ${err.message || 'Impossible de sauvegarder'}`);
+      toast.error(`${t('parametres.toast_load_error')}: ${err.message || ''}`);
     } finally {
       setIsSaving(false);
       isSavingRef.current = false;
@@ -415,7 +417,7 @@ export function Parametres() {
       setCropDialogOpen(false);
     } catch (e) {
       console.error('Crop failed', e);
-      toast.error('Échec du recadrage');
+      toast.error(t('parametres.toast_crop_error'));
     }
   }, [logoPreview, croppedAreaPixels, form, getCroppedImg]);
 
@@ -424,7 +426,7 @@ export function Parametres() {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center gap-4">
           <div className="h-12 w-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-          <p className="text-muted-foreground font-medium">Chargement des paramètres...</p>
+          <p className="text-muted-foreground font-medium">{t('parametres.loading')}</p>
         </div>
       </div>
     );
@@ -434,14 +436,14 @@ export function Parametres() {
     <div className="space-y-8 max-w-5xl mx-auto animate-in fade-in duration-500 bg-white dark:bg-[#0F172A]">
       {/* Breadcrumb */}
       <p className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-500">
-        Paramètres / Profil
+        {t('parametres.breadcrumb')}
       </p>
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Paramètres</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('parametres.page_title')}</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
-          Gérez les paramètres de votre compte et vos préférences.
+          {t('parametres.page_subtitle')}
         </p>
       </div>
 
@@ -461,10 +463,10 @@ export function Parametres() {
                 {tabErrors.general && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-white">Profil</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Informations de l'entreprise</p>
+                <p className="font-semibold text-slate-900 dark:text-white">{t('parametres.nav_profile')}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_profile_sub')}</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0" />
+              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
             </button>
 
             <button
@@ -479,10 +481,10 @@ export function Parametres() {
                 {tabErrors.fiscal && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-white">Fiscalité</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Identifiants fiscaux et bancaires</p>
+                <p className="font-semibold text-slate-900 dark:text-white">{t('parametres.nav_fiscal')}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_fiscal_sub')}</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0" />
+              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
             </button>
 
             <button
@@ -497,10 +499,10 @@ export function Parametres() {
                 {tabErrors.personalisation && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-white">Apparence</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">Thème, logo et contenu des documents</p>
+                <p className="font-semibold text-slate-900 dark:text-white">{t('parametres.nav_appearance')}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_appearance_sub')}</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0" />
+              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
             </button>
           </div>
 
@@ -515,8 +517,8 @@ export function Parametres() {
                       <Building2 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Informations de l'entreprise</CardTitle>
-                      <CardDescription>Coordonnées et informations légales</CardDescription>
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.general.company_info_title')}</CardTitle>
+                      <CardDescription>{t('parametres.general.company_info_sub')}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -527,7 +529,7 @@ export function Parametres() {
                       name="nomSociete"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Nom de la société *</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.company_name')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -540,7 +542,7 @@ export function Parametres() {
                       name="formeJuridique"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Forme Juridique</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.legal_form')}</FormLabel>
                           <FormControl>
                             <Input placeholder="ex: SARL, SARL AU" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -556,7 +558,7 @@ export function Parametres() {
                       name="capitalSocial"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Capital Social</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.share_capital')}</FormLabel>
                           <FormControl>
                             <Input placeholder="ex: 100 000 DH" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -569,7 +571,7 @@ export function Parametres() {
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Email *</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.email')}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -588,7 +590,7 @@ export function Parametres() {
                       name="telephone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Téléphone *</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.phone')}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -604,7 +606,7 @@ export function Parametres() {
                       name="siteWeb"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Site Web</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.website')}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -622,7 +624,7 @@ export function Parametres() {
                     name="adresse"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">Adresse *</FormLabel>
+                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.address')}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -640,7 +642,7 @@ export function Parametres() {
                       name="codePostal"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Code Postal *</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.postal_code')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -653,7 +655,7 @@ export function Parametres() {
                       name="ville"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Ville *</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.city')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -674,8 +676,8 @@ export function Parametres() {
                       <FileText className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Identifiants Fiscaux & Légaux</CardTitle>
-                      <CardDescription>ICE, RC, IF, patente et CNSS</CardDescription>
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.fiscal.ids_title')}</CardTitle>
+                      <CardDescription>{t('parametres.fiscal.ids_sub')}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -686,7 +688,7 @@ export function Parametres() {
                       name="ice"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">ICE</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.ice')}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -702,7 +704,7 @@ export function Parametres() {
                       name="rc"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Registre de Commerce (RC)</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.rc')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -718,7 +720,7 @@ export function Parametres() {
                       name="ifNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Identifiant Fiscal (IF)</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.if')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                           </FormControl>
@@ -731,7 +733,7 @@ export function Parametres() {
                       name="tpPatente"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Taxe Professionnelle</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.tp')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
@@ -744,7 +746,7 @@ export function Parametres() {
                       name="cnss"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">N° CNSS</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.cnss')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                           </FormControl>
@@ -763,8 +765,8 @@ export function Parametres() {
                       <Landmark className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Coordonnées Bancaires</CardTitle>
-                      <CardDescription>Informations pour les virements</CardDescription>
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.fiscal.bank_title')}</CardTitle>
+                      <CardDescription>{t('parametres.fiscal.bank_sub')}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -775,7 +777,7 @@ export function Parametres() {
                       name="banque"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Nom de la banque</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.bank_name')}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
@@ -791,7 +793,7 @@ export function Parametres() {
                       name="swift"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">Code SWIFT / BIC</FormLabel>
+                          <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.swift')}</FormLabel>
                           <FormControl>
                             <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono uppercase" {...field} />
                           </FormControl>
@@ -806,7 +808,7 @@ export function Parametres() {
                     name="rib"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">RIB</FormLabel>
+                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.rib')}</FormLabel>
                         <FormControl>
                           <Input placeholder="000000000000000000000000" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                         </FormControl>
@@ -824,8 +826,8 @@ export function Parametres() {
                       <CreditCard className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Options de Facturation</CardTitle>
-                      <CardDescription>Configuration des factures</CardDescription>
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.fiscal.billing_title')}</CardTitle>
+                      <CardDescription>{t('parametres.fiscal.billing_sub')}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -836,9 +838,9 @@ export function Parametres() {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/30 dark:border-white/5 dark:bg-[#0b1222]">
                         <div className="space-y-0.5 flex-1">
-                          <FormLabel className="text-base font-semibold cursor-pointer">Droit de Timbre (0.25%)</FormLabel>
+                          <FormLabel className="text-base font-semibold cursor-pointer">{t('parametres.fiscal.stamp_duty')}</FormLabel>
                           <p className="text-sm text-muted-foreground">
-                            Appliquer automatiquement le droit de timbre pour les paiements en espèces.
+                            {t('parametres.fiscal.stamp_duty_desc')}
                           </p>
                         </div>
                         <FormControl>
@@ -863,15 +865,15 @@ export function Parametres() {
                       <Palette className="h-5 w-5 text-purple-500 dark:text-purple-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Apparence</CardTitle>
-                      <CardDescription>Personnalisez le thème, le logo et les couleurs</CardDescription>
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.tab_appearance')}</CardTitle>
+                      <CardDescription>{t('parametres.appearance.theme_sub')}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6 space-y-8">
                   {/* Theme Selection Cards */}
                   <div className="space-y-3">
-                    <FormLabel className="text-foreground font-semibold dark:text-slate-300">Thème</FormLabel>
+                    <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.theme')}</FormLabel>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {/* Light Mode */}
                       <div
@@ -889,7 +891,7 @@ export function Parametres() {
                                 <div className="h-2 w-2 rounded-full bg-slate-300" />
                                 <div className="h-2 w-2 rounded-full bg-slate-300" />
                                 <div className="h-2 w-2 rounded-full bg-slate-300" />
-                                <div className="ml-auto h-2 w-8 rounded bg-slate-300" />
+                                <div className="ms-auto h-2 w-8 rounded bg-slate-300" />
                               </div>
                               <div className="h-1.5 w-full rounded-full bg-slate-200" />
                               <div className="h-1.5 w-3/4 rounded-full bg-slate-200" />
@@ -927,7 +929,7 @@ export function Parametres() {
                                 <div className="h-2 w-2 rounded-full bg-slate-600" />
                                 <div className="h-2 w-2 rounded-full bg-slate-600" />
                                 <div className="h-2 w-2 rounded-full bg-slate-600" />
-                                <div className="ml-auto h-2 w-8 rounded bg-slate-600" />
+                                <div className="ms-auto h-2 w-8 rounded bg-slate-600" />
                               </div>
                               <div className="h-1.5 w-full rounded-full bg-slate-700" />
                               <div className="h-1.5 w-3/4 rounded-full bg-slate-700" />
@@ -965,7 +967,7 @@ export function Parametres() {
                                 <div className="h-2 w-2 rounded-full bg-slate-400" />
                                 <div className="h-2 w-2 rounded-full bg-slate-400" />
                                 <div className="h-2 w-2 rounded-full bg-slate-400" />
-                                <div className="ml-auto flex gap-1">
+                                <div className="ms-auto flex gap-1">
                                   <div className="h-2 w-2 rounded-full bg-slate-400" />
                                   <div className="h-2 w-2 rounded-full bg-slate-400" />
                                 </div>
@@ -979,7 +981,7 @@ export function Parametres() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <Monitor className="h-4 w-4 text-slate-500" />
-                              <span className="text-sm font-medium text-foreground dark:text-white">Système</span>
+                              <span className="text-sm font-medium text-foreground dark:text-white">{t('parametres.appearance.system')}</span>
                             </div>
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                               themeMode === 'system' ? 'border-primary bg-primary' : 'border-slate-300'
@@ -996,7 +998,7 @@ export function Parametres() {
 
                   {/* Logo Management */}
                   <div className="space-y-3">
-                    <FormLabel className="text-foreground font-semibold dark:text-slate-300">Logo</FormLabel>
+                    <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.logo')}</FormLabel>
                     <div className="flex flex-col md:flex-row gap-6">
                       {/* Logo Preview */}
                       <div className="flex-shrink-0">
@@ -1028,7 +1030,7 @@ export function Parametres() {
                             className="h-10 rounded-xl border-slate-200 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/5 self-start"
                           >
                             <Upload className="h-4 w-4 mr-2" />
-                            Modifier le logo
+                            {t('parametres.appearance.change_logo')}
                           </Button>
                           <Button
                             type="button"
@@ -1039,7 +1041,7 @@ export function Parametres() {
                             className="h-10 rounded-xl border-emerald-200 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-emerald-800/50 dark:text-emerald-400 dark:hover:bg-emerald-900/20 dark:disabled:hover:bg-transparent self-start"
                           >
                             <Crop className="h-4 w-4 mr-2" />
-                            Recadrer l'image
+                            {t('parametres.appearance.crop_image')}
                           </Button>
                           <input
                             ref={fileInputRef}
@@ -1070,7 +1072,7 @@ export function Parametres() {
               <Dialog open={cropDialogOpen} onOpenChange={setCropDialogOpen}>
                 <DialogContent className="sm:max-w-lg">
                   <DialogHeader>
-                    <DialogTitle>Recadrer le logo</DialogTitle>
+                    <DialogTitle>{t('parametres.appearance.crop_title')}</DialogTitle>
                   </DialogHeader>
                   <div className="relative w-full h-80 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900">
                     {logoPreview && (
@@ -1086,7 +1088,7 @@ export function Parametres() {
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">Zoom</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">{t('parametres.appearance.zoom')}</span>
                     <input
                       type="range"
                       min={1}
@@ -1104,14 +1106,14 @@ export function Parametres() {
                       onClick={() => setCropDialogOpen(false)}
                       className="rounded-xl"
                     >
-                      Annuler
+                      {t('shared.actions.cancel')}
                     </Button>
                     <Button
                       type="button"
                       onClick={handleCropConfirm}
                       className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white"
                     >
-                      Confirmer le recadrage
+                      {t('parametres.appearance.confirm_crop')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -1124,8 +1126,8 @@ export function Parametres() {
                       <FileText className="h-5 w-5 text-purple-500 dark:text-purple-400" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">Contenu des Documents</CardTitle>
-                      <CardDescription>Texte par défaut pour vos factures</CardDescription>
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.appearance.doc_content_title')}</CardTitle>
+                      <CardDescription>{t('parametres.appearance.doc_content_sub')}</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -1135,7 +1137,7 @@ export function Parametres() {
                     name="conditionsPaiementDefaut"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">Conditions de paiement par défaut</FormLabel>
+                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.payment_conditions')}</FormLabel>
                         <FormControl>
                           <Input placeholder="ex: Paiement à la réception sous 30 jours" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                         </FormControl>
@@ -1149,7 +1151,7 @@ export function Parametres() {
                     name="piedPageDefaut"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">Pied de page par défaut</FormLabel>
+                        <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.footer')}</FormLabel>
                         <FormControl>
                           <Textarea 
                             placeholder="ex: Merci de votre confiance. ParaGestion - Votre système de gestion parapharmaceutique." 
@@ -1169,9 +1171,9 @@ export function Parametres() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/30 dark:border-white/5 dark:bg-[#0b1222]">
                           <div className="space-y-0.5 flex-1">
-                            <FormLabel className="text-base font-semibold cursor-pointer">Filigrane</FormLabel>
+                            <FormLabel className="text-base font-semibold cursor-pointer">{t('parametres.appearance.watermark')}</FormLabel>
                             <p className="text-sm text-muted-foreground">
-                              Activer le filigrane sur les documents PDF
+                              {t('parametres.appearance.watermark_desc')}
                             </p>
                           </div>
                           <FormControl>
@@ -1191,7 +1193,7 @@ export function Parametres() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className={`text-foreground font-semibold ${!form.watch('activerFiligrane') ? 'text-muted-foreground' : ''}`}>
-                            Texte du filigrane
+                            {t('parametres.appearance.watermark_text')}
                           </FormLabel>
                           <FormControl>
                             <Input
@@ -1203,7 +1205,7 @@ export function Parametres() {
                               {...field}
                             />
                           </FormControl>
-                          <p className="text-sm text-muted-foreground">Ce texte apparaîtra en arrière-plan de tous vos documents PDF.</p>
+                          <p className="text-sm text-muted-foreground">{t('parametres.appearance.watermark_hint')}</p>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -1224,12 +1226,12 @@ export function Parametres() {
               {isSaving ? (
                 <>
                   <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Enregistrement...
+                  {t('parametres.saving_button')}
                 </>
               ) : (
                 <>
                   <Save className="mr-2 h-5 w-5" />
-                  Enregistrer les modifications
+                  {t('parametres.save_button')}
                 </>
               )}
             </Button>

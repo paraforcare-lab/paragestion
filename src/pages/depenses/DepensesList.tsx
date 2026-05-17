@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Receipt, Wallet, Building2,
   ChevronLeft, ChevronRight, Filter, TrendingUp, TrendingDown,
@@ -23,9 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -55,25 +54,10 @@ interface Depense {
   fournisseur?: { nom: string; nomSociete?: string; email?: string };
 }
 
-const categoryConfig: Record<string, { label: string; color: string; bg: string; pieColor: string }> = {
-  fournitures: { label: 'Fournitures', color: 'text-sky-700', bg: 'bg-sky-50 text-sky-700 border border-sky-200/50', pieColor: '#0EA5E9' },
-  loyer: { label: 'Loyer', color: 'text-violet-700', bg: 'bg-violet-50 text-violet-700 border border-violet-200/50', pieColor: '#8B5CF6' },
-  salaires: { label: 'Salaires', color: 'text-emerald-700', bg: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50', pieColor: '#10B981' },
-  marketing: { label: 'Marketing', color: 'text-orange-700', bg: 'bg-orange-50 text-orange-700 border border-orange-200/50', pieColor: '#F97316' },
-  stock: { label: 'Stock', color: 'text-amber-700', bg: 'bg-amber-50 text-amber-700 border border-amber-200/50', pieColor: '#F59E0B' },
-  autre: { label: 'Autre', color: 'text-slate-600', bg: 'bg-slate-50 text-slate-600 border border-slate-200/50', pieColor: '#94A3B8' },
-};
-
-const paymentIcons: Record<string, { icon: React.ElementType; label: string }> = {
-  espèces: { icon: Banknote, label: 'Espèces' },
-  chèque: { icon: Landmark, label: 'Chèque' },
-  virement: { icon: CreditCard, label: 'Virement' },
-  carte: { icon: CreditCard, label: 'Carte' },
-};
-
 const ITEMS_PER_PAGE = 10;
 
 export function DepensesList() {
+  const { t, i18n } = useTranslation()
   const { user } = useAuth();
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,6 +68,22 @@ export function DepensesList() {
   const [editingDepense, setEditingDepense] = useState<any | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [depenseToDelete, setDepenseToDelete] = useState<number | null>(null);
+
+  const categoryConfig: Record<string, { label: string; color: string; bg: string; pieColor: string }> = {
+    fournitures: { label: t('depenses.categories.supplies'), color: 'text-sky-700', bg: 'bg-sky-50 text-sky-700 border border-sky-200/50', pieColor: '#0EA5E9' },
+    loyer: { label: t('depenses.categories.rent'), color: 'text-violet-700', bg: 'bg-violet-50 text-violet-700 border border-violet-200/50', pieColor: '#8B5CF6' },
+    salaires: { label: t('depenses.categories.salaries'), color: 'text-emerald-700', bg: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50', pieColor: '#10B981' },
+    marketing: { label: t('depenses.categories.marketing'), color: 'text-orange-700', bg: 'bg-orange-50 text-orange-700 border border-orange-200/50', pieColor: '#F97316' },
+    stock: { label: t('depenses.categories.stock'), color: 'text-amber-700', bg: 'bg-amber-50 text-amber-700 border border-amber-200/50', pieColor: '#F59E0B' },
+    autre: { label: t('depenses.categories.other'), color: 'text-slate-600', bg: 'bg-slate-50 text-slate-600 border border-slate-200/50', pieColor: '#94A3B8' },
+  };
+
+  const paymentIcons: Record<string, { icon: React.ElementType; label: string }> = {
+    espèces: { icon: Banknote, label: t('shared.payment_modes.cash') },
+    chèque: { icon: Landmark, label: t('shared.payment_modes.cheque') },
+    virement: { icon: CreditCard, label: t('shared.payment_modes.bank_transfer') },
+    carte: { icon: CreditCard, label: t('shared.payment_modes.card') },
+  };
 
   const mapDepense = (d: any) => ({
     ...d,
@@ -114,7 +114,7 @@ export function DepensesList() {
       setDepenses(Array.isArray(data) ? (data || []).map(mapDepense) : []);
     } catch (error) {
       console.error('Failed to fetch depenses', error);
-      toast.error('Erreur lors du chargement des dépenses');
+      toast.error(t('depenses.toast_load_error'));
     } finally {
       setIsLoading(false);
     }
@@ -132,11 +132,11 @@ export function DepensesList() {
     try {
       const { error } = await supabase.from('depenses').delete().eq('id', depenseToDelete);
       if (error) throw error;
-      toast.success('Dépense supprimée');
+      toast.success(t('depenses.toast_deleted'));
       fetchDepenses();
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('shared.toast.delete_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setDepenseToDelete(null);
@@ -167,7 +167,7 @@ export function DepensesList() {
       setIsDialogOpen(true);
     } catch (error) {
       console.error('Error loading depense:', error);
-      toast.error('Erreur lors du chargement de la dépense');
+      toast.error(t('depenses.toast_load_error'));
     }
   };
 
@@ -296,8 +296,8 @@ export function DepensesList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer la dépense"
-        description="Êtes-vous sûr de vouloir supprimer cette dépense ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_expense')}
+        description={t('shared.confirm_delete.body_expense')}
       />
 
       {/* Header */}
@@ -307,9 +307,9 @@ export function DepensesList() {
             <Wallet className="h-5 w-5 text-red-500 dark:text-rose-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Dépenses</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('depenses.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Suivez et gérez les dépenses de votre entreprise
+              {t('depenses.page_subtitle')}
             </p>
           </div>
         </div>
@@ -323,8 +323,8 @@ export function DepensesList() {
               onClick={openNewForm}
               className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Nouvelle Dépense
+              <Plus className="me-2 h-4 w-4" />
+              {t('depenses.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900">
@@ -332,12 +332,12 @@ export function DepensesList() {
               <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingDepense ? 'Modifier la dépense' : 'Nouvelle Dépense'}
+                    {editingDepense ? t('depenses.dialog_edit') : t('depenses.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingDepense
-                      ? `Modification de la dépense ${editingDepense.reference}`
-                      : 'Enregistrez une nouvelle dépense'}
+                      ? t('depenses.dialog_subtitle_edit', { reference: editingDepense.reference })
+                      : t('depenses.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -369,7 +369,7 @@ export function DepensesList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 type="text"
-                placeholder="Rechercher par description, catégorie, référence..."
+                placeholder={t('depenses.search_ph')}
                 className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -377,15 +377,15 @@ export function DepensesList() {
             </div>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
               <SelectTrigger className="h-10 w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm">
-                <Filter className="h-3.5 w-3.5 text-slate-400 mr-2" />
-                <SelectValue placeholder="Paiement" />
+                <Filter className="h-3.5 w-3.5 text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.table.payment')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les moyens</SelectItem>
-                <SelectItem value="espèces">Espèces</SelectItem>
-                <SelectItem value="carte">Carte</SelectItem>
-                <SelectItem value="virement">Virement</SelectItem>
-                <SelectItem value="chèque">Chèque</SelectItem>
+                <SelectItem value="all">{t('depenses.filter_all_payments')}</SelectItem>
+                <SelectItem value="espèces">{t('shared.payment_modes.cash')}</SelectItem>
+                <SelectItem value="carte">{t('shared.payment_modes.card')}</SelectItem>
+                <SelectItem value="virement">{t('shared.payment_modes.bank_transfer')}</SelectItem>
+                <SelectItem value="chèque">{t('shared.payment_modes.cheque')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -395,13 +395,13 @@ export function DepensesList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/5">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Description</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Catégorie</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Fournisseur</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Paiement</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant TTC</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.date')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.description')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.category')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.supplier')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.payment')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('depenses.col_amount_ttc')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -410,7 +410,7 @@ export function DepensesList() {
                     <TableCell colSpan={7} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement des dépenses...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('depenses.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -423,8 +423,8 @@ export function DepensesList() {
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
                           {searchQuery || paymentFilter !== 'all'
-                            ? 'Aucune dépense trouvée'
-                            : 'Aucune dépense enregistrée'}
+                            ? t('depenses.empty_filtered')
+                            : t('depenses.empty_all')}
                         </p>
                         {!searchQuery && paymentFilter === 'all' && (
                           <div className="flex gap-2 mt-1">
@@ -433,8 +433,8 @@ export function DepensesList() {
                               className="rounded-[4px] text-sm"
                               onClick={openNewForm}
                             >
-                              <Plus className="mr-2 h-4 w-4" />
-                              Créer une dépense
+                              <Plus className="me-2 h-4 w-4" />
+                              {t('depenses.create_first')}
                             </Button>
                           </div>
                         )}
@@ -453,9 +453,9 @@ export function DepensesList() {
                         className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors dark:border-white/5 dark:hover:bg-white/[0.03]"
                       >
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm text-slate-500 dark:text-slate-400">
+                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
                             {depense.dateDepense
-                              ? format(new Date(depense.dateDepense), 'dd MMM yyyy', { locale: fr })
+                              ? formatDate(depense.dateDepense, 'dd MMM yyyy', i18n.language)
                               : '-'}
                           </span>
                         </TableCell>
@@ -464,7 +464,7 @@ export function DepensesList() {
                             <p className="text-sm font-semibold text-slate-800 max-w-[220px] truncate dark:text-white">
                               {depense.description || '-'}
                             </p>
-                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            <p dir="ltr" className="text-[11px] text-slate-400 font-mono mt-0.5">
                               {depense.reference || ''}
                             </p>
                           </div>
@@ -498,23 +498,23 @@ export function DepensesList() {
                           <div className="flex items-center gap-1.5">
                             <PayIcon className="h-3.5 w-3.5 text-slate-400" />
                             <span className="text-xs text-slate-500 capitalize dark:text-slate-400">
-                              {depense.modePaiement}
+                              {getPaymentIcon(depense.modePaiement).label}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold text-rose-600">
+                        <TableCell className="px-4 py-5 text-start">
+                          <span dir="ltr" className="text-sm font-bold text-rose-600">
                             -{formatCurrency(depense.montantTtc)}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
+                        <TableCell className="px-4 py-5 text-start">
                           <div className="flex justify-end gap-0.5">
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
                               onClick={() => handleEdit(depense)}
-                              title="Modifier"
+                              title={t('shared.actions.edit')}
                             >
                               <FileEdit className="h-4 w-4" />
                             </Button>
@@ -526,7 +526,7 @@ export function DepensesList() {
                                 setDepenseToDelete(depense.id);
                                 setDeleteConfirmOpen(true);
                               }}
-                              title="Supprimer"
+                              title={t('shared.actions.delete')}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -541,8 +541,8 @@ export function DepensesList() {
 
             {!isLoading && paginatedDepenses.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">
-                <p className="text-xs text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredDepenses.length)} sur {filteredDepenses.length}
+                <p className="text-xs text-slate-400" dir="ltr">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredDepenses.length)} {t('shared.pagination.of')} {filteredDepenses.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -552,7 +552,7 @@ export function DepensesList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -577,7 +577,7 @@ export function DepensesList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -589,7 +589,7 @@ export function DepensesList() {
         <div className="lg:col-span-1 space-y-4">
           <Card className="border border-slate-200 shadow-none rounded-[6px] dark:border-white/10 dark:rounded-sm">
             <CardHeader className="px-4 py-4 border-b border-slate-100 dark:border-white/5">
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-white">Récapitulatif Mensuel</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-white">{t('depenses.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
@@ -597,8 +597,8 @@ export function DepensesList() {
                   <Wallet className="h-4 w-4 text-red-500 dark:text-rose-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500">Total des dépenses</p>
-                  <p className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(monthTotal)}</p>
+                  <p className="text-xs text-slate-500">{t('depenses.sidebar_total_label')}</p>
+                  <p dir="ltr" className="text-lg font-bold text-rose-600 dark:text-rose-400">{formatCurrency(monthTotal)}</p>
                 </div>
               </div>
 
@@ -609,8 +609,8 @@ export function DepensesList() {
                   <TrendingDown className="h-4 w-4 text-emerald-500" />
                 )}
                 <div className="flex-1">
-                  <p className="text-[11px] text-slate-500 font-medium">vs mois dernier</p>
-                  <p className={cn(
+                  <p className="text-[11px] text-slate-500 font-medium">{t('depenses.sidebar_vs_last_month')}</p>
+                  <p dir="ltr" className={cn(
                     "text-sm font-bold",
                     trend >= 0 ? "text-rose-600" : "text-emerald-600"
                   )}>
@@ -622,7 +622,7 @@ export function DepensesList() {
               {/* Pie Chart */}
               {pieSlices.length > 0 && (
                 <div className="border-t border-slate-100 pt-4 dark:border-white/5">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Par catégorie</p>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">{t('depenses.sidebar_by_category')}</p>
                   <div className="flex items-center gap-4">
                     <svg viewBox="0 0 100 100" className="h-20 w-20 shrink-0">
                       {pieSlices.map((slice, i) => (
@@ -637,7 +637,7 @@ export function DepensesList() {
                           <span className="text-[11px] text-slate-500 flex-1 truncate dark:text-slate-400">
                             {getCategoryConfig(slice.cat).label}
                           </span>
-                          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-400">{slice.percentage}%</span>
+                          <span dir="ltr" className="text-[11px] font-semibold text-slate-700 dark:text-slate-400">{slice.percentage}%</span>
                         </div>
                       ))}
                     </div>

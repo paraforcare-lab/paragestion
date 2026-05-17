@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,9 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -52,18 +51,10 @@ interface StatutOption {
   bgColor: string;
 }
 
-const statusOptions: StatutOption[] = [
-  { value: 'Généré', label: 'Généré', color: 'text-blue-700', bgColor: 'dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 bg-blue-50 text-blue-700 border border-blue-200/50' },
-  { value: 'en_attente', label: 'En attente', color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'émis', label: 'Émis', color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'remboursé', label: 'Remboursé', color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'appliqué', label: 'Appliqué', color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
-  { value: 'annulé', label: 'Annulé', color: 'text-slate-500', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-600 border border-slate-200/50' },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 export function AvoirsList() {
+  const { t, i18n } = useTranslation()
   const { user } = useAuth();
   const [avoirs, setAvoirs] = useState<Avoir[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +67,15 @@ export function AvoirsList() {
   const [printingAvoir, setPrintingAvoir] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
+  const statusOptions: StatutOption[] = [
+    { value: 'Généré', label: t('shared.status.generated'), color: 'text-blue-700', bgColor: 'dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 bg-blue-50 text-blue-700 border border-blue-200/50' },
+    { value: 'en_attente', label: t('shared.status.pending'), color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
+    { value: 'émis', label: t('shared.status.issued'), color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
+    { value: 'remboursé', label: t('shared.status.refunded'), color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+    { value: 'appliqué', label: t('shared.status.applied'), color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
+    { value: 'annulé', label: t('shared.status.cancelled'), color: 'text-slate-500', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-600 border border-slate-200/50' },
+  ];
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -112,7 +112,7 @@ export function AvoirsList() {
       setAvoirs(Array.isArray(data) ? (data || []).map(mapAvoir) : []);
     } catch (error) {
       console.error('Failed to fetch avoirs', error);
-      toast.error('Erreur lors du chargement des avoirs');
+      toast.error(t('avoirs.toast_load_error'));
     } finally {
       setIsLoading(false);
     }
@@ -185,7 +185,7 @@ export function AvoirsList() {
 
   const handleDownload = async (avoir: Avoir) => {
     try {
-      toast.info('Préparation du PDF...');
+      toast.info(t('shared.toast.pdf_preparing'));
 
       const { data: lignesData } = await supabase.from('avoir_lignes').select('*').eq('avoir_id', avoir.id).order('ordre');
 
@@ -222,7 +222,7 @@ export function AvoirsList() {
       setPrintingAvoir(adaptedData);
     } catch (error) {
       console.error('Error:', error);
-      toast.error('Erreur lors du chargement des détails de l\'avoir');
+      toast.error(t('avoirs.toast_load_error'));
     }
   };
 
@@ -231,11 +231,11 @@ export function AvoirsList() {
     try {
       const { error } = await supabase.from('avoirs').delete().eq('id', avoirToDelete);
       if (error) throw error;
-      toast.success('Avoir supprimé');
+      toast.success(t('avoirs.toast_deleted'));
       fetchAvoirs();
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('shared.toast.delete_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setAvoirToDelete(null);
@@ -295,8 +295,8 @@ export function AvoirsList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer l'avoir"
-        description="Êtes-vous sûr de vouloir supprimer cet avoir ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_credit_note')}
+        description={t('shared.confirm_delete.body_credit_note')}
       />
       <div style={{ display: 'none' }}>
         {printingAvoir && (
@@ -310,9 +310,9 @@ export function AvoirsList() {
           <RotateCcw className="h-5 w-5 text-orange-500" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Avoirs</h2>
+          <h2 className="text-2xl font-bold text-foreground">{t('avoirs.page_title')}</h2>
           <p className="text-sm text-muted-foreground">
-            Gérez les avoirs liés aux factures annulées
+            {t('avoirs.page_subtitle')}
           </p>
         </div>
       </div>
@@ -326,7 +326,7 @@ export function AvoirsList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400 pointer-events-none" />
               <Input
                 type="text"
-                placeholder="Rechercher par numéro, facture ou client..."
+                placeholder={t('avoirs.search_ph')}
                 className="pl-9 h-10 dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -334,11 +334,11 @@ export function AvoirsList() {
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-10 w-[160px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
-                <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
-                <SelectValue placeholder="Statut" />
+                <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.table.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="all">{t('shared.filters.all_statuses')}</SelectItem>
                 {statusOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
@@ -351,13 +351,13 @@ export function AvoirsList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b dark:border-white/5 border-slate-100">
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Avoir</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Facture d'origine</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant TTC</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.client')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('avoirs.col_avoir')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('avoirs.col_original_invoice')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.date')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('avoirs.col_amount_ttc')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('shared.table.status')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -366,7 +366,7 @@ export function AvoirsList() {
                     <TableCell colSpan={7} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement des avoirs...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('avoirs.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -379,12 +379,12 @@ export function AvoirsList() {
                         </div>
                         <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                           {searchQuery || statusFilter !== 'all'
-                            ? 'Aucun avoir trouvé'
-                            : 'Aucun avoir créé'}
+                            ? t('avoirs.empty_filtered')
+                            : t('avoirs.empty_all')}
                         </p>
                         {!searchQuery && statusFilter === 'all' && (
                           <p className="text-xs dark:text-muted-foreground text-slate-400 max-w-xs text-center">
-                            Les avoirs sont générés automatiquement lors de l'annulation d'une facture.
+                            {t('avoirs.empty_hint')}
                           </p>
                         )}
                       </div>
@@ -419,21 +419,21 @@ export function AvoirsList() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{avoir.numero || '-'}</span>
+                          <span dir="ltr" className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{avoir.numero || '-'}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium dark:text-emerald-400 dark:bg-emerald-500/10 text-emerald-600 bg-emerald-50/50 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
+                          <span dir="ltr" className="text-sm font-mono font-medium dark:text-emerald-400 dark:bg-emerald-500/10 text-emerald-600 bg-emerald-50/50 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
                             <FileText className="h-3 w-3" />
                             {avoir.facture?.numero || '-'}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm dark:text-muted-foreground text-slate-500">
-                            {avoir.dateEmission ? format(new Date(avoir.dateEmission), 'dd MMM yyyy', { locale: fr }) : '-'}
+                          <span dir="ltr" className="text-sm dark:text-muted-foreground text-slate-500">
+                            {formatDate(avoir.dateEmission, 'dd MMM yyyy', i18n.language)}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold text-red-500 dark:text-red-400">{formatCurrency(avoir.montantTtc)}</span>
+                        <TableCell className="px-4 py-5 text-start">
+                          <span dir="ltr" className="text-sm font-bold text-red-500 dark:text-red-400">{formatCurrency(avoir.montantTtc)}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-center">
                           <span className={cn(
@@ -443,14 +443,14 @@ export function AvoirsList() {
                             {status.label}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
+                        <TableCell className="px-4 py-5 text-start">
                           <div className="flex justify-end gap-0.5">
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                               onClick={() => handleDownload(avoir)}
-                              title="Télécharger PDF"
+                              title={t('shared.actions.download_pdf')}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
@@ -462,7 +462,7 @@ export function AvoirsList() {
                                 setAvoirToDelete(avoir.id);
                                 setDeleteConfirmOpen(true);
                               }}
-                              title="Supprimer"
+                              title={t('shared.actions.delete')}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -477,8 +477,8 @@ export function AvoirsList() {
 
             {!isLoading && paginatedAvoirs.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
-                <p className="text-xs dark:text-muted-foreground text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAvoirs.length)} sur {filteredAvoirs.length}
+                <p className="text-xs dark:text-muted-foreground text-slate-400" dir="ltr">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAvoirs.length)} {t('shared.pagination.of')} {filteredAvoirs.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -488,7 +488,7 @@ export function AvoirsList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -513,7 +513,7 @@ export function AvoirsList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -525,7 +525,7 @@ export function AvoirsList() {
         <div className="lg:col-span-1">
           <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
             <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
-              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">Activité des Avoirs</CardTitle>
+              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">{t('avoirs.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
@@ -533,8 +533,8 @@ export function AvoirsList() {
                   <Receipt className="h-4 w-4 dark:text-primary text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Total Avoirs (Mois en cours)</p>
-                  <p className="text-lg font-bold text-red-500 dark:text-red-400">{formatCurrency(monthTotal)}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">{t('avoirs.sidebar_month_total_label')}</p>
+                  <p dir="ltr" className="text-lg font-bold text-red-500 dark:text-red-400">{formatCurrency(monthTotal)}</p>
                 </div>
               </div>
 
@@ -543,8 +543,13 @@ export function AvoirsList() {
                   <RotateCcw className="h-4 w-4 dark:text-primary text-orange-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Nombre de retours</p>
-                  <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{monthCount} retour{monthCount !== 1 ? 's' : ''}</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">{t('avoirs.sidebar_returns_label')}</p>
+                  <p className="text-lg font-bold dark:text-card-foreground text-slate-800" dir="ltr">
+                    {monthCount}{' '}
+                    {monthCount === 1
+                      ? t('avoirs.sidebar_return_one')
+                      : t('avoirs.sidebar_return_other')}
+                  </p>
                 </div>
               </div>
 
@@ -552,9 +557,9 @@ export function AvoirsList() {
                 <div className="rounded-sm dark:bg-amber-500/10 dark:border-amber-500/20 bg-amber-50 border border-amber-200/50 p-3 flex items-start gap-2.5">
                   <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[11px] font-semibold dark:text-amber-400 text-amber-800">Impact sur le CA</p>
+                    <p className="text-[11px] font-semibold dark:text-amber-400 text-amber-800">{t('avoirs.sidebar_impact_title')}</p>
                     <p className="text-[11px] dark:text-amber-400/80 text-amber-700/80 leading-relaxed mt-0.5">
-                      Les avoirs viennent en déduction de votre chiffre d'affaires du mois.
+                      {t('avoirs.sidebar_impact_body')}
                     </p>
                   </div>
                 </div>

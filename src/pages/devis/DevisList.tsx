@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download, ArrowRightLeft, FileText,
   Send, CheckCircle, Ban, XCircle, Package, CalendarDays, Filter,
@@ -16,9 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -65,17 +64,10 @@ interface StatutOption {
   bgColor: string;
 }
 
-const statusOptions: StatutOption[] = [
-  { value: 'brouillon', label: 'Brouillon', icon: FileText, color: 'text-slate-700', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-700 border border-slate-200/50' },
-  { value: 'envoyé', label: 'Envoyé', icon: Send, color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
-  { value: 'accepté', label: 'Accepté', icon: CheckCircle, color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
-  { value: 'refusé', label: 'Refusé', icon: XCircle, color: 'text-red-700', bgColor: 'dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 bg-red-50 text-red-700 border border-red-200/50' },
-  { value: 'converti', label: 'Converti', icon: ArrowRightLeft, color: 'text-violet-700', bgColor: 'dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20 bg-violet-50 text-violet-700 border border-violet-200/50' },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 export function DevisList() {
+  const { t, i18n } = useTranslation()
   const { user } = useAuth();
   const [devisList, setDevisList] = useState<Devis[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,6 +84,14 @@ export function DevisList() {
   const [printingDevis, setPrintingDevis] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+
+  const statusOptions: StatutOption[] = [
+    { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-slate-700', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-700 border border-slate-200/50' },
+    { value: 'envoyé', label: t('shared.status.sent'), icon: Send, color: 'text-amber-700', bgColor: 'dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 bg-amber-50 text-amber-700 border border-amber-200/50' },
+    { value: 'accepté', label: t('shared.status.accepted'), icon: CheckCircle, color: 'text-emerald-700', bgColor: 'dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+    { value: 'refusé', label: t('shared.status.refused'), icon: XCircle, color: 'text-red-700', bgColor: 'dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/20 bg-red-50 text-red-700 border border-red-200/50' },
+    { value: 'converti', label: t('shared.status.converted'), icon: ArrowRightLeft, color: 'text-violet-700', bgColor: 'dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/20 bg-violet-50 text-violet-700 border border-violet-200/50' },
+  ];
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -146,7 +146,7 @@ export function DevisList() {
       await fetchFactureMap(mapped.map((d: Devis) => d.id));
     } catch (error) {
       console.error('Failed to fetch devis', error);
-      toast.error('Erreur lors du chargement');
+      toast.error(t('devis.toast_load_error'));
     } finally {
       setIsLoading(false);
     }
@@ -269,11 +269,11 @@ export function DevisList() {
 
       await supabase.from('devis').update({ statut: 'converti' }).eq('id', id).eq('user_id', user?.id);
 
-      toast.success('Devis converti en facture avec succès !');
+      toast.success(t('devis.toast_converted'));
       fetchDevis();
     } catch (error: any) {
       console.error('Conversion error:', error);
-      toast.error(error?.message || 'Erreur lors de la conversion');
+      toast.error(error?.message || t('devis.toast_load_error'));
     }
   };
 
@@ -283,10 +283,10 @@ export function DevisList() {
     try {
       const { error } = await supabase.from('devis').delete().eq('id', devisToDelete);
       if (error) throw error;
-      toast.success('Devis supprimé');
+      toast.success(t('devis.toast_deleted'));
       fetchDevis();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('shared.toast.delete_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setDevisToDelete(null);
@@ -320,13 +320,13 @@ export function DevisList() {
       setEditingDevis(mappedData);
       setIsDialogOpen(true);
     } catch (error) {
-      toast.error('Erreur lors du chargement du devis');
+      toast.error(t('devis.toast_load_error'));
     }
   };
 
   const handleDownload = async (devis: Devis) => {
     try {
-      toast.info('Préparation du PDF...');
+      toast.info(t('shared.toast.pdf_preparing'));
       const { data, error } = await supabase.from('devis').select('*, client:clients(*)').eq('id', devis.id).single();
       if (error) throw error;
 
@@ -358,7 +358,7 @@ export function DevisList() {
       };
       setPrintingDevis(mappedDevis);
     } catch (error) {
-      toast.error('Erreur lors du chargement des détails du devis');
+      toast.error(t('devis.toast_load_error'));
     }
   };
 
@@ -370,10 +370,10 @@ export function DevisList() {
         .eq('id', id)
         .eq('user_id', user?.id);
       if (error) throw error;
-      toast.success('Statut mis à jour');
+      toast.success(t('shared.toast.status_updated'));
       fetchDevis();
     } catch (error) {
-      toast.error('Erreur lors de la mise à jour du statut');
+      toast.error(t('shared.toast.update_error'));
     }
   };
 
@@ -457,8 +457,8 @@ export function DevisList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer le devis"
-        description="Êtes-vous sûr de vouloir supprimer ce devis ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_quote')}
+        description={t('shared.confirm_delete.body_quote')}
       />
 
       <div style={{ display: 'none' }}>
@@ -474,8 +474,8 @@ export function DevisList() {
             <FileText className="h-5 w-5 text-emerald-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Devis</h2>
-            <p className="text-sm text-muted-foreground">Gérez vos devis et convertissez-les en factures</p>
+            <h2 className="text-2xl font-bold text-foreground">{t('devis.page_title')}</h2>
+            <p className="text-sm text-muted-foreground">{t('devis.page_subtitle')}</p>
           </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -484,8 +484,8 @@ export function DevisList() {
         }}>
           <DialogTrigger render={
             <Button className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau Devis
+              <Plus className="me-2 h-4 w-4" />
+              {t('devis.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20">
@@ -493,12 +493,12 @@ export function DevisList() {
               <DialogHeader className="px-8 py-6 border-b dark:border-white/10 border-border/50 dark:bg-card/50 bg-white/50 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingDevis ? 'Modifier le devis' : 'Nouveau Devis'}
+                    {editingDevis ? t('devis.dialog_edit') : t('devis.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingDevis
-                      ? `Modification du devis ${editingDevis.numero}`
-                      : 'Créez un nouveau devis pour vos clients'}
+                      ? t('devis.dialog_subtitle_edit', { number: editingDevis.numero })
+                      : t('devis.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -529,7 +529,7 @@ export function DevisList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
               <Input
                 type="search"
-                placeholder="Rechercher par numéro ou client..."
+                placeholder={t('devis.search_ph')}
                 className="pl-9 h-10 dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm focus:border-slate-300 shadow-none text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -537,11 +537,11 @@ export function DevisList() {
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="h-10 w-[140px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
-                <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
-                <SelectValue placeholder="Statut" />
+                <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.table.status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="all">{t('shared.filters.all_statuses')}</SelectItem>
                 {statusOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
@@ -549,14 +549,14 @@ export function DevisList() {
             </Select>
             <Select value={timeFilter} onValueChange={setTimeFilter}>
               <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
-                <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
-                <SelectValue placeholder="Période" />
+                <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.filters.all_periods')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Toutes les périodes</SelectItem>
-                <SelectItem value="30days">30 derniers jours</SelectItem>
-                <SelectItem value="thisMonth">Ce mois</SelectItem>
-                <SelectItem value="thisYear">Cette année</SelectItem>
+                <SelectItem value="all">{t('shared.filters.all_periods')}</SelectItem>
+                <SelectItem value="30days">{t('shared.filters.last_30_days')}</SelectItem>
+                <SelectItem value="thisMonth">{t('shared.filters.this_month')}</SelectItem>
+                <SelectItem value="thisYear">{t('shared.filters.this_year')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -566,12 +566,12 @@ export function DevisList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b dark:border-white/5 border-slate-100">
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Client</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Numéro</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">Date</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Montant</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Statut</TableHead>
-                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-right">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.client')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.number')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.date')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.amount')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('shared.table.status')}</TableHead>
+                  <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -580,7 +580,7 @@ export function DevisList() {
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('devis.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -593,8 +593,8 @@ export function DevisList() {
                         </div>
                         <p className="text-sm dark:text-muted-foreground text-slate-500 font-medium">
                           {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
-                            ? 'Aucun devis trouvé'
-                            : 'Aucun devis créé'}
+                            ? t('devis.empty_filtered')
+                            : t('devis.empty_all')}
                         </p>
                       </div>
                     </TableCell>
@@ -629,15 +629,15 @@ export function DevisList() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{devis.numero}</span>
+                          <span dir="ltr" className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{devis.numero}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span className="text-sm dark:text-muted-foreground text-slate-500">
-                            {format(new Date(devis.dateEmission), 'dd MMM yyyy', { locale: fr })}
+                          <span dir="ltr" className="text-sm dark:text-muted-foreground text-slate-500">
+                            {formatDate(devis.dateEmission, 'dd MMM yyyy', i18n.language)}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
-                          <span className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(devis.montantTtc)}</span>
+                        <TableCell className="px-4 py-5 text-start">
+                          <span dir="ltr" className="text-sm font-bold dark:text-card-foreground text-slate-800">{formatCurrency(devis.montantTtc)}</span>
                           {devis.statut === 'converti' && factureMap[devis.id] && (
                             <div className="text-[10px] text-violet-500 font-medium mt-0.5 flex items-center justify-end gap-1">
                               <ExternalLink className="h-3 w-3" />
@@ -676,14 +676,14 @@ export function DevisList() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-right">
+                        <TableCell className="px-4 py-5 text-start">
                           <div className="flex justify-end gap-0.5">
                             {devis.statut !== 'converti' && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 dark:text-muted-foreground dark:hover:text-violet-400 dark:hover:bg-violet-500/10 text-violet-400 hover:text-violet-600 hover:bg-violet-50 rounded-sm"
-                                title="Convertir en facture"
+                                title={t('devis.tooltip_convert')}
                                 onClick={() => handleConvertToFacture(devis.id)}
                               >
                                 <ArrowRightLeft className="h-4 w-4" />
@@ -694,7 +694,7 @@ export function DevisList() {
                               size="icon"
                               className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                               onClick={() => handleDownload(devis)}
-                              title="Télécharger PDF"
+                              title={t('shared.actions.download_pdf')}
                             >
                               <Download className="h-4 w-4" />
                             </Button>
@@ -703,7 +703,7 @@ export function DevisList() {
                               size="icon"
                               className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                               onClick={() => handleEdit(devis)}
-                              title="Modifier"
+                              title={t('shared.actions.edit')}
                             >
                               <FileEdit className="h-4 w-4" />
                             </Button>
@@ -716,7 +716,7 @@ export function DevisList() {
                                   setDevisToDelete(devis.id);
                                   setDeleteConfirmOpen(true);
                                 }}
-                                title="Supprimer"
+                                title={t('shared.actions.delete')}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -726,7 +726,7 @@ export function DevisList() {
                                 size="icon"
                                 className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
                                 onClick={() => handleStatusChange(devis.id, 'refusé')}
-                                title="Refuser"
+                                title={t('devis.tooltip_refuse')}
                               >
                                 <Ban className="h-4 w-4" />
                               </Button>
@@ -742,8 +742,8 @@ export function DevisList() {
 
             {!isLoading && paginatedDevis.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
-                <p className="text-xs dark:text-muted-foreground text-slate-400">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredDevis.length)} sur {filteredDevis.length}
+                <p className="text-xs dark:text-muted-foreground text-slate-400" dir="ltr">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredDevis.length)} {t('shared.pagination.of')} {filteredDevis.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -753,7 +753,7 @@ export function DevisList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -778,7 +778,7 @@ export function DevisList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -790,7 +790,7 @@ export function DevisList() {
         <div className="lg:col-span-1">
           <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm">
             <CardHeader className="px-4 py-4 border-b dark:border-white/5 border-slate-100">
-              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">Statistiques Devis</CardTitle>
+              <CardTitle className="text-sm font-semibold dark:text-card-foreground text-slate-700">{t('devis.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-4">
               <div className="flex items-center gap-3">
@@ -798,10 +798,10 @@ export function DevisList() {
                   <Send className="h-4 w-4 dark:text-primary text-amber-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">En attente</p>
-                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{attente30.length} devis</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">{t('devis.sidebar_pending')}</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{attente30.length} {attente30.length !== 1 ? t('devis.sidebar_quote_other') : t('devis.sidebar_quote_one')}</p>
                 </div>
-                <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
+                <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                   {formatCurrency(attente30.reduce((s, d) => s + (d.montantTtc || 0), 0))}
                 </span>
               </div>
@@ -811,10 +811,10 @@ export function DevisList() {
                   <ArrowRightLeft className="h-4 w-4 dark:text-primary text-violet-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Convertis</p>
-                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{convertis30.length} devis</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">{t('devis.sidebar_converted')}</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{convertis30.length} {convertis30.length !== 1 ? t('devis.sidebar_quote_other') : t('devis.sidebar_quote_one')}</p>
                 </div>
-                <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
+                <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                   {formatCurrency(convertis30.reduce((s, d) => s + (d.montantTtc || 0), 0))}
                 </span>
               </div>
@@ -824,24 +824,24 @@ export function DevisList() {
                   <XCircle className="h-4 w-4 dark:text-primary text-slate-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs dark:text-muted-foreground text-slate-500">Expirés / Refusés</p>
-                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{expires30.length} devis</p>
+                  <p className="text-xs dark:text-muted-foreground text-slate-500">{t('devis.sidebar_expired')}</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{expires30.length} {expires30.length !== 1 ? t('devis.sidebar_quote_other') : t('devis.sidebar_quote_one')}</p>
                 </div>
-                <span className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
+                <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
                   {formatCurrency(expires30.reduce((s, d) => s + (d.montantTtc || 0), 0))}
                 </span>
               </div>
 
               <div className="pt-3 border-t dark:border-white/5 border-slate-100 space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">Total</p>
-                  <p className="text-base font-bold text-emerald-500">{formatCurrency(total30Montant)}</p>
+                  <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{t('devis.sidebar_total')}</p>
+                  <p dir="ltr" className="text-base font-bold text-emerald-500">{formatCurrency(total30Montant)}</p>
                 </div>
                 <div className="flex items-center gap-2 rounded-sm dark:bg-slate-900/40 dark:border-white/10 bg-emerald-50 border border-emerald-100/50 px-3 py-2.5">
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
                   <div className="flex-1">
-                    <p className="text-[11px] dark:text-muted-foreground text-slate-500 font-medium">Taux de conversion</p>
-                    <p className="text-sm font-bold text-emerald-600">{conversionRate}%</p>
+                    <p className="text-[11px] dark:text-muted-foreground text-slate-500 font-medium">{t('devis.sidebar_conversion_rate')}</p>
+                    <p dir="ltr" className="text-sm font-bold text-emerald-600">{conversionRate}%</p>
                   </div>
                 </div>
               </div>

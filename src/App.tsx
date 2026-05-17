@@ -1,8 +1,4 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -28,6 +24,26 @@ import { DatabaseManager } from './pages/DatabaseManager'
 import { SqlEditor } from './pages/SqlEditor'
 import { TransactionsList } from './pages/transactions/TransactionsList'
 import { Toaster } from '@/components/ui/sonner'
+import i18n from './lib/i18n'
+
+function RtlSynchronizer() {
+  useEffect(() => {
+    const saved = localStorage.getItem('pg_language') || 'fr';
+    const dir = saved.startsWith('ar') ? 'rtl' : 'ltr';
+    document.documentElement.dir = dir;
+
+    const handleLanguageChanged = (lng: string) => {
+      document.documentElement.dir = lng.startsWith('ar') ? 'rtl' : 'ltr';
+    };
+
+    i18n.on('languageChanged', handleLanguageChanged);
+    return () => {
+      i18n.off('languageChanged', handleLanguageChanged);
+    };
+  }, []);
+
+  return null;
+}
 
 export default function App() {
   return (
@@ -35,6 +51,7 @@ export default function App() {
       <ThemeProvider>
       <NotificationsProvider>
       <Router>
+        <RtlSynchronizer />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           

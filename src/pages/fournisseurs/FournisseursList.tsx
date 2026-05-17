@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Truck, Building2, User,
   ChevronLeft, ChevronRight, Mail, Phone, MapPin
@@ -46,6 +47,7 @@ interface Fournisseur {
 const ITEMS_PER_PAGE = 10;
 
 export function FournisseursList() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,7 +72,7 @@ export function FournisseursList() {
         .eq('user_id', user.id);
 
       if (result.error) {
-        toast.error('Error: ' + result.error.message);
+        toast.error(t('fournisseurs.toast_load_error'));
         setFournisseurs([]);
         setIsLoading(false);
         return;
@@ -101,10 +103,10 @@ export function FournisseursList() {
         .eq('user_id', user.id);
 
       if (error) throw error;
-      toast.success('Fournisseur supprimé avec succès');
+      toast.success(t('fournisseurs.toast_deleted'));
       fetchFournisseurs();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('fournisseurs.toast_load_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setFournisseurToDelete(null);
@@ -161,8 +163,8 @@ export function FournisseursList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer le fournisseur"
-        description="Êtes-vous sûr de vouloir supprimer ce fournisseur ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_supplier')}
+        description={t('shared.confirm_delete.body_supplier')}
       />
 
       {/* Header */}
@@ -172,9 +174,9 @@ export function FournisseursList() {
             <Truck className="h-5 w-5 text-sky-500 dark:text-blue-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Fournisseurs</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('fournisseurs.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Gérez vos partenaires et fournisseurs
+              {t('fournisseurs.page_subtitle')}
             </p>
           </div>
         </div>
@@ -189,7 +191,7 @@ export function FournisseursList() {
               className="bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau Fournisseur
+              {t('fournisseurs.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-[#0F172A] dark:border-white/10">
@@ -197,12 +199,12 @@ export function FournisseursList() {
               <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-[#0F172A] dark:border-white/10">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingFournisseur ? 'Modifier le fournisseur' : 'Nouveau Fournisseur'}
+                    {editingFournisseur ? t('fournisseurs.dialog_edit') : t('fournisseurs.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingFournisseur
-                      ? `Modification du fournisseur ${editingFournisseur.nom || editingFournisseur.nomSociete}`
-                      : 'Ajoutez un nouveau fournisseur à votre base de données'}
+                      ? t('fournisseurs.dialog_subtitle_edit', { name: editingFournisseur.nom || editingFournisseur.nomSociete })
+                      : t('fournisseurs.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -233,7 +235,7 @@ export function FournisseursList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
             <Input
               type="text"
-              placeholder="Rechercher par nom, code ou email..."
+              placeholder={t('fournisseurs.search_ph')}
               className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -245,12 +247,12 @@ export function FournisseursList() {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/10">
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[120px] dark:text-slate-400">Code</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Fournisseur</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Type</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Contact</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">ICE</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[120px] dark:text-slate-400">{t('fournisseurs.col_code')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('fournisseurs.col_supplier')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('fournisseurs.col_type')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('fournisseurs.col_contact')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('fournisseurs.col_ice')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">{t('fournisseurs.col_actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -259,7 +261,7 @@ export function FournisseursList() {
                     <TableCell colSpan={6} className="h-48 text-center">
                       <div className="flex flex-col items-center justify-center gap-3">
                         <div className="h-8 w-8 border-4 border-sky-500/30 border-t-sky-500 rounded-full animate-spin" />
-                        <p className="text-sm text-muted-foreground font-medium">Chargement des fournisseurs...</p>
+                        <p className="text-sm text-muted-foreground font-medium">{t('fournisseurs.loading')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -271,7 +273,7 @@ export function FournisseursList() {
                           <Truck className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
-                          {searchQuery ? 'Aucun fournisseur trouvé' : 'Aucun fournisseur enregistré'}
+                          {searchQuery ? t('fournisseurs.empty_filtered') : t('fournisseurs.empty_all')}
                         </p>
                         {!searchQuery && (
                           <Button
@@ -280,7 +282,7 @@ export function FournisseursList() {
                             onClick={openNewForm}
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Ajouter votre premier fournisseur
+                            {t('fournisseurs.create_first')}
                           </Button>
                         )}
                       </div>
@@ -332,7 +334,7 @@ export function FournisseursList() {
                             ) : (
                               <User className="h-3 w-3 mr-1" />
                             )}
-                            {fournisseur.type === 'entreprise' ? 'Entreprise' : 'Particulier'}
+                            {fournisseur.type === 'entreprise' ? t('fournisseurs.type_company') : t('fournisseurs.type_individual')}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
@@ -366,7 +368,7 @@ export function FournisseursList() {
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:text-slate-500 dark:hover:text-white dark:hover:bg-white/5"
                               onClick={() => handleEdit(fournisseur)}
-                              title="Modifier"
+                              title={t('shared.actions.edit')}
                             >
                               <FileEdit className="h-4 w-4" />
                             </Button>
@@ -378,7 +380,7 @@ export function FournisseursList() {
                                 setFournisseurToDelete(fournisseur.id);
                                 setDeleteConfirmOpen(true);
                               }}
-                              title="Supprimer"
+                              title={t('shared.actions.delete')}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -394,7 +396,7 @@ export function FournisseursList() {
             {!isLoading && paginatedFournisseurs.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/10">
                 <p className="text-xs text-slate-400 dark:text-slate-500">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFournisseurs.length)} sur {filteredFournisseurs.length}
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredFournisseurs.length)} {t('shared.pagination.of')} {filteredFournisseurs.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -404,7 +406,7 @@ export function FournisseursList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -429,7 +431,7 @@ export function FournisseursList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -441,7 +443,7 @@ export function FournisseursList() {
         <div className="lg:col-span-1 space-y-4">
           <Card className="border border-slate-200 shadow-none rounded-[6px] dark:bg-[#0F172A] dark:border-white/10">
             <CardHeader className="px-4 py-4 border-b border-slate-100 dark:border-white/10">
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">Aperçu des Fournisseurs</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('fournisseurs.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
@@ -449,8 +451,8 @@ export function FournisseursList() {
                   <Truck className="h-4 w-4 text-sky-500 dark:text-blue-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Total fournisseurs</p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">{fournisseursCount}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('fournisseurs.sidebar_total')}</p>
+                  <p className="text-lg font-bold text-slate-800 dark:text-white" dir="ltr">{fournisseursCount}</p>
                 </div>
               </div>
 
@@ -458,16 +460,16 @@ export function FournisseursList() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-sky-500 dark:text-blue-400" />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Entreprises</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{t('fournisseurs.sidebar_companies')}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{entreprisesCount}</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300" dir="ltr">{entreprisesCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-amber-500 dark:text-amber-400" />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Particuliers</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{t('fournisseurs.sidebar_individuals')}</span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{particuliersCount}</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300" dir="ltr">{particuliersCount}</span>
                 </div>
               </div>
             </CardContent>

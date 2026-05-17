@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Package, AlertTriangle,
   ChevronLeft, ChevronRight, ImageIcon
@@ -52,6 +53,7 @@ interface Produit {
 const ITEMS_PER_PAGE = 10;
 
 export function ProduitsList() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [produits, setProduits] = useState<Produit[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,7 +98,7 @@ export function ProduitsList() {
         .order('nom');
 
       if (error) {
-        toast.error('Erreur: ' + error.message);
+        toast.error(t('produits.toast_load_error'));
         setProduits([]);
         setIsLoading(false);
         return;
@@ -131,11 +133,11 @@ export function ProduitsList() {
 
       if (error) throw error;
 
-      toast.success('Produit supprimé');
+      toast.success(t('produits.toast_deleted'));
       fetchProduits();
     } catch (error: any) {
       console.error('Delete error:', error);
-      toast.error(error.message || 'Erreur lors de la suppression');
+      toast.error(error.message || t('produits.toast_load_error'));
     } finally {
       setDeleteConfirmOpen(false);
       setProduitToDelete(null);
@@ -195,8 +197,8 @@ export function ProduitsList() {
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleDelete}
-        title="Supprimer le produit"
-        description="Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible."
+        title={t('shared.confirm_delete.title_product')}
+        description={t('shared.confirm_delete.body_product')}
       />
 
       {/* Header */}
@@ -206,9 +208,9 @@ export function ProduitsList() {
             <Package className="h-5 w-5 text-amber-500 dark:text-emerald-400" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Produits</h2>
+            <h2 className="text-2xl font-bold text-foreground">{t('produits.page_title')}</h2>
             <p className="text-sm text-muted-foreground">
-              Gérez votre catalogue de produits et suivez les niveaux de stock
+              {t('produits.page_subtitle')}
             </p>
           </div>
         </div>
@@ -223,7 +225,7 @@ export function ProduitsList() {
               className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
             >
               <Plus className="mr-2 h-4 w-4" />
-              Nouveau Produit
+              {t('produits.new_button')}
             </Button>
           } />
           <DialogContent fullScreen className="dark:bg-[#0F172A] dark:border-white/10">
@@ -231,12 +233,12 @@ export function ProduitsList() {
               <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-[#0F172A] dark:border-white/10">
                 <div className="max-w-7xl mx-auto w-full">
                   <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingProduit ? 'Modifier le produit' : 'Nouveau Produit'}
+                    {editingProduit ? t('produits.dialog_edit') : t('produits.dialog_create')}
                   </DialogTitle>
                   <DialogDescription className="mt-1 text-muted-foreground">
                     {editingProduit
-                      ? `Modification du produit ${editingProduit.designation || editingProduit.nom}`
-                      : 'Ajoutez un nouveau produit à votre catalogue'}
+                      ? t('produits.dialog_subtitle_edit', { name: editingProduit.designation || editingProduit.nom })
+                      : t('produits.dialog_subtitle_create')}
                   </DialogDescription>
                 </div>
               </DialogHeader>
@@ -267,7 +269,7 @@ export function ProduitsList() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
             <Input
               type="text"
-              placeholder="Rechercher par nom, référence, marque..."
+              placeholder={t('produits.search_ph')}
               className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -281,14 +283,14 @@ export function ProduitsList() {
                 <TableHeader>
                   <TableRow className="border-b border-slate-100 dark:border-white/5">
                     <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 w-[60px] dark:text-slate-400"></TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Réf.</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Produit</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Prix Achat</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Prix Vente HT</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">TVA</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">Prix TTC</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">Stock</TableHead>
-                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">Actions</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('produits.col_ref')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('produits.col_product')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('produits.col_buy_price')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('produits.col_sale_price')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('produits.col_vat')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('produits.col_price_ttc')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">{t('produits.col_stock')}</TableHead>
+                    <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">{t('produits.col_actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -297,7 +299,7 @@ export function ProduitsList() {
                       <TableCell colSpan={9} className="h-48 text-center">
                         <div className="flex flex-col items-center justify-center gap-3">
                           <div className="h-8 w-8 border-4 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
-                          <p className="text-sm text-muted-foreground font-medium">Chargement des produits...</p>
+                          <p className="text-sm text-muted-foreground font-medium">{t('produits.loading')}</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -309,7 +311,7 @@ export function ProduitsList() {
                           <Package className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
-                            {searchQuery ? 'Aucun produit trouvé' : 'Aucun produit enregistré'}
+                            {searchQuery ? t('produits.empty_filtered') : t('produits.empty_all')}
                           </p>
                           {!searchQuery && (
                             <Button
@@ -318,7 +320,7 @@ export function ProduitsList() {
                               onClick={openNewForm}
                             >
                               <Plus className="mr-2 h-4 w-4" />
-                              Ajouter votre premier produit
+                              {t('produits.create_first')}
                             </Button>
                           )}
                         </div>
@@ -406,7 +408,7 @@ export function ProduitsList() {
                               size="icon"
                               className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                               onClick={() => handleEdit(produit)}
-                              title="Modifier"
+                              title={t('shared.actions.edit')}
                             >
                               <FileEdit className="h-4 w-4" />
                             </Button>
@@ -418,7 +420,7 @@ export function ProduitsList() {
                                 setProduitToDelete(produit.id);
                                 setDeleteConfirmOpen(true);
                               }}
-                              title="Supprimer"
+                              title={t('shared.actions.delete')}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -434,7 +436,7 @@ export function ProduitsList() {
             {!isLoading && paginatedProduits.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">
                 <p className="text-xs text-slate-400 dark:text-slate-500">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredProduits.length)} sur {filteredProduits.length}
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredProduits.length)} {t('shared.pagination.of')} {filteredProduits.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -444,7 +446,7 @@ export function ProduitsList() {
                     disabled={currentPage === 1}
                     onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                     <Button
@@ -469,7 +471,7 @@ export function ProduitsList() {
                     disabled={currentPage === totalPages}
                     onClick={() => handlePageChange(currentPage + 1)}
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
                   </Button>
                 </div>
               </div>
@@ -481,7 +483,7 @@ export function ProduitsList() {
         <div className="lg:col-span-1 space-y-4">
           <Card className="border border-slate-200 shadow-none rounded-[6px] dark:bg-[#0F172A] dark:border-white/10">
             <CardHeader className="px-4 py-4 border-b border-slate-100 dark:border-white/5">
-              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">Aperçu du Catalogue</CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-300">{t('produits.sidebar_title')}</CardTitle>
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
@@ -489,8 +491,8 @@ export function ProduitsList() {
                   <Package className="h-4 w-4 text-amber-500 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Total produits</p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">{produitsCount}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t('produits.sidebar_total')}</p>
+                  <p className="text-lg font-bold text-slate-800 dark:text-white" dir="ltr">{produitsCount}</p>
                 </div>
               </div>
 
@@ -498,25 +500,25 @@ export function ProduitsList() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Stock faible</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{t('produits.sidebar_low_stock')}</span>
                   </div>
                   <span className={cn(
                     "text-sm font-semibold",
                     lowStockCount > 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"
-                  )}>
+                  )} dir="ltr">
                     {lowStockCount}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Valeur du stock</span>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{formatCurrency(stockValue)}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{t('produits.sidebar_value')}</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300" dir="ltr">{formatCurrency(stockValue)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Marge moyenne</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{t('produits.sidebar_margin')}</span>
                   <span className={cn(
                     "text-sm font-semibold",
                     avgMargin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                  )}>
+                  )} dir="ltr">
                     {avgMargin.toFixed(1)}%
                   </span>
                 </div>

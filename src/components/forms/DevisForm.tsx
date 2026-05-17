@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
@@ -19,45 +20,46 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 
-const ligneSchema = z.object({
-  produitId: z.string().optional(),
-  reference: z.string().optional(),
-  designation: z.string().min(1, 'La désignation est requise'),
-  quantite: z.number().min(0.01, 'La quantité doit être supérieure à 0'),
-  prixUnitaireHt: z.number().min(0, 'Le prix doit être positif'),
-  tva: z.number().min(0, 'La TVA doit être positive'),
-});
-
-const devisSchema = z.object({
-  clientId: z.string().min(1, 'Le client est requis'),
-  dateEmission: z.string().min(1, 'La date d\'émission est requise'),
-  dateValidite: z.string().min(1, 'La date de validité est requise'),
-  statut: z.string().min(1, 'Le statut est requis'),
-  modePaiement: z.string().optional(),
-  notes: z.string().optional(),
-  lignes: z.array(ligneSchema).min(1, 'Au moins une ligne est requise'),
-});
-
-type DevisFormValues = z.infer<typeof devisSchema>;
-
 interface DevisFormProps {
   initialData?: any;
   onSuccess: () => void;
 }
 
 export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [clients, setClients] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const ligneSchema = z.object({
+    produitId: z.string().optional(),
+    reference: z.string().optional(),
+    designation: z.string().min(1, t('shared.validation.designation_required')),
+    quantite: z.number().min(0.01, t('shared.validation.qty_min')),
+    prixUnitaireHt: z.number().min(0, t('shared.validation.price_positive')),
+    tva: z.number().min(0, t('shared.validation.vat_positive')),
+  });
+
+  const devisSchema = z.object({
+    clientId: z.string().min(1, t('shared.validation.client_required')),
+    dateEmission: z.string().min(1, t('shared.validation.emission_date_required')),
+    dateValidite: z.string().min(1, t('shared.validation.validity_date_required')),
+    statut: z.string().min(1, t('shared.validation.status_required')),
+    modePaiement: z.string().optional(),
+    notes: z.string().optional(),
+    lignes: z.array(ligneSchema).min(1, t('shared.validation.lines_min')),
+  });
+
+  type DevisFormValues = z.infer<typeof devisSchema>;
+
   const form = useForm<DevisFormValues>({
     resolver: zodResolver(devisSchema),
     defaultValues: initialData || {
       clientId: '',
       dateEmission: new Date().toISOString().split('T')[0],
-      dateValidite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +30 days
+      dateValidite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       statut: 'brouillon',
       modePaiement: 'Virement',
       notes: '',
@@ -113,7 +115,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
           form.setValue('notes', parametresData[0].pied_page_defaut || '');
         }
       } catch (error) {
-        toast.error('Erreur lors du chargement des données');
+        toast.error(t('shared.toast.loading_error'));
       }
     };
     fetchData();
@@ -121,7 +123,6 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
 
   const watchLignes = form.watch('lignes');
 
-  // Calculate totals
   const totals = watchLignes.reduce(
     (acc, ligne) => {
       const montantHt = (ligne.quantite || 0) * (ligne.prixUnitaireHt || 0);
@@ -138,7 +139,6 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
   const onSubmit = async (data: DevisFormValues) => {
     setIsLoading(true);
     try {
-      // Generate numero if not exists
       if (!initialData?.numero) {
         const year = new Date().getFullYear();
         const randomNum = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
@@ -160,20 +160,15 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       let devisId = initialData?.id;
 
       if (!devisId) {
-        // Create new devis
         const { data: newDevis, error } = await supabase.from('devis').insert([{ ...payload, user_id: user?.id }]).select().single();
         if (error) throw error;
         devisId = newDevis.id;
       } else {
-        // Update existing devis
         const { error } = await supabase.from('devis').update(payload).eq('id', devisId);
         if (error) throw error;
-        
-        // Delete old lignes
         await supabase.from('devis_lignes').delete().eq('devis_id', devisId);
       }
 
-      // Insert lignes
       const lignesPayload = (data.lignes || []).map((ligne: any, index: number) => {
         const montantHt = (Number(ligne.quantite) || 0) * (Number(ligne.prixUnitaireHt) || 0);
         const montantTtc = montantHt * (1 + (Number(ligne.tva) || 20) / 100);
@@ -198,7 +193,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       toast.success(initialData ? 'Devis modifié' : 'Devis créé');
       onSuccess();
     } catch (error: any) {
-      toast.error(error.message || 'Une erreur est survenue');
+      toast.error(error.message || t('shared.toast.save_error'));
     } finally {
       setIsLoading(false);
     }
@@ -220,13 +215,13 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       <div className="dark:bg-slate-900/40 dark:border-white/10 bg-slate-50 p-4 rounded-sm border border-slate-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">Client *</Label>
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.client_label')}</Label>
             <Select
               value={form.watch('clientId') || ""}
               onValueChange={(val) => form.setValue('clientId', val)}
             >
               <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-300">
-                <SelectValue placeholder="Sélectionner un client" />
+                <SelectValue placeholder={t('shared.form.select_client')} />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((client) => (
@@ -242,7 +237,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">Date d'émission *</Label>
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.emission_date')}</Label>
             <Input type="date" className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300" {...form.register('dateEmission')} />
             {form.formState.errors.dateEmission && (
               <p className="text-xs text-red-500 font-medium">{form.formState.errors.dateEmission.message}</p>
@@ -250,43 +245,43 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">Date de validité</Label>
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.validity_date')}</Label>
             <Input type="date" className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300" {...form.register('dateValidite')} />
           </div>
 
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">Statut *</Label>
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.status_label')}</Label>
             <Select
               value={form.watch('statut') || ""}
               onValueChange={(val) => form.setValue('statut', val)}
             >
               <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-300">
-                <SelectValue placeholder="Sélectionner un statut" />
+                <SelectValue placeholder={t('shared.form.select_status')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="brouillon">Brouillon</SelectItem>
-                <SelectItem value="envoyé">Envoyé</SelectItem>
-                <SelectItem value="accepté">Accepté</SelectItem>
-                <SelectItem value="refusé">Refusé</SelectItem>
+                <SelectItem value="brouillon">{t('shared.status.draft')}</SelectItem>
+                <SelectItem value="envoyé">{t('shared.status.sent')}</SelectItem>
+                <SelectItem value="accepté">{t('shared.status.accepted')}</SelectItem>
+                <SelectItem value="refusé">{t('shared.status.refused')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">Mode de paiement suggéré</Label>
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.suggested_payment')}</Label>
             <Select
               value={form.watch('modePaiement') || ""}
               onValueChange={(val) => form.setValue('modePaiement', val)}
             >
               <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-300">
-                <SelectValue placeholder="Sélectionner un mode" />
+                <SelectValue placeholder={t('shared.form.select_mode')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Virement">Virement</SelectItem>
-                <SelectItem value="Chèque">Chèque</SelectItem>
-                <SelectItem value="Espèces">Espèces</SelectItem>
-                <SelectItem value="Carte">Carte Bancaire</SelectItem>
-                <SelectItem value="Effet">Effet de commerce</SelectItem>
+                <SelectItem value="Virement">{t('shared.payment_modes.bank_transfer')}</SelectItem>
+                <SelectItem value="Chèque">{t('shared.payment_modes.cheque')}</SelectItem>
+                <SelectItem value="Espèces">{t('shared.payment_modes.cash')}</SelectItem>
+                <SelectItem value="Carte">{t('shared.payment_modes.card')}</SelectItem>
+                <SelectItem value="Effet">{t('shared.payment_modes.bill_of_exchange')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -295,7 +290,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
 
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b dark:border-white/10 pb-2">
-          <h3 className="text-lg font-bold dark:text-card-foreground text-slate-800">Lignes du devis</h3>
+          <h3 className="text-lg font-bold dark:text-card-foreground text-slate-800">{t('shared.form.lines_section')}</h3>
           <Button
             type="button"
             variant="outline"
@@ -306,7 +301,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
             }
           >
             <Plus className="h-4 w-4 mr-2" />
-            Ajouter une ligne
+            {t('shared.form.add_line')}
           </Button>
         </div>
 
@@ -314,12 +309,12 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
           <table className="w-full text-sm">
             <thead className="border-b dark:border-white/10">
               <tr>
-                <th className="p-3 text-left font-semibold dark:text-muted-foreground text-slate-600">Produit</th>
-                <th className="p-3 text-left font-semibold dark:text-muted-foreground text-slate-600">Désignation *</th>
-                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-24">Qté *</th>
-                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-32">Prix HT *</th>
-                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-24">TVA % *</th>
-                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-32">Total HT</th>
+                <th className="p-3 text-start font-semibold dark:text-muted-foreground text-slate-600">{t('shared.table.product')}</th>
+                <th className="p-3 text-start font-semibold dark:text-muted-foreground text-slate-600">{t('shared.form.description_label')}</th>
+                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-24">{t('shared.form.qty_label')}</th>
+                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-32">{t('shared.form.price_ht_label')}</th>
+                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-24">{t('shared.form.vat_pct_label')}</th>
+                <th className="p-3 text-right font-semibold dark:text-muted-foreground text-slate-600 w-32">{t('shared.form.subtotal_ht')}</th>
                 <th className="p-3 w-12"></th>
               </tr>
             </thead>
@@ -339,7 +334,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
                           {(() => {
                             const pid = form.watch(`lignes.${index}.produitId`);
                             const p = pid ? produits.find(p2 => p2.id.toString() === pid) : null;
-                            return p ? <span>{p.designation || p.nom || '-'}</span> : <SelectValue placeholder="Choisir..." />;
+                            return p ? <span>{p.designation || p.nom || '-'}</span> : <SelectValue placeholder={t('shared.form.choose_product')} />;
                           })()}
                         </SelectTrigger>
                         <SelectContent className="max-h-[400px] overflow-y-auto">
@@ -410,10 +405,10 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">Notes</Label>
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.notes')}</Label>
             <Textarea 
               {...form.register('notes')} 
-              placeholder="Notes pour le client..." 
+              placeholder={t('shared.form.notes_placeholder')} 
               className="min-h-[100px] dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300"
             />
           </div>
@@ -422,17 +417,17 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
         <div className="w-full md:w-80">
           <div className="dark:bg-slate-900/60 dark:border-white/10 bg-slate-50 p-6 rounded-sm border border-slate-200 space-y-4">
             <div className="flex justify-between items-center text-sm">
-              <span className="dark:text-muted-foreground text-slate-500 font-medium">Total HT</span>
-              <span className="font-bold dark:text-card-foreground text-slate-800">{formatCurrency(totals.ht)}</span>
+              <span className="dark:text-muted-foreground text-slate-500 font-medium">{t('shared.form.subtotal_ht')}</span>
+              <span className="font-bold dark:text-card-foreground text-slate-800" dir="ltr">{formatCurrency(totals.ht)}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="dark:text-muted-foreground text-slate-500 font-medium">Total TVA</span>
-              <span className="font-bold dark:text-card-foreground text-slate-800">{formatCurrency(totals.tva)}</span>
+              <span className="dark:text-muted-foreground text-slate-500 font-medium">{t('shared.form.total_vat')}</span>
+              <span className="font-bold dark:text-card-foreground text-slate-800" dir="ltr">{formatCurrency(totals.tva)}</span>
             </div>
             <div className="h-px dark:bg-white/10 bg-slate-200 my-2" />
             <div className="flex justify-between items-center">
-              <span className="dark:text-card-foreground text-slate-900 font-bold text-lg">Total TTC</span>
-              <span className="text-2xl font-black text-blue-600">{formatCurrency(totals.ttc)}</span>
+              <span className="dark:text-card-foreground text-slate-900 font-bold text-lg">{t('shared.form.total_ttc')}</span>
+              <span className="text-2xl font-black text-blue-600" dir="ltr">{formatCurrency(totals.ttc)}</span>
             </div>
           </div>
         </div>
@@ -440,10 +435,10 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
 
       <div className="flex justify-end items-center space-x-4 pt-6 border-t dark:border-white/10">
         <Button type="button" variant="ghost" onClick={() => onSuccess()} className="dark:text-muted-foreground dark:hover:text-card-foreground text-slate-500 hover:text-slate-700">
-          Annuler
+          {t('shared.actions.cancel')}
         </Button>
         <Button type="submit" disabled={isLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 h-10 rounded-sm shadow-none">
-          {isLoading ? 'Enregistrement...' : 'Enregistrer le devis'}
+          {isLoading ? t('shared.actions.saving') : t('shared.actions.save')}
         </Button>
       </div>
     </form>
