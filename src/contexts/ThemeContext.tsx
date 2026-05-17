@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+﻿import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from './AuthContext'
 
@@ -50,7 +50,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           .from('parametres')
           .select('couleur_principale')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (!error && data?.couleur_principale) {
           setPrimaryColor(data.couleur_principale);

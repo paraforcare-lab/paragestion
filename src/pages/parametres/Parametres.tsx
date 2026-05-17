@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+﻿import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -196,7 +196,7 @@ export function Parametres() {
           .from('parametres')
           .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,activer_filigrane,texte_filigrane,watermark_text,created_at,updated_at')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         
         if (error && error.code !== 'PGRST116') {
           console.error('Error fetching parametres:', error);
@@ -347,7 +347,7 @@ export function Parametres() {
           .update(fields)
           .eq('id', parametresId)
           .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,activer_filigrane,texte_filigrane,watermark_text,created_at,updated_at')
-          .single();
+          .maybeSingle();
         result = response.data;
         error = response.error;
       } else {
@@ -355,7 +355,7 @@ export function Parametres() {
           .from('parametres')
           .insert([{ ...fields, user_id: user.id }])
           .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,devise,conditions_paiement_defaut,pied_page_defaut,activer_droit_timbre,activer_filigrane,texte_filigrane,watermark_text,created_at,updated_at')
-          .single();
+          .maybeSingle();
         result = response.data;
         error = response.error;
         if (result) setParametresId(result.id);

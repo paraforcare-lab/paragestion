@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download, ArrowRightLeft, FileText,
@@ -160,7 +160,7 @@ export function DevisList() {
         .from('parametres')
         .select('id,user_id,nom_societe,nom,adresse,ville,code_postale,telephone,email,site_web,ice,rc,if_number,tp_patente,cnss,capital_social,forme_juridique,logo_url,couleur_principale,banque,rib,swift,watermark_text,activer_filigrane')
         .eq('user_id', String(user.id))
-        .single();
+        .maybeSingle();
 
       if (!data) {
         console.log('No parametres found for user');

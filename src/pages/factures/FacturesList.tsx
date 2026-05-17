@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react'
+﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, FileText, Download, CheckCircle,
@@ -151,7 +151,7 @@ export function FacturesList() {
         .from('parametres')
         .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,logo_url,couleur_principale,watermark_text,activer_filigrane')
         .eq('user_id', String(user.id))
-        .single();
+        .maybeSingle();
 
       if (!data) {
         console.log('No parametres found');

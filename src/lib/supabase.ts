@@ -1,24 +1,24 @@
+/**
+ * Browser-safe Supabase client — uses the anon public key only.
+ *
+ * This file is imported by React components and is bundled by Vite.
+ * It must NEVER reference the service role key (VITE_SUPABASE_SERVICE_KEY)
+ * because Vite would embed it in the public JS bundle.
+ *
+ * Server-side code (api/index.ts, src/routes/api.ts) should import from
+ * ./supabase.server instead to get the admin client that bypasses RLS.
+ */
 import { createClient } from "@supabase/supabase-js"
 
-function getEnvVar(name: string): string {
-  if (typeof process !== "undefined" && process.env?.[name]) {
-    return process.env[name]!;
-  }
-  if (typeof import.meta !== "undefined") {
-    const viteEnv = (import.meta as Record<string, any>).env;
-    if (viteEnv?.[name]) return viteEnv[name];
-  }
-  throw new Error(`Missing environment variable: ${name}`);
+const SUPABASE_URL     = import.meta.env.VITE_SUPABASE_URL     as string
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables")
 }
 
-const SUPABASE_URL = getEnvVar("VITE_SUPABASE_URL");
-const SUPABASE_PUBLIC_KEY = getEnvVar("VITE_SUPABASE_ANON_KEY");
-const SUPABASE_SERVICE_KEY = getEnvVar("VITE_SUPABASE_SERVICE_KEY");
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLIC_KEY)
-export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+/**
+ * Public (anon-key) client — subject to Row-Level Security.
+ * Use this in all React components and hooks.
+ */
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)

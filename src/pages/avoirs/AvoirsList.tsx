@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+﻿import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -125,7 +125,7 @@ export function AvoirsList() {
         .from('parametres')
         .select('id,user_id,nom_societe,nom,adresse,ville,telephone,email,ice,rc,if_number,logo_url,couleur_principale,capital_social,forme_juridique,watermark_text,activer_filigrane')
         .eq('user_id', String(user.id))
-        .single();
+        .maybeSingle();
 
       if (!data) {
         console.log('No parametres found');
