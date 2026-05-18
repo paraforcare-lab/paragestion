@@ -544,7 +544,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.legal_form')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="ex: SARL, SARL AU" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input placeholder={t('parametres.general.legal_form_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -560,7 +560,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.share_capital')}</FormLabel>
                           <FormControl>
-                            <Input placeholder="ex: 100 000 DH" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input placeholder={t('parametres.general.capital_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -610,7 +610,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input placeholder="https://..." className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                              <Input placeholder={t('parametres.general.website_ph')} className="ps-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -781,7 +781,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input placeholder="ex: Attijariwafa Bank" className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                              <Input placeholder={t('parametres.fiscal.bank_name_ph')} className="ps-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -810,7 +810,7 @@ export function Parametres() {
                       <FormItem>
                         <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.rib')}</FormLabel>
                         <FormControl>
-                          <Input placeholder="000000000000000000000000" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
+                            <Input placeholder={t('parametres.fiscal.rib_ph')} dir="ltr" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1139,7 +1139,7 @@ export function Parametres() {
                       <FormItem>
                         <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.payment_conditions')}</FormLabel>
                         <FormControl>
-                          <Input placeholder="ex: Paiement à la réception sous 30 jours" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input placeholder={t('parametres.appearance.payment_terms_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1153,10 +1153,10 @@ export function Parametres() {
                       <FormItem>
                         <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.footer')}</FormLabel>
                         <FormControl>
-                          <Textarea 
-                            placeholder="ex: Merci de votre confiance. ParaGestion - Votre système de gestion parapharmaceutique." 
-                            className="min-h-[80px] bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" 
-                            {...field} 
+                          <Textarea
+                            placeholder={t('parametres.appearance.footer_ph')}
+                            className="min-h-[80px] bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                            {...field}
                           />
                         </FormControl>
                         <FormMessage />
@@ -1197,7 +1197,7 @@ export function Parametres() {
                           </FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="ParaGestion"
+                              placeholder={t('parametres.appearance.watermark_text_ph')}
                               className={`h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 transition-all ${
                                 !form.watch('activerFiligrane') ? 'opacity-50 cursor-not-allowed' : ''
                               }`}

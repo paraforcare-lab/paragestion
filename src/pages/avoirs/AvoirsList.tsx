@@ -14,7 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatCurrencyLocale, formatDate } from '@/lib/utils'
 import {
   Select,
   SelectContent,
@@ -428,12 +428,20 @@ export function AvoirsList() {
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span dir="ltr" className="text-sm dark:text-muted-foreground text-slate-500">
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm dark:text-muted-foreground text-slate-500"
+                          >
                             {formatDate(avoir.dateEmission, 'dd MMM yyyy', i18n.language)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-start">
-                          <span dir="ltr" className="text-sm font-bold text-red-500 dark:text-red-400">{formatCurrency(avoir.montantTtc)}</span>
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm font-bold text-red-500 dark:text-red-400"
+                          >
+                            {formatCurrencyLocale(avoir.montantTtc, i18n.language)}
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-center">
                           <span className={cn(

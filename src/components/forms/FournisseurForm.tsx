@@ -195,12 +195,12 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                   <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.email')}</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                      <Input 
+                      <Mail className="absolute start-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
+                      <Input
                         type="email"
-                        placeholder="fournisseur@exemple.com" 
-                        className="h-12 pl-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-                        {...field} 
+                        placeholder={t('shared.form.email_ph_supplier')}
+                        className="h-12 ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        {...field}
                       />
                     </div>
                   </FormControl>
@@ -217,11 +217,13 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                   <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.phone')}</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                      <Input 
-                        placeholder="+212 5 00 00 00 00" 
-                        className="h-12 pl-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-                        {...field} 
+                      <Phone className="absolute start-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
+                      <Input
+                        type="tel"
+                        dir="ltr"
+                        placeholder="+212 5 00 00 00 00"
+                        className="h-12 ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        {...field}
                       />
                     </div>
                   </FormControl>
@@ -247,11 +249,11 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                   <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.full_address')}</FormLabel>
                   <FormControl>
                     <div className="relative">
-                      <MapPin className="absolute left-4 top-4 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                      <Textarea 
-                        placeholder="Zone Industrielle, Lot N°..." 
-                        className="min-h-[80px] pl-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-                        {...field} 
+                      <MapPin className="absolute start-4 top-4 h-4 w-4 text-muted-foreground dark:text-slate-500" />
+                      <Textarea
+                        placeholder={t('shared.form.address_ph_supplier')}
+                        className="min-h-[80px] ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        {...field}
                       />
                     </div>
                   </FormControl>
@@ -267,10 +269,10 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">{t('shared.form.city')}</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Casablanca" 
+                    <Input
+                      placeholder={t('shared.form.city_ph')}
                       className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -295,10 +297,11 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                 <FormItem>
                   <FormLabel className="text-sm font-medium text-muted-foreground dark:text-slate-300">ICE</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="15 chiffres" 
+                    <Input
+                      placeholder={t('shared.form.ice_digits_ph')}
+                      dir="ltr"
                       className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -316,10 +319,10 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
             <FormItem>
               <FormLabel className="text-sm font-semibold dark:text-slate-300">{t('shared.form.contact_person')}</FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="Nom du responsable des commandes" 
+                <Input
+                  placeholder={t('shared.form.contact_person_ph')}
                   className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />

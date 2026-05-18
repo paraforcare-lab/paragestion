@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatCurrencyLocale, formatDate } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -285,10 +285,25 @@ export function DepensesList() {
         cat,
         path: `M${cx},${cy} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${largeArc},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z`,
         color: getCategoryConfig(cat).pieColor,
+        // Keep raw fraction so we can format it per the active locale at
+        // render time. The string form (used by the legacy SVG label fallback)
+        // is kept for backwards compatibility.
+        fraction: percentage,
         percentage: (percentage * 100).toFixed(0),
       };
     });
   }, [pieData, grandTotal]);
+
+  // Locale-aware percentage formatter. In Arabic this renders Arabic-Indic
+  // digits (e.g. "٢٨٪") instead of "28%". Built once per language change.
+  const formatPercent = useMemo(() => {
+    const lang = i18n.language || 'fr';
+    const locale = lang.startsWith('ar') ? 'ar' : lang.startsWith('en') ? 'en' : 'fr';
+    return new Intl.NumberFormat(locale, {
+      style: 'percent',
+      maximumFractionDigits: 0,
+    });
+  }, [i18n.language]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -453,7 +468,10 @@ export function DepensesList() {
                         className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors dark:border-white/5 dark:hover:bg-white/[0.03]"
                       >
                         <TableCell className="px-4 py-5">
-                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm text-slate-500 dark:text-slate-400"
+                          >
                             {depense.dateDepense
                               ? formatDate(depense.dateDepense, 'dd MMM yyyy', i18n.language)
                               : '-'}
@@ -461,10 +479,17 @@ export function DepensesList() {
                         </TableCell>
                         <TableCell className="px-4 py-5">
                           <div>
-                            <p className="text-sm font-semibold text-slate-800 max-w-[220px] truncate dark:text-white">
+                            {/* `dir="auto"` lets the browser pick LTR/RTL based on the
+                                first strong character of the user-entered text, so an
+                                Arabic description renders RTL and a French one renders
+                                LTR regardless of the active UI language. */}
+                            <p
+                              dir="auto"
+                              className="text-sm font-semibold text-slate-800 max-w-[220px] truncate text-start dark:text-white"
+                            >
                               {depense.description || '-'}
                             </p>
-                            <p dir="ltr" className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            <p dir="ltr" className="text-[11px] text-slate-400 font-mono mt-0.5 text-start">
                               {depense.reference || ''}
                             </p>
                           </div>
@@ -503,8 +528,11 @@ export function DepensesList() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-start">
-                          <span dir="ltr" className="text-sm font-bold text-rose-600">
-                            -{formatCurrency(depense.montantTtc)}
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm font-bold text-rose-600"
+                          >
+                            -{formatCurrencyLocale(depense.montantTtc, i18n.language)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-start">
@@ -630,14 +658,26 @@ export function DepensesList() {
                       ))}
                       <circle cx="50" cy="50" r="18" fill="white" />
                     </svg>
-                    <div className="flex-1 space-y-1.5">
+                    <div className="flex-1 space-y-1.5 min-w-0">
                       {pieSlices.slice(0, 5).map((slice, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: slice.color }} />
-                          <span className="text-[11px] text-slate-500 flex-1 truncate dark:text-slate-400">
+                        <div key={i} className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{ backgroundColor: slice.color }}
+                          />
+                          <span className="text-[11px] text-slate-500 flex-1 truncate text-start dark:text-slate-400">
                             {getCategoryConfig(slice.cat).label}
                           </span>
-                          <span dir="ltr" className="text-[11px] font-semibold text-slate-700 dark:text-slate-400">{slice.percentage}%</span>
+                          {/* Percentage uses logical direction matching the
+                              active language, and locale-aware digits so AR
+                              renders e.g. "٢٨٪" with the percent glyph on the
+                              correct side. */}
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-[11px] font-semibold text-slate-700 tabular-nums shrink-0 dark:text-slate-400"
+                          >
+                            {formatPercent.format(slice.fraction)}
+                          </span>
                         </div>
                       ))}
                     </div>

@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatCurrencyLocale, formatDate } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -544,20 +544,29 @@ export function BonsCommandeList() {
                           <span dir="ltr" className="text-sm font-mono font-medium text-slate-700 dark:text-white">{bon.numero}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm text-slate-500 dark:text-slate-400"
+                          >
                             {formatDate(bon.dateCommande || bon.date, 'dd MMM yyyy', i18n.language)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span dir="ltr" className="text-sm text-slate-500 dark:text-slate-400">
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm text-slate-500 dark:text-slate-400"
+                          >
                             {bon.dateLivraisonPrevue
                               ? formatDate(bon.dateLivraisonPrevue, 'dd MMM yyyy', i18n.language)
                               : '-'}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-start">
-                          <span dir="ltr" className="text-sm font-bold text-slate-800 dark:text-white">
-                            {formatCurrency(bon.montantTtc)}
+                          <span
+                            dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}
+                            className="text-sm font-bold text-slate-800 dark:text-white"
+                          >
+                            {formatCurrencyLocale(bon.montantTtc, i18n.language)}
                           </span>
                         </TableCell>
                         <TableCell className="px-4 py-5 text-center">

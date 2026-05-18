@@ -222,7 +222,7 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
               <FormItem>
                 <FormLabel className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.description_label')}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Achat de matériel, loyer bureau..." className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white" {...field} />
+                  <Input placeholder={t('shared.form.expense_desc_ph')} className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

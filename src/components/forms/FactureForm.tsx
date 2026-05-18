@@ -450,9 +450,9 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
           </div>
           <div className="space-y-2">
             <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.conditions')}</Label>
-            <Textarea 
-              {...form.register('conditionsPaiement')} 
-              placeholder="Ex: Paiement à 30 jours..." 
+            <Textarea
+              {...form.register('conditionsPaiement')}
+              placeholder={t('shared.form.payment_terms_ph')}
               className="min-h-[100px] dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300"
             />
           </div>

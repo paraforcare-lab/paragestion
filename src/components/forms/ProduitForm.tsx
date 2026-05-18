@@ -147,7 +147,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
                <FormItem>
                  <FormLabel>{t('shared.form.ref')}</FormLabel>
                  <FormControl>
-                   <Input placeholder="REF-001" {...field} />
+                    <Input placeholder={t('shared.form.product_ref_ph')} {...field} />
                  </FormControl>
                  <FormMessage />
                </FormItem>
@@ -177,7 +177,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
               <FormItem>
                 <FormLabel>{t('shared.form.product_name')}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ordinateur Portable" {...field} />
+                  <Input placeholder={t('shared.form.product_name_ph')} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -191,7 +191,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
               <FormItem>
                 <FormLabel>{t('shared.form.brand')}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Ex: Vichy, Bioderma..." {...field} />
+                  <Input placeholder={t('shared.form.brand_ph')} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -206,7 +206,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
             <FormItem>
               <FormLabel>{t('shared.form.description_label')}</FormLabel>
               <FormControl>
-                <Input placeholder="Description détaillée..." {...field} />
+                <Input placeholder={t('shared.form.description_ph')} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -293,7 +293,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
               <FormItem>
                 <FormLabel>{t('shared.form.unit')}</FormLabel>
                 <FormControl>
-                  <Input placeholder="pièce, kg, litre..." {...field} />
+                  <Input placeholder={t('shared.form.unit_ph')} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
