@@ -2,6 +2,7 @@ import { forwardRef, useMemo } from 'react'
 import { format, isValid, parseISO } from 'date-fns'
 import { getDateLocale } from '@/lib/utils'
 import { numberToFrenchWords } from '@/lib/numberToWords'
+import { DOC_COLORS as C } from './docColors'
 
 interface FactureDocumentProps {
   facture: any
@@ -102,7 +103,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
           }
           .fw-doc {
             font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
-            color: #000;
+            color: ${C.text};
             background: #fff;
             position: relative;
           }
@@ -114,7 +115,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 80pt;
             font-weight: 900;
-            color: rgba(0, 0, 0, 0.05);
+            color: ${C.watermark};
             z-index: 0;
             white-space: nowrap;
             pointer-events: none;
@@ -137,110 +138,152 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
               <div className="fw-watermark">{entreprise?.watermarkText || 'ParaGestion'}</div>
             )}
 
-            {/* ===== HEADER: Logo + Company Info (left) | Title + Date (right) ===== */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div style={{ display: 'flex', gap: 10 }}>
-                {entreprise?.logoUrl ? (
-                  <img src={entreprise.logoUrl} alt="Logo" style={{ width: 120, height: 60, objectFit: 'contain', flexShrink: 0 }} />
-                ) : (
-                  <div style={{ fontSize: '18pt', fontWeight: 700, color: '#000', letterSpacing: 1, flexShrink: 0 }}>
-                    {(entreprise?.nomEntreprise || entreprise?.nom || 'PARAGESTION').substring(0, 4).toUpperCase()}
-                  </div>
+            {/* ===== HEADER =================================================
+                 Left column: optional logo + company name + contact lines.
+                 Right column: red title pill with white text + N°/Date row.
+                 This mirrors the reference design and is shared visually
+                 with the other 4 document types (only the pill label
+                 changes). */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                {entreprise?.logoUrl && (
+                  <img src={entreprise.logoUrl} alt="Logo" style={{ width: 100, height: 60, objectFit: 'contain', flexShrink: 0 }} />
                 )}
-                <div style={{ fontSize: '8pt', lineHeight: 1.5, color: '#475569' }}>
-                  <div style={{ fontWeight: 700, fontSize: '10pt', color: '#000', marginBottom: 1 }}>
-                    {entreprise?.nom || entreprise?.nomEntreprise || 'Nom de l\'entreprise'}
+                <div style={{ fontSize: '9pt', lineHeight: 1.6, color: C.text }}>
+                  <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 6, letterSpacing: 0.3 }}>
+                    {(entreprise?.nom || entreprise?.nomEntreprise || 'Nom de l\'entreprise').toUpperCase()}
                   </div>
-                  <div>{entreprise?.adresse || 'Adresse'}</div>
-                  <div>{entreprise?.ville || 'Ville Code Postal'}</div>
-                  <div>{entreprise?.telephone || 'Téléphone'}</div>
-                  <div>{entreprise?.email || 'Email'}</div>
+                  {entreprise?.adresse  && <div style={{ color: C.muted }}>{entreprise.adresse}</div>}
+                  {entreprise?.ville    && <div style={{ color: C.muted }}>{entreprise.ville}</div>}
+                  {entreprise?.telephone && <div style={{ color: C.muted }}>Tel: {entreprise.telephone}</div>}
+                  {entreprise?.email     && <div style={{ color: C.muted }}>Email: {entreprise.email}</div>}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 900, fontSize: '20pt', color: '#000', lineHeight: 1.1 }}>
-                    {facture?.isAvoir ? 'Avoir N°' : 'Facture'}
-                  </div>
-                <div style={{ fontSize: '9pt', fontWeight: 600, color: '#374151', marginTop: 4 }}>
-                  {numero}, le {dateEmission}
+
+              {/* Red title pill — solid accent fill with white text inside.
+                  N°/Date sit underneath, right-aligned and quietly styled. */}
+              <div style={{ textAlign: 'right', minWidth: 200 }}>
+                <div style={{
+                  display: 'inline-block',
+                  background: C.accent,
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: '14pt',
+                  letterSpacing: 2,
+                  padding: '10px 28px',
+                  textTransform: 'uppercase',
+                }}>
+                  {facture?.isAvoir ? 'Avoir' : 'Facture'}
+                </div>
+                <div style={{ fontSize: '9pt', marginTop: 8, color: C.text }}>
+                  <strong style={{ color: C.title }}>N°:</strong> {numero}
+                  <span style={{ marginLeft: 16 }}><strong style={{ color: C.title }}>Date:</strong> {dateEmission}</span>
                 </div>
               </div>
             </div>
 
-            {/* ===== CUSTOMER INFO BOX (right-aligned) ===== */}
-            <div style={{
-              marginLeft: 'auto',
-              width: '50%',
-              border: '1px solid #000',
-              padding: '8px 10px',
-              marginBottom: 12,
-              fontSize: '9pt',
-              lineHeight: 1.6,
-            }}>
-              <div style={{ fontWeight: 700, marginBottom: 2 }}>{entityName}</div>
-              {client?.adresse && <div>{client.adresse}</div>}
-              {client?.telephone && <div>Tél: {client.telephone}</div>}
-              {client?.email && <div>Email: {client.email}</div>}
+            {/* Thin red rule separating the header from the FACTURÉ À box. */}
+            <div style={{ borderTop: `2px solid ${C.accent}`, marginBottom: 14 }} />
+
+            {/* ===== FACTURÉ À BOX ==========================================
+                 Thin red border around a small label tab + the client info
+                 block. The label tab is achieved by absolutely-positioning
+                 a white-background label over the top-start edge of the
+                 border. */}
+            <div style={{ position: 'relative', marginBottom: 18 }}>
+              <div style={{
+                position: 'absolute',
+                top: -8,
+                left: 14,
+                background: '#fff',
+                padding: '0 8px',
+                fontSize: '9pt',
+                fontWeight: 700,
+                color: C.title,
+                letterSpacing: 0.5,
+              }}>
+                — FACTURÉ À —
+              </div>
+              <div style={{
+                border: `1px solid ${C.accent}`,
+                padding: '14px 16px 12px',
+                fontSize: '9.5pt',
+                lineHeight: 1.65,
+                color: C.text,
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
+                  {(entityName || '-').toUpperCase()}
+                </div>
+                {client?.ice       && <div>ICE: {client.ice}</div>}
+                {client?.telephone && <div>{client.telephone}</div>}
+                {client?.adresse   && <div>{client.adresse}</div>}
+                {client?.ville     && <div>{(client.ville || ville || '').toString().toUpperCase()}</div>}
+              </div>
             </div>
 
-            {/* ===== REFERENCE LINE ===== */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 24,
-              fontSize: '9pt',
-              marginBottom: 16,
-              padding: '4px 0',
-              borderTop: '1px solid #000',
-              borderBottom: '1px solid #000',
-            }}>
-              {modePaiement && <span><strong>cheque-fs N°</strong> {modePaiement}</span>}
-              <span><strong>Trsf</strong></span>
-            </div>
+            {/* Optional payment-reference strip — only rendered when a
+                mode de paiement was captured on the invoice. Kept very
+                subtle (muted text on a faint divider) so it doesn't
+                compete with the FACTURÉ À box visually. */}
+            {modePaiement && (
+              <div style={{
+                fontSize: '9pt',
+                color: C.muted,
+                marginBottom: 12,
+                paddingBottom: 6,
+                borderBottom: `1px solid ${C.borderSoft}`,
+              }}>
+                <strong style={{ color: C.title }}>Mode de paiement:</strong> {modePaiement}
+              </div>
+            )}
 
-            {/* ===== ITEMS TABLE ===== */}
+            {/* ===== ITEMS TABLE ============================================
+                 Solid red header bar with white uppercase column labels.
+                 Body rows alternate with a faint slate-50 zebra so reading
+                 across is easy on busy invoices. The first column is a
+                 simple row index (N°) printed in the accent red — a small
+                 brand touch that matches the reference image. */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <colgroup>
-                  <col style={{ width: '15%' }} />
-                  <col style={{ width: '45%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '40%' }} />
+                  <col style={{ width: '17%' }} />
                   <col style={{ width: '13%' }} />
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '22%' }} />
                 </colgroup>
                 <thead>
-                  <tr>
-                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'left', borderBottom: '1.5pt solid #000', color: '#000' }}>Référence</th>
-                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'left', borderBottom: '1.5pt solid #000', color: '#000' }}>Désignation</th>
-                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'right', borderBottom: '1.5pt solid #000', color: '#000' }}>Quantité</th>
-                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'right', borderBottom: '1.5pt solid #000', color: '#000' }}>PU.HT</th>
-                    <th style={{ padding: '6px 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'right', borderBottom: '1.5pt solid #000', color: '#000' }}>MT HT</th>
+                  <tr style={{ background: C.accent, color: '#fff' }}>
+                    <th style={{ padding: '10px 8px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>N°</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'left',   textTransform: 'uppercase', letterSpacing: 0.5 }}>Désignation</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>P.U. HT</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>Qté</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Montant HT</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lignes.map((ligne: any, i: number) => (
-                    <tr key={i}>
-                      <td style={{ padding: '5px 8px', fontSize: '9pt', textAlign: 'left', borderBottom: '0.5pt solid #E5E7EB' }}>
-                        {ligne.reference || '—'}
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : C.rowAlt }}>
+                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.accent, fontWeight: 700 }}>
+                        {i + 1}
                       </td>
-                      <td style={{ padding: '5px 8px', fontSize: '9pt', textAlign: 'left', borderBottom: '0.5pt solid #E5E7EB' }}>
+                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {ligne.designation || '-'}
                       </td>
-                      <td style={{ padding: '5px 8px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>
+                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                        {fmt3(getPu(ligne))} DH
+                      </td>
+                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {getQt(ligne)}
                       </td>
-                      <td style={{ padding: '5px 8px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>
-                        {fmt3(getPu(ligne))}
-                      </td>
-                      <td style={{ padding: '5px 8px', fontSize: '9pt', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>
-                        {fmt3(getMt(ligne))}
+                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text, fontWeight: 700 }}>
+                        {fmt3(getMt(ligne))} DH
                       </td>
                     </tr>
                   ))}
                   {lignes.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: '5px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: '#374151' }}>
+                      <td colSpan={5} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>
                         Aucun article
                       </td>
                     </tr>
@@ -248,115 +291,166 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 </tbody>
               </table>
 
+              {/* ===== TOTALS STACK =========================================
+                   Right-aligned 3-row block: Total H.T → TVA → solid red
+                   TOTAL TTC bar. Each row uses thin slate dividers; the
+                   TTC row is a solid red rectangle with white text — the
+                   reference design's headline element. */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: '9.5pt', width: 320 }}>
+                  <tbody>
+                    <tr>
+                      <td style={{
+                        padding: '8px 14px',
+                        textAlign: 'left',
+                        background: C.rowAlt,
+                        borderBottom: `1px solid ${C.borderSoft}`,
+                        color: C.text,
+                      }}>
+                        Total H.T
+                      </td>
+                      <td style={{
+                        padding: '8px 14px',
+                        textAlign: 'right',
+                        background: C.rowAlt,
+                        borderBottom: `1px solid ${C.borderSoft}`,
+                        color: C.text,
+                        fontWeight: 700,
+                      }}>
+                        {fmt3(totalHt)} DH
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{
+                        padding: '8px 14px',
+                        textAlign: 'left',
+                        background: C.rowAlt,
+                        color: C.text,
+                      }}>
+                        TVA{tvaBuckets.length === 1 ? ` (${tvaBuckets[0].rate}%)` : ''}
+                      </td>
+                      <td style={{
+                        padding: '8px 14px',
+                        textAlign: 'right',
+                        background: C.rowAlt,
+                        color: C.text,
+                        fontWeight: 700,
+                      }}>
+                        {fmt3(totalTva)} DH
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style={{
+                        padding: '12px 14px',
+                        textAlign: 'left',
+                        background: C.accent,
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '11pt',
+                        letterSpacing: 0.5,
+                        textTransform: 'uppercase',
+                      }}>
+                        Total TTC
+                      </td>
+                      <td style={{
+                        padding: '12px 14px',
+                        textAlign: 'right',
+                        background: C.accent,
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '11pt',
+                      }}>
+                        {fmt3(totalTtc)} DH
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ===== AMOUNT IN WORDS ======================================
+                   Light gray box, italic centered text — matches the
+                   reference's "Arrêtée la présente facture à la somme de"
+                   call-out. */}
+              <div style={{
+                marginTop: 18,
+                padding: '12px 16px',
+                background: C.rowAlt,
+                fontSize: '9pt',
+                textAlign: 'center',
+                lineHeight: 1.5,
+                color: C.text,
+              }}>
+                <div style={{ fontStyle: 'italic', color: C.muted, marginBottom: 4 }}>
+                  Arrêtée la présente facture à la somme de :
+                </div>
+                <div style={{ fontWeight: 700, color: C.title }}>
+                  {amountWords} dirhams
+                </div>
+              </div>
+
+              {/* ===== PAYMENT INFO + NOTES =================================
+                   Optional sections — only rendered when data is present. */}
+              {(entreprise?.banque || entreprise?.rib) && (
+                <div style={{ marginTop: 18, fontSize: '9pt', color: C.text }}>
+                  <div style={{ fontWeight: 700, color: C.title, letterSpacing: 0.5, marginBottom: 4 }}>
+                    INFORMATIONS DE PAIEMENT
+                  </div>
+                  {entreprise?.banque && <div>{entreprise.banque}</div>}
+                  {entreprise?.rib    && <div>{entreprise.rib}</div>}
+                </div>
+              )}
+
+              {facture.notes && (
+                <div style={{ marginTop: 14, fontSize: '9pt', color: C.text }}>
+                  <strong style={{ color: C.title }}>Notes:</strong> {facture.notes}
+                </div>
+              )}
+
+              {/* Push signatures to the bottom of the page */}
               <div style={{ flex: 1 }} />
 
-              {/* ===== FOOTER SECTION ===== */}
-              <div style={{ marginTop: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    {/* TVA Buckets Table */}
-                    <table style={{ borderCollapse: 'collapse', fontSize: '9pt' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ borderBottom: '1.5pt solid #000', padding: '4px 10px', fontWeight: 700, textAlign: 'center', color: '#000' }}>BASE HT</th>
-                          <th style={{ borderBottom: '1.5pt solid #000', padding: '4px 10px', fontWeight: 700, textAlign: 'center', color: '#000' }}>TVA%</th>
-                          <th style={{ borderBottom: '1.5pt solid #000', padding: '4px 10px', fontWeight: 700, textAlign: 'center', color: '#000' }}>MONTANT TVA</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tvaBuckets.length > 0 ? tvaBuckets.map((b, i) => (
-                          <tr key={i}>
-                            <td style={{ padding: '3px 10px', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>{fmt3(b.baseHt)}</td>
-                            <td style={{ padding: '3px 10px', textAlign: 'center', borderBottom: '0.5pt solid #E5E7EB' }}>{b.rate}%</td>
-                            <td style={{ padding: '3px 10px', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>{fmt3(b.montantTva)}</td>
-                          </tr>
-                        )) : (
-                          <tr>
-                            <td style={{ padding: '3px 10px', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>0,000</td>
-                            <td style={{ padding: '3px 10px', textAlign: 'center', borderBottom: '0.5pt solid #E5E7EB' }}>0%</td>
-                            <td style={{ padding: '3px 10px', textAlign: 'right', borderBottom: '0.5pt solid #E5E7EB' }}>0,000</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-
-                    {/* Amount in words */}
-                    <div style={{ marginTop: 10, maxWidth: 280 }}>
-                      <p style={{ fontWeight: 700, margin: 0, textTransform: 'uppercase', fontSize: '8pt' }}>
-                        Arrêté le présent document à la somme de:
-                      </p>
-                      <p style={{ fontWeight: 700, margin: '4px 0 0', textTransform: 'uppercase', fontSize: '8pt', lineHeight: 1.3 }}>
-                        {amountWords} DHS
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    {/* Totals Stack */}
-                    <div style={{ border: '1px solid #000', fontSize: '9pt', minWidth: 170 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 10px', borderBottom: '1px solid #000' }}>
-                        <span>TOTAL HT</span>
-                        <span style={{ fontWeight: 600 }}>{fmt3(totalHt)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 10px', borderBottom: '1px solid #000' }}>
-                        <span>TOTAL TVA</span>
-                        <span style={{ fontWeight: 600 }}>{fmt3(totalTva)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 10px', fontWeight: 700, fontSize: '10pt' }}>
-                        <span>TOTAL TTC</span>
-                        <span style={{ fontWeight: 800 }}>{fmt3(totalTtc)}</span>
-                      </div>
-                    </div>
-
-                    {/* Page number */}
-                    <div style={{ textAlign: 'right', fontSize: '8pt', marginTop: 6, color: '#64748b' }}>
-                      Page 1/1
-                    </div>
+              {/* ===== SIGNATURES ===========================================
+                   Two simple thin-rule signature lines, "SIGNATURE DU
+                   VENDEUR" / "SIGNATURE DU CLIENT" labels underneath in
+                   small caps — sober, professional, matches the reference. */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginTop: 40,
+                gap: 60,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ borderTop: `1px solid ${C.title}`, width: 180, marginBottom: 6 }} />
+                  <div style={{ fontSize: '9pt', color: C.muted, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                    Signature du Vendeur
                   </div>
                 </div>
-
-                {/* Notes */}
-                {facture.notes && (
-                  <div style={{ marginTop: 4, padding: '3px 6px', fontSize: '8pt', color: '#475569', borderTop: '1px solid #ccc' }}>
-                    <strong>Notes:</strong> {facture.notes}
+                <div style={{ flex: 1, textAlign: 'right' }}>
+                  <div style={{ borderTop: `1px solid ${C.title}`, width: 180, marginBottom: 6, marginLeft: 'auto' }} />
+                  <div style={{ fontSize: '9pt', color: C.muted, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                    Signature du Client
                   </div>
+                </div>
+              </div>
+
+              {/* ===== LEGAL FOOTER =========================================
+                   Single-line strip at the very bottom: capital + RC + IF +
+                   ICE — small, slate-muted, centered. */}
+              <div style={{
+                marginTop: 18,
+                paddingTop: 8,
+                borderTop: `1px solid ${C.borderSoft}`,
+                textAlign: 'center',
+                fontSize: '7.5pt',
+                lineHeight: 1.5,
+                color: C.muted,
+              }}>
+                {entreprise?.formeJuridique && entreprise?.capitalSocial && (
+                  <span>{entreprise.formeJuridique} au Capital de {entreprise.capitalSocial} — </span>
                 )}
-
-                {/* ===== SIGNATURES ===== */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginTop: 12,
-                  paddingTop: 8,
-                  borderTop: '1px dotted #000',
-                }}>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ width: 160, height: 50, borderBottom: '2px dashed #000', margin: '0 auto 4px' }} />
-                    <div style={{ fontSize: '9pt' }}>Cachet et Signature du Client</div>
-                  </div>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ width: 160, height: 50, borderBottom: '2px dashed #000', margin: '0 auto 4px' }} />
-                    <div style={{ fontSize: '9pt' }}>Cachet et Signature de la Société</div>
-                  </div>
-                </div>
-
-                {/* Legal footer */}
-                <div style={{
-                  marginTop: 4,
-                  paddingTop: 4,
-                  borderTop: '1px solid #000',
-                  textAlign: 'center',
-                  fontSize: '7pt',
-                  lineHeight: 1.4,
-                  color: '#475569',
-                }}>
-                  {entreprise?.formeJuridique && entreprise?.capitalSocial && (
-                    <span>{entreprise.formeJuridique} au Capital de {entreprise.capitalSocial} — </span>
-                  )}
-                  {entreprise?.rc && <span>R.C: {entreprise.rc} — </span>}
-                  {entreprise?.ifNumber && <span>I.F: {entreprise.ifNumber} — </span>}
-                  {entreprise?.ice && <span>I.C.E: {entreprise.ice}</span>}
-                </div>
+                {entreprise?.rc       && <span>R.C: {entreprise.rc} — </span>}
+                {entreprise?.ifNumber && <span>I.F: {entreprise.ifNumber} — </span>}
+                {entreprise?.ice      && <span>I.C.E: {entreprise.ice}</span>}
               </div>
             </div>
           </div>

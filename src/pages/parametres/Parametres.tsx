@@ -46,8 +46,10 @@ import {
   ImageIcon,
   Check,
   ChevronRight,
-  Crop
+  Crop,
+  Receipt
 } from 'lucide-react';
+import { TicketSettingsDialog } from '@/components/parametres/TicketSettingsDialog';
 
 interface ParametresFormValues {
   nomSociete: string;
@@ -91,6 +93,10 @@ export function Parametres() {
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
+  /** Controls the ticket-customisation modal opened from the Apparence tab.
+      Settings are persisted by the dialog itself in localStorage
+      (`pg_ticket_settings`) — no extra wiring needed here. */
+  const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -1222,6 +1228,39 @@ export function Parametres() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* ── Ticket settings card ───────────────────────────────
+                   Opens the full TicketSettingsDialog (split-pane modal
+                   with a live preview). Settings persist to localStorage
+                   (`pg_ticket_settings`) and are picked up automatically
+                   by VentesPassagers' print action. */}
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
+                      <Receipt className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        {t('parametres.ticket.trigger_label')}
+                      </CardTitle>
+                      <CardDescription>
+                        {t('parametres.ticket.trigger_description')}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 pb-5">
+                  <Button
+                    type="button"
+                    onClick={() => setTicketDialogOpen(true)}
+                    className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold h-10 px-5 rounded-[6px] shadow-none"
+                  >
+                    <Receipt className="me-2 h-4 w-4" />
+                    {t('parametres.ticket.trigger_button')}
+                  </Button>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
           </div>
@@ -1247,6 +1286,10 @@ export function Parametres() {
           </div>
         </form>
       </Form>
+
+      {/* Ticket settings modal — portalled, position in the tree
+          is purely organisational. Triggered from the Apparence tab. */}
+      <TicketSettingsDialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen} />
     </div>
   );
 }

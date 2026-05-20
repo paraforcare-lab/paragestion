@@ -28,6 +28,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { updateStockAndNotify, ensureLowStockNotifications } from '@/lib/notifications'
 import { ProductSelector } from '@/components/ui/ProductSelector'
+// Ticket-print customisation — read on each handlePrint() so the latest
+// user settings (configured in Parametres → Apparence) are always applied.
+import { readTicketSettings, fontToFamily, sizeToPx } from '@/lib/ticketSettings'
 
 interface VentePassager {
   id: string;
@@ -232,34 +235,220 @@ export default function VentesPassagers() {
     }
   };
 
+  /**
+   * Print a cash-register ticket for a sale.
+   *
+   * The visual style (store name, subtitle, contact info, footer message,
+   * font family, size, weight, optional logo) is fully driven by the
+   * settings configured in Parametres → Apparence → "Paramètres du Ticket".
+   * Those settings are persisted in localStorage under `pg_ticket_settings`
+   * and read here at print time so the latest customisation always wins.
+   *
+   * The ticket layout itself (header / meta line / items / totals / footer)
+   * mirrors the live preview shown inside `TicketSettingsDialog` so the
+   * user gets exactly what they saw before saving.
+   */
   const handlePrint = (vente: VentePassager) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error(t('ventes.toast_popup_blocked'));
       return;
     }
+
+    const settings = readTicketSettings();
+    const fontFamily = fontToFamily(settings.font);
+    const bodySizePx = sizeToPx(settings.size);
+    const fontWeight = settings.weight === 'bold' ? 700 : 400;
+
+    // Small helper — escape any user-controlled string before injecting
+    // into the print-window HTML to keep the receipt safe even if the
+    // user types HTML in the settings fields.
+    const esc = (s: string) =>
+      String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    // Printed receipts must reflect Morocco time — the till operator is
+    // there, not in UTC.
+    const dateStr = formatMaDate(vente.date, {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+    const numStr = vente.numero || '';
+
+    // Render each cart line as a 3-column grid row to match the on-screen
+    // dialog: [QTY] | [DESC] | [TOTAL]. Falls back to a single synthesised
+    // row for legacy sales saved without `lignes`.
+    const lignes = Array.isArray(vente.lignes) ? vente.lignes : [];
+    const lineRows = lignes.length > 0
+      ? lignes.map((l: any) => {
+          const qte = Number(l.quantite || 1);
+          const designation = l.designation || l.nom || l.reference || '-';
+          const total = Number(
+            l.montantTtc ?? l.montant_ttc ?? qte * (l.prixUnitaireTtc ?? l.prix_unitaire_ttc ?? l.prixUnitaireHt ?? l.prix_unitaire_ht ?? 0)
+          );
+          return `
+            <div class="line-row">
+              <span>${qte}x</span>
+              <span class="desc">${esc(designation)}</span>
+              <span class="total">${formatCurrency(total)}</span>
+            </div>`;
+        }).join('')
+      : `
+          <div class="line-row">
+            <span>1x</span>
+            <span class="desc">—</span>
+            <span class="total">${formatCurrency(vente.montantTtc)}</span>
+          </div>`;
+
+    // Detect RTL so the print preview lays out correctly when the active
+    // language is Arabic. The thermal printer's own layout is irrelevant
+    // here — we only care about how the browser composes the page.
+    const isRtl = (i18n.language || '').startsWith('ar')
+    const htmlLang = i18n.language || 'fr'
+    const htmlDir = isRtl ? 'rtl' : 'ltr'
+
+    // The printed sub-total (HT + TVA) — same value the dialog shows above
+    // NET À PAYER. Pre-computing the value here keeps the template tidy.
+    const subtotal = (Number(vente.montantHt) || 0) + (Number(vente.montantTva) || 0)
+
     printWindow.document.write(`
-      <html><head><title>Ticket ${vente.numero}</title>
-      <style>body{font-family:monospace;font-size:14px;padding:20px;max-width:300px;margin:auto}
-      h2{text-align:center;margin-bottom:16px}
-      table{width:100%;border-collapse:collapse;margin-top:12px}
-      th,td{text-align:left;padding:4px 0}
-      .total{font-weight:bold;font-size:16px;margin-top:12px;text-align:right;border-top:2px solid #000;padding-top:8px}
-      .footer{text-align:center;margin-top:20px;font-size:12px;color:#666}
-      </style></head><body>
-      <h2>Ticket de Vente</h2>
-      <p><strong>${vente.numero}</strong></p>
-      <p>${new Date(vente.date).toLocaleDateString(dateBcp47, { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-      <table>
-        <tr><th>Total HT</th><td style="text-align:right">${formatCurrency(vente.montantHt)}</td></tr>
-        <tr><th>TVA</th><td style="text-align:right">${formatCurrency(vente.montantTva)}</td></tr>
-      </table>
-      <div class="total">Total TTC : ${formatCurrency(vente.montantTtc)}</div>
-      <div class="footer">Merci de votre visite!</div>
-      </body></html>
+      <html lang="${esc(htmlLang)}" dir="${htmlDir}">
+      <head>
+        <title>Ticket ${esc(numStr)}</title>
+        <style>
+          @page { margin: 8mm; }
+          * { box-sizing: border-box; }
+          body {
+            font-family: ${fontFamily};
+            font-size: ${bodySizePx}px;
+            font-weight: ${fontWeight};
+            color: #000;
+            padding: 12px;
+            max-width: 320px;
+            margin: 0 auto;
+            line-height: 1.45;
+          }
+          .center { text-align: center; }
+          .row { display: flex; justify-content: space-between; gap: 8px; }
+          .strong { font-weight: 700; }
+          .store-name { font-weight: 700; font-size: ${bodySizePx + 1}px; margin-bottom: 2px; }
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+          }
+          /* 3-column grid mirroring the on-screen dialog: a narrow QTY
+             column, a flexible DESC, and a right-aligned TOTAL. Headers
+             share the same template so columns line up perfectly. */
+          .line-row {
+            display: grid;
+            grid-template-columns: 40px 1fr auto;
+            column-gap: 8px;
+            margin-top: 2px;
+          }
+          .line-row .desc {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          .line-row .total { text-align: end; }
+          .net-payable {
+            font-weight: 700;
+            font-size: ${bodySizePx + 1}px;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+          }
+          .logo {
+            max-height: 56px;
+            max-width: 140px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto 6px;
+          }
+          .barcode {
+            font-family: monospace;
+            text-align: center;
+            background: #f1f5f9;
+            color: #475569;
+            padding: 2px 24px;
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 10px;
+            letter-spacing: 1px;
+          }
+          .signature {
+            text-align: center;
+            margin-top: 8px;
+            font-size: ${bodySizePx - 1}px;
+            color: #475569;
+          }
+        </style>
+      </head>
+      <body>
+        ${settings.logoUrl ? `<img class="logo" src="${esc(settings.logoUrl)}" alt="" />` : ''}
+
+        <div class="center">
+          ${settings.storeName ? `<div class="store-name">${esc(settings.storeName)}</div>` : ''}
+          ${settings.subtitle ? `<div>${esc(settings.subtitle)}</div>` : ''}
+          ${settings.phone    ? `<div>Tél: ${esc(settings.phone)}</div>`        : ''}
+          ${settings.address  ? `<div>Adresse: ${esc(settings.address)}</div>`  : ''}
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Date only, no time, no client/ID rows — matches the dialog -->
+        <div>
+          <span>${esc(t('parametres.ticket.preview_date'))}: ${esc(dateStr)}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- QTÉ / DESC / TOTAL column headers, same grid as the rows -->
+        <div class="line-row strong">
+          <span>${esc(t('ventes.ticket_col_qty'))}</span>
+          <span class="desc">${esc(t('ventes.ticket_col_desc'))}</span>
+          <span class="total">${esc(t('ventes.ticket_col_total'))}</span>
+        </div>
+
+        ${lineRows}
+
+        <div class="divider"></div>
+
+        <!-- Sub-total -->
+        <div class="row">
+          <span>${esc(t('ventes.ticket_subtotal'))}</span>
+          <span>${formatCurrency(subtotal)}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- NET À PAYER — the headline total -->
+        <div class="net-payable">
+          <span>${esc(t('ventes.ticket_net_payable'))}</span>
+          <span>${formatCurrency(vente.montantTtc)}</span>
+        </div>
+
+        <div class="divider"></div>
+
+        ${settings.footer ? `<div class="center">${esc(settings.footer)}</div>` : ''}
+
+        <div class="center">
+          <div class="barcode">||||| | ||||  || ||| | ||</div>
+        </div>
+
+        ${settings.storeName ? `<div class="signature">*** ${esc(settings.storeName)} ***</div>` : ''}
+
+        <script>
+          // Trigger the print dialog automatically — same UX as before.
+          window.onload = function () { window.print(); };
+        </script>
+      </body>
+      </html>
     `);
     printWindow.document.close();
-    printWindow.print();
   };
 
   const filteredVentes = useMemo(() => {
@@ -267,7 +456,9 @@ export default function VentesPassagers() {
       const searchLower = searchTerm.toLowerCase().trim();
       if (!searchLower) return true;
       const matchesNumero = (v.numero || '').toLowerCase().includes(searchLower);
-      const matchesDate = v.date && new Date(v.date).toLocaleDateString(dateBcp47).includes(searchLower);
+      // Match against the Morocco-zone rendered date so typing "20/05/2026"
+      // works regardless of the viewer's local timezone.
+      const matchesDate = v.date && formatMaDate(v.date).toLowerCase().includes(searchLower);
       return matchesNumero || matchesDate;
     });
 
@@ -344,13 +535,82 @@ export default function VentesPassagers() {
     : i18n.language?.startsWith('en') ? 'en-US'
     : 'fr-FR'
 
+  // ─── Time-zone for displayed sale dates ────────────────────────────
+  // Sales are stored as UTC ISO strings (`new Date().toISOString()` at
+  // insert time). When we render them back to the user we MUST pin the
+  // formatter to Africa/Casablanca, otherwise a deploy in any other tz
+  // (e.g. a server in UTC or a client traveling abroad) would show a
+  // sale's date/time shifted by several hours.
+  //
+  // `Africa/Casablanca` is the canonical IANA tz for Morocco and
+  // automatically handles DST/Ramadan-time offset changes for us.
+  const MOROCCO_TZ = 'Africa/Casablanca'
+
+  /**
+   * Format a date value for display in Morocco time.
+   * Centralised here so every list row / detail dialog / search filter
+   * shares the same timezone & locale conventions.
+   */
+  const formatMaDate = (
+    value: string | number | Date,
+    options: Intl.DateTimeFormatOptions = {},
+  ) =>
+    new Date(value).toLocaleString(dateBcp47, {
+      timeZone: MOROCCO_TZ,
+      ...options,
+    })
+
   const totalVentes = ventes.reduce((sum, v) => sum + (v.montantTtc || 0), 0);
 
-  // Cutoff dates for each period
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const yearStart  = new Date(now.getFullYear(), 0, 1)
+  // ─── Period cutoffs anchored to the MOROCCAN calendar ──────────────
+  // Naive `now.getFullYear() / .getMonth() / .getDate()` would use the
+  // BROWSER's local calendar. If the browser is in UTC and it's 00:30
+  // Casablanca time, `getDate()` returns yesterday → "today's" sales
+  // from 00:00-00:30 MA time would be excluded from the daily total.
+  // We instead build the cutoff timestamps to align with 00:00 on the
+  // Morocco wall clock for the relevant day/month/year.
+
+  /**
+   * Return the UTC timestamp that corresponds to 00:00:00 on the given
+   * Morocco-local calendar date (year/month-zero-based/day).
+   *
+   * We can't rely on `Date.UTC(y, m, d)` alone because the result is
+   * UTC midnight, not Casablanca midnight (those differ by ~1 hour most
+   * of the year). The trick: take the naive UTC midnight, read it back
+   * through `Intl` in Africa/Casablanca, see how many hours off we are,
+   * and subtract. Two passes are enough to converge — DST is at most
+   * a 1-hour shift.
+   */
+  const moroccoCalendarStart = (y: number, mZeroBased: number, d: number): Date => {
+    let candidate = Date.UTC(y, mZeroBased, d, 0, 0, 0)
+    for (let i = 0; i < 2; i++) {
+      const hourStr = new Intl.DateTimeFormat('en-US', {
+        timeZone: MOROCCO_TZ,
+        hour: 'numeric',
+        hourCycle: 'h23',
+      }).formatToParts(new Date(candidate))
+        .find(p => p.type === 'hour')?.value ?? '0'
+      const h = Number(hourStr)
+      if (h === 0) break
+      candidate -= h * 3_600_000
+    }
+    return new Date(candidate)
+  }
+
+  // Today's Y/M/D as Morocco would read them right now.
+  const maParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: MOROCCO_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const maY = Number(maParts.find(p => p.type === 'year')!.value)
+  const maM = Number(maParts.find(p => p.type === 'month')!.value) - 1
+  const maD = Number(maParts.find(p => p.type === 'day')!.value)
+
+  const todayStart = moroccoCalendarStart(maY, maM, maD)
+  const monthStart = moroccoCalendarStart(maY, maM, 1)
+  const yearStart  = moroccoCalendarStart(maY, 0,   1)
 
   function getCutoff(period: SidebarPeriod): Date {
     switch (period) {
@@ -392,7 +652,9 @@ export default function VentesPassagers() {
         })
         .reduce((s, v) => s + (v.montantTtc || 0), 0);
       result.push({
-        label: d.toLocaleDateString(dateBcp47, { weekday: 'short' }).slice(0, 3),
+        // Weekday label in Morocco tz so the chart bars line up with the
+        // local week even if the browser is in a different zone.
+        label: formatMaDate(d, { weekday: 'short' }).slice(0, 3),
         total: dayTotal,
       });
     }
@@ -715,12 +977,15 @@ export default function VentesPassagers() {
                       </TableCell>
                       <TableCell className="px-4 py-5">
                         <span className="text-sm dark:text-muted-foreground text-slate-500">
-                          {new Date(vente.date).toLocaleDateString(dateBcp47, {
+                          {/* Pinned to Africa/Casablanca via `formatMaDate` so the
+                              displayed time matches when the sale was actually
+                              made in Morocco, regardless of the viewer's tz. */}
+                          {formatMaDate(vente.date, {
                             day: '2-digit',
                             month: 'short',
                             year: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </span>
                       </TableCell>
@@ -967,93 +1232,233 @@ export default function VentesPassagers() {
         </>
       )}
 
-      {/* Detail Dialog */}
+      {/* ── Detail Dialog — receipt-style preview ──────────────────────
+          Renders the sale as an actual cash-register ticket using the
+          user's saved ticket settings (logo, store name, fonts, footer)
+          so what they see here is exactly what gets printed. The dialog
+          mirrors the screenshot: white "paper" card with logo header,
+          dashed dividers, item lines, NET À PAYER highlight, payment
+          method line, footer message, and a faux barcode block. */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50">
-                <Receipt className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-bold">{t('ventes.detail_title')}</DialogTitle>
-                <p className="text-sm text-muted-foreground">{detailVente?.numero}</p>
-              </div>
-            </div>
-          </DialogHeader>
-          {detailVente && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <CalendarDays className="h-4 w-4" />
-                {new Date(detailVente.date).toLocaleDateString(dateBcp47, {
-                  day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                })}
-              </div>
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+          {/* Header — small bar above the receipt with the dialog title.
+              The default Dialog already provides the X close button, so
+              we only render the title text on the left. */}
+          <div className="flex items-center gap-2 px-5 py-4 border-b border-border bg-card">
+            <Receipt className="h-4 w-4 text-emerald-600" />
+            <DialogTitle className="text-base font-semibold text-foreground">
+              {t('ventes.ticket_dialog_title')}
+            </DialogTitle>
+          </div>
 
-              {detailVente.lignes && detailVente.lignes.length > 0 && (
-                <div className="rounded-sm dark:border-white/10 border border-slate-200 overflow-hidden">
-                  {/* Detail table scrolls horizontally inside the dialog on phones. */}
-                  <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-b dark:border-white/10 border-slate-100">
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase">{t('ventes.detail_col_product')}</TableHead>
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">{t('ventes.detail_col_qty')}</TableHead>
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">{t('ventes.detail_col_price')}</TableHead>
-                        <TableHead className="text-xs font-semibold dark:text-muted-foreground text-slate-500 uppercase text-right">{t('ventes.detail_col_total')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {detailVente.lignes.map((l: any, i: number) => (
-                        <TableRow key={i} className="border-b dark:border-white/10 border-slate-100 last:border-0">
-                          <TableCell className="py-3 text-sm dark:text-card-foreground">{l.designation || t('shared.table.product')}</TableCell>
-                          <TableCell className="py-3 text-right text-sm font-medium dark:text-card-foreground">{l.quantite}</TableCell>
-                          <TableCell className="py-3 text-right text-sm dark:text-muted-foreground text-slate-500">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
-                          <TableCell className="py-3 text-right text-sm font-bold dark:text-card-foreground">{formatCurrency(l.montant_ttc || 0)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+          {detailVente && (() => {
+            // Resolve ticket settings + matching font/size/weight so the
+            // preview mirrors the print output. Read on every render so
+            // updates from the settings dialog take effect instantly.
+            const settings = readTicketSettings()
+            const fontFamily = fontToFamily(settings.font)
+            const bodySizePx = sizeToPx(settings.size)
+            const fontWeight = settings.weight === 'bold' ? 700 : 400
+            // Detail dialog renders the receipt in Morocco tz, DATE ONLY
+            // (no time / client / payment-mode lines — matches the printed
+            // ticket exactly so the on-screen preview is a 1:1 mock-up).
+            const dateOnly = formatMaDate(detailVente.date, {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+            })
+            const lignes = Array.isArray(detailVente.lignes) ? detailVente.lignes : []
+
+            return (
+              <div
+                className="bg-slate-100 dark:bg-slate-950 px-4 py-5 max-h-[70vh] overflow-y-auto"
+              >
+                {/* The receipt itself. `dir="ltr"` is forced so numbers and
+                    the ticket layout always read like the actual printed
+                    output, even when the app is in Arabic. */}
+                <div
+                  dir="ltr"
+                  className="bg-white text-black rounded-sm shadow-md mx-auto"
+                  style={{
+                    maxWidth: 320,
+                    padding: '16px 16px 18px',
+                    fontFamily,
+                    fontSize: `${bodySizePx}px`,
+                    fontWeight,
+                    lineHeight: 1.45,
+                    color: '#000',
+                  }}
+                >
+                  {/* Logo (optional) */}
+                  {settings.logoUrl && (
+                    <div className="flex justify-center mb-2">
+                      <img
+                        src={settings.logoUrl}
+                        alt=""
+                        style={{ maxHeight: 56, maxWidth: 140, objectFit: 'contain' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Centred store header — subtitle / phone / address are
+                      omitted when blank so the user doesn't see empty lines. */}
+                  <div className="text-center">
+                    {settings.storeName && (
+                      <p style={{ fontWeight: 700, fontSize: `${bodySizePx + 1}px`, marginBottom: 2 }}>
+                        {settings.storeName}
+                      </p>
+                    )}
+                    {settings.subtitle && <p>{settings.subtitle}</p>}
+                    {settings.phone && <p>Tél: {settings.phone}</p>}
+                    {settings.address && <p>Adresse: {settings.address}</p>}
                   </div>
-                </div>
-              )}
 
-              <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-100 bg-slate-50/50 p-4 space-y-1.5">
-                <div className="flex justify-between text-sm">
-                  <span className="dark:text-muted-foreground text-slate-500">{t('ventes.detail_total_ht')}</span>
-                  <span className="font-medium dark:text-card-foreground text-slate-800">{formatCurrency(detailVente.montantHt)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="dark:text-muted-foreground text-slate-500">{t('ventes.detail_total_vat')}</span>
-                  <span className="font-medium dark:text-card-foreground text-slate-800">{formatCurrency(detailVente.montantTva)}</span>
-                </div>
-                <div className="flex justify-between text-base font-bold pt-1.5 border-t dark:border-white/10 border-slate-200">
-                  <span className="dark:text-card-foreground text-slate-800">{t('ventes.detail_total_ttc')}</span>
-                  <span className="text-emerald-600">{formatCurrency(detailVente.montantTtc)}</span>
+                  <TicketDashedDivider />
+
+                  {/* Date only — no time, no client, no ID.
+                      Keeps the receipt clean and matches the printed output. */}
+                  <div>
+                    <p>{t('parametres.ticket.preview_date')}: {dateOnly}</p>
+                  </div>
+
+                  <TicketDashedDivider />
+
+                  {/* Column headers + line items. QTÉ | DESC | TOTAL.
+                      We use a 3-column grid so columns line up cleanly even
+                      with proportional (non-monospace) fonts. */}
+                  <div
+                    className="grid items-center"
+                    style={{ gridTemplateColumns: '40px 1fr auto', columnGap: 8, fontWeight: 700 }}
+                  >
+                    <span>{t('ventes.ticket_col_qty')}</span>
+                    <span>{t('ventes.ticket_col_desc')}</span>
+                    <span className="text-right">{t('ventes.ticket_col_total')}</span>
+                  </div>
+
+                  {lignes.length > 0 ? (
+                    lignes.map((l: any, i: number) => {
+                      const qte = Number(l.quantite || 1)
+                      const designation = l.designation || l.nom || l.reference || '-'
+                      const total = Number(
+                        l.montantTtc ?? l.montant_ttc ?? qte * (l.prixUnitaireTtc ?? l.prix_unitaire_ttc ?? l.prixUnitaireHt ?? l.prix_unitaire_ht ?? 0)
+                      )
+                      return (
+                        <div
+                          key={i}
+                          className="grid items-center mt-1"
+                          style={{ gridTemplateColumns: '40px 1fr auto', columnGap: 8 }}
+                        >
+                          <span>{qte}x</span>
+                          <span className="truncate">{designation}</span>
+                          <span className="text-right">{formatCurrency(total)}</span>
+                        </div>
+                      )
+                    })
+                  ) : (
+                    /* Fallback for legacy rows without `lignes`: a single
+                        synthesised line summarising the TTC total. */
+                    <div
+                      className="grid items-center mt-1"
+                      style={{ gridTemplateColumns: '40px 1fr auto', columnGap: 8 }}
+                    >
+                      <span>1x</span>
+                      <span className="truncate">—</span>
+                      <span className="text-right">{formatCurrency(detailVente.montantTtc)}</span>
+                    </div>
+                  )}
+
+                  <TicketDashedDivider />
+
+                  {/* Subtotal */}
+                  <div className="flex justify-between">
+                    <span>{t('ventes.ticket_subtotal')}</span>
+                    <span>{formatCurrency(detailVente.montantHt + detailVente.montantTva)}</span>
+                  </div>
+
+                  <TicketDashedDivider />
+
+                  {/* NET À PAYER — emphasised line.
+                      Slightly larger font + bold weight so this row reads
+                      as the "headline" total. Payment-mode line removed
+                      per the simplified ticket layout. */}
+                  <div
+                    className="flex justify-between items-baseline"
+                    style={{ fontWeight: 700, fontSize: `${bodySizePx + 1}px` }}
+                  >
+                    <span>{t('ventes.ticket_net_payable')}</span>
+                    <span>{formatCurrency(detailVente.montantTtc)}</span>
+                  </div>
+
+                  <TicketDashedDivider />
+
+                  {/* Thank-you message from settings */}
+                  {settings.footer && (
+                    <p className="text-center" style={{ marginTop: 2 }}>{settings.footer}</p>
+                  )}
+
+                  {/* Faux barcode block */}
+                  <div className="flex justify-center mt-2">
+                    <div
+                      style={{
+                        fontFamily: 'monospace',
+                        background: '#f1f5f9',
+                        color: '#475569',
+                        padding: '2px 24px',
+                        fontSize: '10px',
+                        letterSpacing: '1px',
+                      }}
+                    >
+                      ||||| | ||||  || ||| | ||
+                    </div>
+                  </div>
+
+                  {/* Store-name signature line ("*** ENTREPRISE X ***") */}
+                  {settings.storeName && (
+                    <p className="text-center mt-2" style={{ fontSize: `${bodySizePx - 1}px`, color: '#475569' }}>
+                      *** {settings.storeName} ***
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-          <DialogFooter>
+            )
+          })()}
+
+          {/* Footer with Close + Print actions, matching the screenshot.
+              Print stays orange/amber per the mockup to read as the
+              primary action without conflicting with the brand emerald. */}
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-border bg-card">
             <Button
               variant="outline"
               onClick={() => setIsDetailOpen(false)}
-              className="rounded-sm h-10 dark:border-white/10 dark:text-muted-foreground"
+              className="flex-1 sm:flex-none h-10 rounded-md"
             >
-              {t('shared.actions.close')}
+              {t('ventes.ticket_btn_close')}
             </Button>
             {detailVente && (
               <Button
-                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-sm h-10 shadow-none"
+                className="flex-1 sm:flex-none h-10 rounded-md bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-none"
                 onClick={() => { handlePrint(detailVente); setIsDetailOpen(false); }}
               >
-                <Printer className="mr-2 h-4 w-4" />
-                {t('shared.actions.print_receipt')}
+                <Printer className="me-2 h-4 w-4" />
+                {t('ventes.ticket_btn_print')}
               </Button>
             )}
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+/**
+ * Dashed horizontal rule used inside the receipt preview to mimic the
+ * dotted separator lines printed on a thermal till roll.
+ */
+function TicketDashedDivider() {
+  return (
+    <div
+      style={{
+        borderTop: '1px dashed #94a3b8',
+        margin: '8px 0',
+      }}
+    />
+  )
 }
