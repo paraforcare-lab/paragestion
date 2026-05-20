@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { Upload, Camera, X, Image as ImageIcon, RotateCw, Trash2, AlertCircle, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -33,42 +35,52 @@ function isMobileDevice(): boolean {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
-function getCameraErrorMessage(error: any): string {
+/**
+ * Map a `getUserMedia()` rejection (or an env-precondition failure) to a
+ * user-facing message. Localised via the `t` translator passed in from the
+ * component — keys live under `shared.form.image_upload.cam_err_*`.
+ *
+ * The HTTPS/localhost branch is a developer/edge condition that an end-user
+ * cannot act on (it only fires when the app is served from a non-secure
+ * non-localhost origin), so we keep it in plain French here rather than
+ * adding a key that the production build would essentially never show.
+ */
+function getCameraErrorMessage(error: any, t: TFunction): string {
   console.log('Camera error details:', error);
-  
+
   if (!isSecureContext()) {
-    return "L'accès à la caméra nécessite HTTPS ou localhost. Utilisez http://localhost:3000.";
+    return "L'accès à la caméra nécessite HTTPS ou localhost.";
   }
-  
+
   if (!navigator.mediaDevices) {
-    return "Votre navigateur ne supporte pas l'accès à la caméra.";
+    return t('shared.form.image_upload.cam_err_not_supported');
   }
-  
+
   if (error.name === 'NotAllowedError') {
-    return "Permission refusée. Cliquez sur l'icône 🔒 dans la barre d'adresse pour autoriser la caméra.";
+    return t('shared.form.image_upload.cam_err_permission_denied');
   }
-  
+
   if (error.name === 'NotFoundError') {
-    return "Aucune caméra détectée sur cet appareil.";
+    return t('shared.form.image_upload.cam_err_not_found');
   }
-  
+
   if (error.name === 'NotReadableError') {
-    return "La caméra est déjà utilisée par une autre application.";
+    return t('shared.form.image_upload.cam_err_in_use');
   }
-  
+
   if (error.name === 'OverconstrainedError') {
-    return "Les contraintes de la caméra ne sont pas supportées. Essayez une caméra différente.";
+    return t('shared.form.image_upload.cam_err_overconstrained');
   }
-  
+
   if (error.name === 'AbortError') {
-    return "La demande d'accès à la caméra a été annulée.";
+    return t('shared.form.image_upload.cam_err_aborted');
   }
-  
+
   if (error.name === 'TypeError') {
-    return "Erreur de configuration de la caméra. Vérifiez vos permissions.";
+    return t('shared.form.image_upload.cam_err_config');
   }
-  
-  return error.message || "Impossible d'accéder à la caméra.";
+
+  return error.message || t('shared.form.image_upload.cam_err_generic');
 }
 
 function createImage(url: string): Promise<HTMLImageElement> {
@@ -138,12 +150,19 @@ export function ImageUpload({
   value,
   onChange,
   className,
-  label = 'Image du produit',
+  label,
   bucketName = 'product-images',
   folder = '',
   maxSize = 5 * 1024 * 1024,
 }: ImageUploadProps) {
   const { user } = useAuth();
+  const { t } = useTranslation();
+  /** Shorthand to keep the JSX readable; resolves `shared.form.image_upload.*`. */
+  const ti = (key: string, opts?: Record<string, unknown>) =>
+    t(`shared.form.image_upload.${key}`, opts);
+  /** Default label falls back to the existing translated product-image label
+      so consumers that don't pass `label` still get localised text. */
+  const resolvedLabel = label ?? t('shared.form.image_label');
   const [isUploading, setIsUploading] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -175,7 +194,7 @@ export function ImageUpload({
       const img = new Image();
       img.onload = () => setCropperImageReady(true);
       img.onerror = () => {
-        toast.error('Erreur lors du chargement de l\'image');
+        toast.error(ti('error_load'));
         handleCropCancel();
       };
       img.src = imageToCrop;
@@ -192,7 +211,7 @@ export function ImageUpload({
 
   const uploadToSupabase = async (file: File | Blob, fileName: string): Promise<string> => {
     if (!user?.id) {
-      throw new Error('Utilisateur non connecté');
+      throw new Error(ti('error_not_authenticated'));
     }
 
     try {
@@ -236,18 +255,18 @@ export function ImageUpload({
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
+      toast.error(ti('error_not_image'));
       return;
     }
 
     if (file.size > maxSize) {
-      toast.error(`L'image est trop volumineuse (max ${(maxSize / 1024 / 1024).toFixed(0)}MB)`);
+      toast.error(ti('error_too_large', { size: (maxSize / 1024 / 1024).toFixed(0) }));
       return;
     }
 
     setIsUploading(true);
     setCameraError(null);
-    
+
     try {
       const localPreview = URL.createObjectURL(file);
       setPreview(localPreview);
@@ -257,21 +276,24 @@ export function ImageUpload({
         const url = await uploadToSupabase(file, fileName);
         setPreview(url);
         onChange?.(url);
-        toast.success('Image téléchargée avec succès');
+        toast.success(ti('success_uploaded'));
       } catch (supabaseError: any) {
         console.warn('Supabase upload failed, using base64 fallback:', supabaseError?.message);
         const base64Url = await convertToBase64(file);
         setPreview(base64Url);
         onChange?.(base64Url);
-        toast.success('Image ajoutée (mode hors connexion)');
+        toast.success(ti('success_uploaded_offline'));
       }
     } catch (error: any) {
       console.error('File handling error:', error);
-      toast.error(error.message || 'Erreur lors du traitement de l\'image');
+      toast.error(error.message || ti('error_processing'));
       setPreview(null);
     } finally {
       setIsUploading(false);
     }
+    // `ti` is a stable closure over `t` (i18next returns a stable function),
+    // so omitting it from deps avoids re-creating `handleFile` on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxSize, onChange, user, folder, bucketName]);
 
   const onCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
@@ -280,12 +302,12 @@ export function ImageUpload({
 
   const showImageCropper = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner une image');
+      toast.error(ti('error_not_image'));
       return;
     }
 
     if (file.size > maxSize) {
-      toast.error(`L'image est trop volumineuse (max ${(maxSize / 1024 / 1024).toFixed(0)}MB)`);
+      toast.error(ti('error_too_large', { size: (maxSize / 1024 / 1024).toFixed(0) }));
       return;
     }
 
@@ -301,7 +323,7 @@ export function ImageUpload({
 
   const handleCropConfirm = async () => {
     if (!imageToCrop || !croppedAreaPixels) {
-      toast.error('Erreur de recadrage');
+      toast.error(ti('error_crop'));
       return;
     }
 
@@ -318,7 +340,7 @@ export function ImageUpload({
       await handleFile(croppedFile);
     } catch (e) {
       console.error('Crop error:', e);
-      toast.error('Erreur lors du recadrage de l\'image');
+      toast.error(ti('error_cropping'));
       setIsUploading(false);
     }
   };
@@ -370,7 +392,7 @@ export function ImageUpload({
     }
     
     if (!navigator.mediaDevices) {
-      return { available: false, message: 'Votre navigateur ne supporte pas l\'accès à la caméra' };
+      return { available: false, message: ti('cam_err_not_supported') };
     }
     
     if (!navigator.mediaDevices.getUserMedia) {
@@ -415,8 +437,9 @@ export function ImageUpload({
     const availability = checkCameraAvailability();
     if (!availability.available) {
       console.log('Camera not available:', availability.message);
-      setCameraError(availability.message || 'Caméra non disponible');
-      toast.error(availability.message || 'Caméra non disponible');
+      const msg = availability.message || ti('error_camera_unavailable');
+      setCameraError(msg);
+      toast.error(msg);
       return;
     }
 
@@ -460,7 +483,7 @@ export function ImageUpload({
       }
       
       if (!stream) {
-        throw new Error('Impossible d\'obtenir le flux vidéo');
+        throw new Error(ti('error_video_stream'));
       }
       
       streamRef.current = stream;
@@ -506,7 +529,7 @@ export function ImageUpload({
       console.error('Error message:', error.message);
       console.error('Full error:', error);
       
-      const userMessage = getCameraErrorMessage(error);
+      const userMessage = getCameraErrorMessage(error, t);
       setCameraError(userMessage);
       toast.error(userMessage, { duration: 6000 });
     }
@@ -525,7 +548,7 @@ export function ImageUpload({
 
   const capturePhoto = () => {
     if (!videoRef.current || !canvasRef.current) {
-      toast.error('Erreur lors de la capture');
+      toast.error(ti('error_capture'));
       return;
     }
 
@@ -540,7 +563,7 @@ export function ImageUpload({
 
     const ctx = canvas.getContext('2d');
     if (!ctx) {
-      toast.error('Erreur lors de la capture');
+      toast.error(ti('error_capture'));
       return;
     }
 
@@ -554,7 +577,7 @@ export function ImageUpload({
           stopCamera();
           showImageCropper(file);
         } else {
-          toast.error('Erreur lors de la création de l\'image');
+          toast.error(ti('error_create_image'));
         }
       },
       'image/jpeg',
@@ -573,9 +596,9 @@ export function ImageUpload({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {label && (
+      {resolvedLabel && (
         <label className="text-sm font-medium text-foreground">
-          {label}
+          {resolvedLabel}
         </label>
       )}
 
@@ -584,7 +607,7 @@ export function ImageUpload({
           <div className="relative flex-1">
             {!cropperImageReady && (
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-white text-sm">Chargement de l'image...</div>
+                <div className="text-white text-sm">{ti('cropper_loading')}</div>
               </div>
             )}
             {cropperImageReady && (
@@ -610,7 +633,7 @@ export function ImageUpload({
               className="bg-white/20 hover:bg-white/30 text-white border-0 min-w-[100px]"
             >
               <X className="h-4 w-4 mr-2" />
-              Annuler
+              {ti('cancel_button')}
             </Button>
             <div className="flex items-center gap-3">
               <input
@@ -629,7 +652,7 @@ export function ImageUpload({
                 disabled={!croppedAreaPixels}
               >
                 <Check className="h-4 w-4 mr-2" />
-                Confirmer
+                {ti('confirm_button')}
               </Button>
             </div>
           </div>
@@ -637,7 +660,31 @@ export function ImageUpload({
       )}
 
       {!showCropper && <canvas ref={canvasRef} className="hidden" />}
-      
+
+      {/* File picker input is mounted at the top level — NOT inside the
+          empty-state drop-zone branch — so `fileInputRef.current` stays a
+          valid DOM node when a preview is showing. Previously this input
+          only existed in the empty-state branch, which meant the
+          "Changer l'image" button (visible only when `preview` is set)
+          had a null ref and `.click()` was a no-op.
+
+          Note: we wrap the onChange to reset `.value = ''` so that
+          selecting the SAME file twice in a row still fires `change` —
+          otherwise the browser dedupes identical selections and the user
+          can't re-pick the same image after deleting it. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.jpg,.jpeg,.png,.gif,.webp"
+        className="hidden"
+        onChange={(e) => {
+          handleFileInputChange(e);
+          // Allow re-selecting the same filename later.
+          e.currentTarget.value = '';
+        }}
+        disabled={isUploading}
+      />
+
       <input
         ref={nativeCameraInputRef}
         type="file"
@@ -652,8 +699,11 @@ export function ImageUpload({
         <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0" />
           <span>
-            {isLocalhost() 
-              ? "Vérifiez que votre appareil possède une caméra."
+            {/* Localhost branch shows the user-actionable message (translated).
+                Non-localhost branch is a deploy/dev edge that an end-user
+                cannot fix, so we keep the raw hostname diagnostic in French. */}
+            {isLocalhost()
+              ? ti('camera_check_device')
               : `Utilisez http://localhost:3000 (actuellement: ${window.location.hostname})`}
           </span>
         </div>
@@ -663,11 +713,9 @@ export function ImageUpload({
         <div className="flex items-start gap-2 p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-sm">
           <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium">Accès à la caméra impossible</p>
+            <p className="font-medium">{ti('camera_unavailable_title')}</p>
             <p className="text-xs mt-1 opacity-80">{cameraError}</p>
-            <p className="text-xs mt-1">
-              Utilisez le bouton <strong>"Importer une image"</strong> à la place.
-            </p>
+            <p className="text-xs mt-1">{ti('camera_use_import_instead')}</p>
           </div>
         </div>
       )}
@@ -695,7 +743,7 @@ export function ImageUpload({
                 className="bg-white/90 hover:bg-white text-slate-800"
               >
                 <X className="h-4 w-4 mr-2" />
-                Annuler
+                {ti('cancel_button')}
               </Button>
               <Button
                 type="button"
@@ -703,7 +751,7 @@ export function ImageUpload({
                 className="bg-primary hover:bg-primary/90 min-w-[120px]"
               >
                 <Camera className="h-5 w-5 mr-2" />
-                Capturer
+                {ti('capture_button')}
               </Button>
             </div>
           </div>
@@ -719,29 +767,26 @@ export function ImageUpload({
               (e.target as HTMLImageElement).style.display = 'none';
             }}
           />
+          {/* Only the delete button stays in the image's top-right corner.
+              The redundant upload-icon button used to sit next to it; it has
+              been removed in favour of the larger, clearly-labelled
+              "Changer l'image" button shown below the preview. While an
+              upload is in-flight the delete button is swapped for a spinner
+              so the user gets feedback without an extra control. */}
           <div className="absolute top-3 right-3 flex gap-2">
             <Button
               type="button"
               variant="secondary"
               size="icon"
-              onClick={() => fileInputRef.current?.click()}
-              className="bg-white/90 hover:bg-white h-9 w-9 shadow-none border border-slate-200"
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <RotateCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon"
               onClick={removeImage}
+              disabled={isUploading}
               className="bg-white/90 hover:bg-white text-rose-600 h-9 w-9 shadow-none border border-slate-200"
             >
-              <Trash2 className="h-4 w-4" />
+              {isUploading ? (
+                <RotateCw className="h-4 w-4 animate-spin text-slate-500" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -758,15 +803,10 @@ export function ImageUpload({
           onDragLeave={handleDragLeave}
           onClick={() => fileInputRef.current?.click()}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,.jpg,.jpeg,.png,.gif,.webp"
-            className="hidden"
-            onChange={handleFileInputChange}
-            disabled={isUploading}
-          />
-          
+          {/* The hidden <input type="file"> previously rendered here was
+              moved to the top-level of the component so its ref remains
+              valid in every render branch (empty / preview / camera). */}
+
           <div className="flex flex-col items-center space-y-4">
             <div className={cn(
               "p-4 rounded-full",
@@ -780,13 +820,13 @@ export function ImageUpload({
             
             <div className="space-y-1">
               <p className="text-sm font-medium text-foreground">
-                {isDragging ? "Déposez l'image ici" : "Ajouter une image"}
+                {isDragging ? ti('dragging_title') : ti('empty_title')}
               </p>
               <p className="text-xs text-muted-foreground">
-                Glissez-déposez, ou cliquez pour sélectionner
+                {ti('empty_subtitle')}
               </p>
               <p className="text-[10px] text-muted-foreground/70">
-                JPG, PNG, WebP - Max 5MB
+                {ti('empty_formats', { size: (maxSize / 1024 / 1024).toFixed(0) })}
               </p>
             </div>
           </div>
@@ -806,7 +846,7 @@ export function ImageUpload({
                 disabled={isUploading}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Importer une image
+                {ti('import_button')}
               </Button>
               <Button
                 type="button"
@@ -820,33 +860,53 @@ export function ImageUpload({
                 disabled={isUploading}
               >
                 <Camera className="h-4 w-4 mr-2" />
-                Prendre une photo
+                {ti('take_photo_button')}
               </Button>
             </>
           )}
           {preview && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className={cn(
-                !isCameraSupported && "opacity-50"
-              )}
-              onClick={startCamera}
-              disabled={isUploading}
-            >
-              <Camera className="h-4 w-4 mr-2" />
-              Remplacer par une photo
-            </Button>
+            <>
+              {/* "Changer l'image" — opens the OS file picker so the user can
+                  swap the currently-uploaded image for another file from
+                  their device. This replaces the small upload-icon button
+                  that previously sat next to the delete icon in the preview
+                  corner, giving the action a clear, discoverable label. */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {ti('change_button')}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className={cn(
+                  !isCameraSupported && "opacity-50"
+                )}
+                onClick={startCamera}
+                disabled={isUploading}
+              >
+                <Camera className="h-4 w-4 mr-2" />
+                {ti('replace_with_photo_button')}
+              </Button>
+            </>
           )}
         </div>
       )}
 
       {!isCameraActive && !isMobile && (
-        <p className="text-[10px] text-muted-foreground/60 text-center">
-          💡 Si la caméra ne fonctionne pas, vérifiez :
-          1) Êtes-vous sur <span className="font-mono bg-slate-100 px-1 rounded">localhost:3000</span> ?
-          2) La permission caméra est-elle autorisée dans le navigateur ?
+        /* User-facing camera hint. The previous copy mentioned localhost:3000
+           and HTTPS context which is a developer concern, not something an
+           end-user can act on. The new message focuses on the one thing
+           the user CAN do: allow the camera permission in their browser. */
+        <p className="text-[11px] text-muted-foreground/70 text-center">
+          {ti('camera_user_hint')}
         </p>
       )}
     </div>

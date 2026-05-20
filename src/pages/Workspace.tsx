@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { cn } from '@/lib/utils'
 import {
-  Plus, FileText, Users, Package, CheckCircle2, TrendingUp, ArrowRight,
-  Trash2, ShoppingCart, Box, CreditCard, Sparkles, Bell,
+  Plus, FileText, Users, Package, CheckCircle2, TrendingUp,
+  Trash2, ShoppingCart, Box, CreditCard, Bell,
   DollarSign, AlertTriangle, Target, ChevronRight, TrendingDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -86,18 +86,6 @@ const quickActionDefs: Array<{
   { key: 'customer', icon: Users,        href: '/clients',        iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20', iconColor: 'text-indigo-600 dark:text-indigo-400' },
 ];
 
-type AiRecoKey = 'feature' | 'follow_up' | 'rotation';
-
-const aiRecoDefs: Array<{
-  key: AiRecoKey;
-  icon: React.ElementType;
-  href: string;
-}> = [
-  { key: 'feature',   icon: Package,   href: '/produits'  },
-  { key: 'follow_up', icon: FileText,  href: '/factures'  },
-  { key: 'rotation',  icon: TrendingUp, href: '/dashboard' },
-];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function Workspace() {
@@ -127,7 +115,6 @@ export function Workspace() {
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [selectedRange, setSelectedRange] = useState('6m');
   const [isLoading, setIsLoading] = useState(true);
-  const [activeRecoIndex, setActiveRecoIndex] = useState(0);
   const [newClients, setNewClients] = useState(0);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     return localStorage.getItem('notifications-enabled') !== 'false';
@@ -365,15 +352,6 @@ export function Workspace() {
       },
     },
   ];
-
-  // ─── Resolved AI recommendations ──────────────────────────────────────────
-  const aiRecommendations = aiRecoDefs.map(({ key, icon, href }) => ({
-    icon,
-    href,
-    title:       t(`workspace.ai.${key}_title`),
-    description: t(`workspace.ai.${key}_description`),
-    action:      t(`workspace.ai.${key}_button`),
-  }));
 
   // ─── Resolved quick actions ───────────────────────────────────────────────
   const quickActions = quickActionDefs.map(({ key, icon, href, iconBg, iconColor }) => ({
@@ -737,75 +715,6 @@ export function Workspace() {
 
         {/* ── Right / End Column (5 cols) ──────────────────────────────────── */}
         <div className="lg:col-span-5 space-y-4 sm:space-y-6 min-w-0">
-
-          {/* AI Optimization Card */}
-          <div className="rounded-[8px] bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-5 card-glow-active">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-9 w-9 rounded-[8px] bg-emerald-500/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-4.5 w-4.5 text-emerald-400" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-card-foreground">
-                  {t('workspace.ai.section_title')}
-                </h3>
-                <p className="text-xs text-muted-foreground">{t('workspace.ai.badge')}</p>
-              </div>
-              {/* ms-auto = logical margin-start auto → pushes badge to the end */}
-              <Badge className="ms-auto shrink-0 bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px] font-semibold px-2 py-0.5">
-                {activeRecoIndex + 1}/{aiRecommendations.length}
-              </Badge>
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeRecoIndex}
-                initial={{ opacity: 0, x: isRTL ? -20 : 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: isRTL ? 20 : -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                {(() => {
-                  const reco = aiRecommendations[activeRecoIndex];
-                  const RecoIcon = reco.icon;
-                  return (
-                    <div>
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="h-8 w-8 rounded-[4px] bg-emerald-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                          <RecoIcon className="h-4 w-4 text-emerald-400" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-semibold text-card-foreground">{reco.title}</h4>
-                          <p className="text-xs text-muted-foreground leading-relaxed mt-1">{reco.description}</p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 mt-1 btn-glow-primary"
-                        onClick={() => window.location.href = reco.href}
-                      >
-                        {reco.action}
-                        {/* ArrowRight flips automatically in RTL because dir is set on the root */}
-                        <ArrowRight className="h-3 w-3 ms-1.5 rtl:rotate-180" />
-                      </Button>
-                    </div>
-                  );
-                })()}
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="flex gap-1.5 mt-4">
-              {aiRecommendations.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveRecoIndex(idx)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all duration-300",
-                    idx === activeRecoIndex ? "w-6 bg-emerald-500" : "w-1.5 bg-emerald-800"
-                  )}
-                />
-              ))}
-            </div>
-          </div>
 
           {/* Quick Actions */}
           <Card className="shadow-none hover:shadow-none rounded-sm">
