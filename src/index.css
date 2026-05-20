@@ -664,4 +664,220 @@
   box-shadow: 0 0 24px rgba(16, 185, 129, 0.4);
 }
 
+/* ────────────────────────────────────────────────────────────────────
+   Toast / notification card  (Sonner)
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Base card — applied to every toast regardless of variant.
+   Sonner positions a fixed-width container; we override colours, shadow,
+   borders and the leading accent bar. The accent bar is implemented as a
+   `::before` pseudo-element pinned to the logical inline-start edge so
+   it flips to the right in RTL automatically. */
+.cn-toast[data-sonner-toast] {
+  /* Layout */
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;             /* 14px */
+  padding: 0.9rem 1rem 0.9rem 1.15rem;
+  min-height: 60px;
+  /* Visual */
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 12px !important;
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 8px 24px rgba(15, 23, 42, 0.08),
+    0 2px 6px rgba(15, 23, 42, 0.04) !important;
+  overflow: hidden;          /* clip the accent bar */
+}
+
+.dark .cn-toast[data-sonner-toast] {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Leading accent bar (3px). `inset-inline-start: 0` is RTL-aware:
+   in LTR it pins to the left edge, in RTL to the right edge — so the
+   accent always sits on the *reading-start* side of the card. */
+.cn-toast[data-sonner-toast]::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: currentColor;  /* overridden per-variant below */
+  opacity: 0.85;
+}
+
+/* ── Icon badge ───────────────────────────────────────────────────────
+   Circular tinted background with the lucide glyph centred inside. We
+   override sonner's default `data-icon` slot directly because the prop
+   passed via `icons` lands inside `[data-icon]`, not in `.cn-toast-icon`. */
+.cn-toast[data-sonner-toast] [data-icon] {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* ── Content (title + description) ──────────────────────────────────── */
+.cn-toast-title {
+  font-size: 0.875rem;       /* 14px */
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  color: var(--popover-foreground);
+}
+
+.cn-toast-description {
+  font-size: 0.8125rem;      /* 13px */
+  font-weight: 400;
+  line-height: 1.45;
+  margin-top: 0.15rem;
+  color: color-mix(in srgb, var(--popover-foreground) 70%, transparent);
+}
+
+/* ── Action / cancel buttons ────────────────────────────────────────── */
+.cn-toast-action,
+.cn-toast-cancel {
+  height: 28px !important;
+  padding: 0 0.7rem !important;
+  border-radius: 8px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+}
+
+.cn-toast-close {
+  /* Sonner positions the close button absolutely in the top-start corner.
+     Re-style as a small ghost button that doesn't fight with the badge. */
+  width: 22px !important;
+  height: 22px !important;
+  border: 1px solid var(--border) !important;
+  background: var(--popover) !important;
+  color: color-mix(in srgb, var(--popover-foreground) 55%, transparent) !important;
+  border-radius: 6px !important;
+  inset-inline-end: 8px !important;
+  inset-inline-start: auto !important;
+  top: 8px !important;
+}
+
+.cn-toast-close:hover {
+  color: var(--popover-foreground) !important;
+  background: color-mix(in srgb, var(--popover-foreground) 6%, var(--popover)) !important;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Per-variant accents
+   Sonner sets `data-type="success|info|warning|error"` on the root.
+   We tint:
+     1. the leading accent bar (`::before`)
+     2. the circular icon badge (`[data-icon]` background + glyph colour)
+   The card surface itself stays neutral so the toast still reads on any
+   page background — accent is reserved for the badge + bar only.
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Success — emerald */
+.cn-toast[data-sonner-toast][data-type="success"]::before {
+  background: #10B981;
+}
+.cn-toast[data-sonner-toast][data-type="success"] [data-icon] {
+  background: color-mix(in srgb, #10B981 14%, transparent);
+  color: #059669;
+}
+.dark .cn-toast[data-sonner-toast][data-type="success"] [data-icon] {
+  background: color-mix(in srgb, #10B981 20%, transparent);
+  color: #34D399;
+}
+
+/* Info — sky blue */
+.cn-toast[data-sonner-toast][data-type="info"]::before {
+  background: #0EA5E9;
+}
+.cn-toast[data-sonner-toast][data-type="info"] [data-icon] {
+  background: color-mix(in srgb, #0EA5E9 14%, transparent);
+  color: #0284C7;
+}
+.dark .cn-toast[data-sonner-toast][data-type="info"] [data-icon] {
+  background: color-mix(in srgb, #0EA5E9 20%, transparent);
+  color: #38BDF8;
+}
+
+/* Warning — amber */
+.cn-toast[data-sonner-toast][data-type="warning"]::before {
+  background: #F59E0B;
+}
+.cn-toast[data-sonner-toast][data-type="warning"] [data-icon] {
+  background: color-mix(in srgb, #F59E0B 16%, transparent);
+  color: #B45309;
+}
+.dark .cn-toast[data-sonner-toast][data-type="warning"] [data-icon] {
+  background: color-mix(in srgb, #F59E0B 22%, transparent);
+  color: #FBBF24;
+}
+
+/* Error — rose */
+.cn-toast[data-sonner-toast][data-type="error"]::before {
+  background: #F43F5E;
+}
+.cn-toast[data-sonner-toast][data-type="error"] [data-icon] {
+  background: color-mix(in srgb, #F43F5E 14%, transparent);
+  color: #E11D48;
+}
+.dark .cn-toast[data-sonner-toast][data-type="error"] [data-icon] {
+  background: color-mix(in srgb, #F43F5E 22%, transparent);
+  color: #FB7185;
+}
+
+/* Loading — neutral slate. Loading toasts shouldn't shout for attention. */
+.cn-toast[data-sonner-toast][data-type="loading"]::before {
+  background: #64748B;
+}
+.cn-toast[data-sonner-toast][data-type="loading"] [data-icon] {
+  background: color-mix(in srgb, #64748B 14%, transparent);
+  color: #475569;
+}
+.dark .cn-toast[data-sonner-toast][data-type="loading"] [data-icon] {
+  background: color-mix(in srgb, #64748B 22%, transparent);
+  color: #94A3B8;
+}
+
+/* Default / unstyled toasts (`toast("...")` without a variant) — give
+   them a neutral slate accent so they still get the design language. */
+.cn-toast[data-sonner-toast][data-type="default"]::before {
+  background: #94A3B8;
+}
+.cn-toast[data-sonner-toast][data-type="default"] [data-icon] {
+  background: color-mix(in srgb, #94A3B8 14%, transparent);
+  color: #475569;
+}
+.dark .cn-toast[data-sonner-toast][data-type="default"] [data-icon] {
+  background: color-mix(in srgb, #94A3B8 22%, transparent);
+  color: #CBD5E1;
+}
+
+/* Mobile — let the card breathe a little less and span more of the
+   viewport so the title doesn't get truncated on narrow phones. */
+@media (max-width: 480px) {
+  .cn-toast[data-sonner-toast] {
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.75rem 0.85rem 0.75rem 1rem;
+    min-height: 52px;
+  }
+  .cn-toast[data-sonner-toast] [data-icon] {
+    width: 24px;
+    height: 24px;
+  }
+}
+
 
