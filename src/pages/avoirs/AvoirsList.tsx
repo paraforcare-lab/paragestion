@@ -290,7 +290,7 @@ export function AvoirsList() {
   const monthCount = monthAvoirs.length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
@@ -304,23 +304,23 @@ export function AvoirsList() {
         )}
       </div>
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-orange-500/10 dark:border-orange-500/20 bg-orange-50 border border-orange-200/50">
+      {/* Header — text scales down on phones, subtitle wraps */}
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-orange-500/10 dark:border-orange-500/20 bg-orange-50 border border-orange-200/50 shrink-0">
           <RotateCcw className="h-5 w-5 text-orange-500" />
         </div>
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">{t('avoirs.page_title')}</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('avoirs.page_title')}</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
             {t('avoirs.page_subtitle')}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column - Table */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Search & Filters */}
+        <div className="lg:col-span-3 space-y-4 min-w-0">
+          {/* Search & Filters — filter becomes full-width on mobile */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400 pointer-events-none" />
@@ -333,7 +333,7 @@ export function AvoirsList() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-10 w-[160px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+              <SelectTrigger className="h-10 w-full sm:w-[160px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
                 <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
                 <SelectValue placeholder={t('shared.table.status')} />
               </SelectTrigger>
@@ -346,8 +346,9 @@ export function AvoirsList() {
             </Select>
           </div>
 
-          {/* Table */}
+          {/* Table — wrapped in `overflow-x-auto` for mobile scroll */}
           <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-b dark:border-white/5 border-slate-100">
@@ -482,6 +483,7 @@ export function AvoirsList() {
                 )}
               </TableBody>
             </Table>
+            </div>
 
             {!isLoading && paginatedAvoirs.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">

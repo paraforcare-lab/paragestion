@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { 
   Sparkles, Stethoscope, LayoutDashboard, FileText, ShoppingCart, Package, 
-  Users, Building2, Settings, Database, ChevronLeft, ChevronRight, LogOut,
+  Users, Building2, Settings, ChevronLeft, ChevronRight, LogOut,
   X, Receipt, ClipboardList, Truck, DollarSign, FileCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils'
@@ -59,7 +59,6 @@ const navigationGroups = [
     titleKey: 'nav.systeme',
     items: [
       { nameKey: 'navigation.settings', href: '/parametres', icon: Settings },
-      { nameKey: 'navigation.import_export', href: '/import-export', icon: Database },
     ]
   }
 ];

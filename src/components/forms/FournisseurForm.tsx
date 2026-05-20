@@ -122,8 +122,8 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Type Selection */}
-        <div className="grid grid-cols-2 gap-4">
+        {/* Type Selection — single column on phones, two on tablets+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="type"

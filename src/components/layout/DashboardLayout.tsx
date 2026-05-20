@@ -25,7 +25,6 @@ const routeMeta: Record<string, { titleKey: string; subtitleKey: string }> = {
   '/fournisseurs':    { titleKey: 'navigation.suppliers',      subtitleKey: 'header.subtitles.suppliers'      },
   '/produits':        { titleKey: 'navigation.products',       subtitleKey: 'header.subtitles.products'       },
   '/parametres':      { titleKey: 'navigation.settings',       subtitleKey: 'header.subtitles.settings'       },
-  '/import-export':   { titleKey: 'navigation.import_export',  subtitleKey: 'header.subtitles.import_export'  },
   '/transactions':    { titleKey: 'navigation.transactions',   subtitleKey: 'header.subtitles.transactions'   },
 };
 

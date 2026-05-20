@@ -139,7 +139,8 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
              />
            </div>
            <div className="md:col-span-2 space-y-4">
-         <div className="grid grid-cols-2 gap-4">
+         {/* Reference + barcode — stacks on phones, side-by-side from sm+ */}
+         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
            <FormField
              control={form.control}
              name="reference"
@@ -169,7 +170,8 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
            />
          </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Product name + brand — stacks on phones, side-by-side from sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="nom"
@@ -213,7 +215,9 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
           )}
         />
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* Prices + VAT — 1 col on phones, 3 on tablets+ to keep numeric
+            inputs comfortable to tap. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
             control={form.control}
             name="prixAchatHt"
@@ -257,7 +261,8 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
           />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* Stock fields — 1 col on phones, 3 on tablets+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
             control={form.control}
             name="stockActuel"

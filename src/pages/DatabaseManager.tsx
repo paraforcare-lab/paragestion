@@ -154,10 +154,11 @@ export function DatabaseManager() {
         title="Supprimer la ligne"
         description="Êtes-vous sûr de vouloir supprimer cette ligne ? Cette action est irréversible."
       />
+      {/* Page header — text scales for phones, subtitle wraps */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">Gestionnaire de Base de Données</h2>
-          <p className="text-muted-foreground">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">Gestionnaire de Base de Données</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
             Visualisez et gérez les données brutes de vos tables ou exécutez des requêtes SQL.
           </p>
         </div>
@@ -176,10 +177,12 @@ export function DatabaseManager() {
         </TabsList>
 
         <TabsContent value="explorer" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+          {/* Toolbar — stacks vertically below sm; search becomes
+              full-width on mobile so it's tappable. */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2">
               <Select value={selectedTable} onValueChange={setSelectedTable}>
-                <SelectTrigger className="w-[250px]">
+                <SelectTrigger className="w-full sm:w-[250px]">
                   <SelectValue placeholder="Choisir une table" />
                 </SelectTrigger>
                 <SelectContent>
@@ -194,7 +197,7 @@ export function DatabaseManager() {
                 <RefreshCw className={isLoading ? 'animate-spin' : ''} />
               </Button>
             </div>
-            <div className="relative flex-1 max-w-sm ml-4">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm sm:ml-4">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"

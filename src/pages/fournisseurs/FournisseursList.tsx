@@ -156,7 +156,7 @@ export function FournisseursList() {
   const particuliersCount = fournisseurs.filter(f => f.type !== 'entreprise').length;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
@@ -166,21 +166,21 @@ export function FournisseursList() {
       />
 
       {showForm ? (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={closeForm}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">
                 {editingFournisseur ? t('fournisseurs.dialog_edit') : t('fournisseurs.dialog_create')}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 {editingFournisseur ? t('fournisseurs.dialog_subtitle_edit', { name: editingFournisseur.nom || editingFournisseur.nomSociete }) : t('fournisseurs.dialog_subtitle_create')}
               </p>
             </div>
           </div>
-          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-4 sm:p-6">
             <FournisseurForm
               initialData={editingFournisseur}
               onSuccess={() => {
@@ -192,33 +192,33 @@ export function FournisseursList() {
         </div>
       ) : (
         <>
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-sky-50 border border-sky-200/50 dark:bg-[#0F172A]/60 dark:border-white/10">
+          {/* Header — stacks below sm, button becomes full-width on mobile */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-sky-50 border border-sky-200/50 dark:bg-[#0F172A]/60 dark:border-white/10 shrink-0">
                 <Truck className="h-5 w-5 text-sky-500 dark:text-blue-400" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('fournisseurs.page_title')}</h2>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('fournisseurs.page_title')}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                   {t('fournisseurs.page_subtitle')}
                 </p>
               </div>
             </div>
             <Button
               onClick={openNewForm}
-              className="bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
+              className="w-full sm:w-auto bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
             >
               <Plus className="mr-2 h-4 w-4" />
               {t('fournisseurs.new_button')}
             </Button>
           </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column - Table */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Search */}
-          <div className="relative max-w-md">
+        <div className="lg:col-span-3 space-y-4 min-w-0">
+          {/* Search — full-width on mobile, max-w-md from sm+ */}
+          <div className="relative w-full sm:max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
             <Input
               type="text"
@@ -229,8 +229,9 @@ export function FournisseursList() {
             />
           </div>
 
-          {/* Table */}
+          {/* Table — wrapped in `overflow-x-auto` for mobile horizontal scroll */}
           <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden dark:bg-[#0F172A] dark:border-white/10">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/10">
@@ -379,6 +380,7 @@ export function FournisseursList() {
                 )}
               </TableBody>
             </Table>
+            </div>
 
             {!isLoading && paginatedFournisseurs.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/10">

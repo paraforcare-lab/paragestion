@@ -336,8 +336,13 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
           </Button>
         </div>
 
+        {/* Line items grid — wrapped in `overflow-x-auto` so the wide row
+            of product/description/qty/price/vat/subtotal inputs scrolls
+            horizontally on phones instead of overflowing the page. The
+            `min-w-[720px]` keeps each cell readable while scrolling. */}
         <div className="border dark:border-white/10 border-slate-200 rounded-sm overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="border-b dark:border-white/10">
               <tr>
                 <th className="p-3 text-start font-semibold dark:text-muted-foreground text-slate-600">{t('shared.table.product')}</th>
@@ -432,6 +437,7 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
         {form.formState.errors.lignes && (
           <p className="text-sm text-red-500 font-medium">{form.formState.errors.lignes.message}</p>

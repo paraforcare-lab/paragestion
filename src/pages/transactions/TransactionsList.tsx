@@ -242,28 +242,28 @@ export function TransactionsList() {
   const totalAmount = filteredTransactions.reduce((sum, t) => sum + (t.montantTtc || 0), 0);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-indigo-50 border border-indigo-200/50">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+      {/* Header — text scales down on phones, subtitle wraps */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-indigo-50 border border-indigo-200/50 shrink-0">
             <Receipt className="h-5 w-5 text-indigo-500" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">{t('transactions.page_title')}</h2>
-            <p className="text-sm text-muted-foreground">
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('transactions.page_title')}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
               {t('transactions.page_subtitle')}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column - Table */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Search & Filters */}
+        <div className="lg:col-span-3 space-y-4 min-w-0">
+          {/* Search & Filters — filter becomes full-width on mobile */}
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
               <Input
                 type="text"
@@ -274,7 +274,7 @@ export function TransactionsList() {
               />
             </div>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="h-10 w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
+              <SelectTrigger className="h-10 w-full sm:w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm">
                 <SelectValue placeholder={t('transactions.filter_all')} />
               </SelectTrigger>
               <SelectContent>

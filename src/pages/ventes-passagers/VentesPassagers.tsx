@@ -484,8 +484,10 @@ export default function VentesPassagers() {
                 </div>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="rounded-sm dark:border-white/10 border border-slate-200 overflow-hidden">
+                  {/* Cart table scrolls horizontally on narrow viewports. */}
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/30">
@@ -545,25 +547,28 @@ export default function VentesPassagers() {
                       )}
                     </TableBody>
                   </Table>
+                  </div>
                 </div>
               </div>
 
-              {/* Totals */}
+              {/* Totals — restored after accidental deletion. Wraps the
+                  three sub-totals so they stack vertically on phones and
+                  align right on tablets+, mirroring the rest of this row. */}
               {panier.length > 0 && (
-                <div className="px-6 py-4 border-t dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
+                <div className="px-4 sm:px-6 py-4 border-t dark:border-white/10 border-slate-100 dark:bg-card bg-slate-50/50">
                   <div className="flex justify-end">
-                    <div className="flex items-center gap-8">
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-8">
                       <div className="text-right">
                         <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">{t('ventes.total_ht')}</p>
-                        <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
+                        <p className="text-base sm:text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantHt, 0))}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[11px] font-semibold dark:text-muted-foreground text-slate-500 uppercase tracking-wider">{t('ventes.total_vat')}</p>
-                        <p className="text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
+                        <p className="text-base sm:text-lg font-bold dark:text-card-foreground text-slate-800">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTva, 0))}</p>
                       </div>
-                      <div className="text-right border-l border-emerald-200 pl-8">
+                      <div className="text-right border-l border-emerald-200 ps-4 sm:ps-8">
                         <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-wider">{t('ventes.total_ttc')}</p>
-                        <p className="text-2xl font-black text-emerald-600">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTtc, 0))}</p>
+                        <p className="text-xl sm:text-2xl font-black text-emerald-600">{formatCurrency(panier.reduce((sum, i) => sum + i.montantTtc, 0))}</p>
                       </div>
                     </div>
                   </div>
@@ -571,7 +576,7 @@ export default function VentesPassagers() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-3 px-8 py-5 border-t dark:border-white/10 border-slate-200 dark:bg-card bg-slate-50/50 rounded-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 px-4 sm:px-8 py-4 sm:py-5 border-t dark:border-white/10 border-slate-200 dark:bg-card bg-slate-50/50 rounded-sm">
               <Button
                 variant="outline"
                 onClick={closeForm}
@@ -592,28 +597,28 @@ export default function VentesPassagers() {
         </div>
       ) : (
         <>
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50">
+          {/* Header — stacks below sm, button full-width on mobile */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
                 <ShoppingBag className="h-5 w-5 text-emerald-500" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('ventes.page_title')}</h2>
-                <p className="text-sm text-muted-foreground">{t('ventes.page_subtitle')}</p>
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('ventes.page_title')}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{t('ventes.page_subtitle')}</p>
               </div>
             </div>
 
-            <Button onClick={openNewForm} className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
+            <Button onClick={openNewForm} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
               <Plus className="mr-2 h-4 w-4" />
               {t('ventes.new_button')}
             </Button>
           </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column - Table */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Search & Filters */}
+        <div className="lg:col-span-3 space-y-4 min-w-0">
+          {/* Search & Filters — filter becomes full-width on mobile */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
@@ -626,7 +631,7 @@ export default function VentesPassagers() {
               />
             </div>
             <Select value={timeFilter} onValueChange={setTimeFilter}>
-              <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+              <SelectTrigger className="h-10 w-full sm:w-[150px] dark:bg-slate-900/50 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
                 <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 mr-2" />
                 <SelectValue placeholder={t('ventes.filter_all')} />
               </SelectTrigger>
@@ -639,8 +644,9 @@ export default function VentesPassagers() {
             </Select>
           </div>
 
-          {/* Sales Table */}
+          {/* Sales Table — wrapped in `overflow-x-auto` for mobile scroll */}
           <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-b dark:border-white/5 border-slate-100">
@@ -768,6 +774,7 @@ export default function VentesPassagers() {
                 )}
               </TableBody>
             </Table>
+            </div>
 
             {!loading && paginatedVentes.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
@@ -985,6 +992,8 @@ export default function VentesPassagers() {
 
               {detailVente.lignes && detailVente.lignes.length > 0 && (
                 <div className="rounded-sm dark:border-white/10 border border-slate-200 overflow-hidden">
+                  {/* Detail table scrolls horizontally inside the dialog on phones. */}
+                  <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b dark:border-white/10 border-slate-100">
@@ -1005,6 +1014,7 @@ export default function VentesPassagers() {
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
                 </div>
               )}
 

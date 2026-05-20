@@ -207,7 +207,6 @@
     "suppliers": "Suppliers",
     "products": "Products",
     "settings": "Settings",
-    "import_export": "Import / Export",
     "transactions": "Transactions"
   },
   "nav": {
@@ -253,7 +252,6 @@
       "suppliers": "Supplier management",
       "products": "Catalogue management",
       "settings": "Application configuration",
-      "import_export": "Data transfer",
       "transactions": "Operation history"
     }
   },
@@ -1136,94 +1134,6 @@
       "postal_required":       "Postal code is required",
       "phone_required":        "Phone is required",
       "email_invalid":         "Invalid email"
-    }
-  },
-  "import_export": {
-    "page_title":    "Import / Export",
-    "page_subtitle": "Manage your backups and export data for accounting.",
-
-    "tabs": {
-      "export":    "Export",
-      "import":    "Import",
-      "comptable": "Accounting",
-      "reset":     "Reset"
-    },
-
-    "export": {
-      "card_title":       "Full Backup",
-      "card_subtitle":    "Download all your data (products, invoices, customers, etc.) in a single Excel file.",
-      "info_title":       "Recommendation",
-      "info_body":        "We recommend exporting a full backup at least once a week to keep your data safe.",
-      "btn_exporting":    "Exporting...",
-      "btn_export":       "Export to Excel (.xlsx)",
-      "toast_success":    "Full backup exported successfully",
-      "toast_error":      "Error exporting the backup",
-      "toast_unsaved_title": "Unsaved changes",
-      "toast_unsaved_body":  "Please save your settings before exporting."
-    },
-
-    "import": {
-      "card_title":       "Restore a Backup",
-      "card_subtitle":    "Import a previously exported Excel file to restore your data.",
-      "warning_title":    "Warning",
-      "warning_body":     "Importing may overwrite or modify your current data. Make sure you have a recent backup before proceeding.",
-      "dropzone_label":   "Drag your file here or click to browse",
-      "dropzone_format":  "Accepted format: .xlsx only",
-      "btn_importing":    "Importing...",
-      "btn_select":       "Select a file",
-      "toast_success":    "Backup restored successfully",
-      "toast_partial":    "Partial import",
-      "toast_error_read": "Error reading or importing the file",
-      "toast_error":      "Error importing",
-      "toast_relogin":    "Please log in again before importing",
-      "toast_unsaved_title": "Unsaved changes",
-      "toast_unsaved_body":  "Please save your settings before exporting."
-    },
-
-    "linking": {
-      "dialog_title":     "Linking in progress",
-      "dialog_desc":      "Please wait while we link customers and suppliers...",
-      "in_progress":      "Importing...",
-      "linking_entities": "Linking customers and suppliers...",
-      "wait_hint":        "This operation may take a few seconds..."
-    },
-
-    "comptable": {
-      "card_title":       "Accounting Export",
-      "card_subtitle":    "Generate a tab-structured Excel file to simplify your accountant's work.",
-      "feature_sales":    "Sales & Purchases",
-      "feature_sales_sub":"Complete history of invoices and purchase orders.",
-      "feature_expenses": "Expenses",
-      "feature_expenses_sub": "Detail of charges and operating costs.",
-      "feature_vat":      "VAT Analysis",
-      "feature_vat_sub":  "Automatic calculation of collected and deductible VAT.",
-      "feature_payments": "Payments",
-      "feature_payments_sub": "Tracking of settlements and outstanding amounts.",
-      "btn_generating":   "Generating...",
-      "btn_generate":     "Generate Accounting Export",
-      "toast_success":    "Accounting export generated successfully",
-      "toast_error":      "Error generating the accounting export",
-      "toast_unsaved_title": "Unsaved changes",
-      "toast_unsaved_body":  "Please save your settings before exporting."
-    },
-
-    "reset": {
-      "card_title":       "Full Reset",
-      "card_subtitle":    "Permanently delete all application data. This action is irreversible.",
-      "danger_title":     "Danger Zone",
-      "danger_body":      "By clicking the button below, you will delete all customers, products, invoices, and history. Make sure you have exported a backup before continuing.",
-      "btn_open_dialog":  "Reset all data",
-      "dialog_title":     "Security confirmation",
-      "dialog_desc":      "This action is extremely dangerous. To confirm deletion of ALL data, please enter your login credentials.",
-      "label_email":      "Email",
-      "placeholder_email":"your@email.com",
-      "label_password":   "Password",
-      "btn_cancel":       "Cancel",
-      "btn_resetting":    "Resetting...",
-      "btn_confirm":      "Confirm total deletion",
-      "toast_success":    "Database reset successfully",
-      "toast_error_creds":"Please enter your email and password",
-      "toast_error":      "Error during reset"
     }
   }
 }

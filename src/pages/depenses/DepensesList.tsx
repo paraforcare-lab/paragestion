@@ -314,21 +314,21 @@ export function DepensesList() {
       />
 
       {showForm ? (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={closeForm}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">
                 {editingDepense ? t('depenses.dialog_edit') : t('depenses.dialog_create')}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 {editingDepense ? t('depenses.dialog_subtitle_edit', { reference: editingDepense.reference }) : t('depenses.dialog_subtitle_create')}
               </p>
             </div>
           </div>
-          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-4 sm:p-6">
             <DepenseForm
               initialData={editingDepense}
               onSuccess={() => {
@@ -340,32 +340,32 @@ export function DepensesList() {
         </div>
       ) : (
         <>
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-red-50 border border-red-200/50 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
+          {/* Header — stacks below sm, button full-width on mobile */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-red-50 border border-red-200/50 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm shrink-0">
                 <Wallet className="h-5 w-5 text-red-500 dark:text-rose-400" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('depenses.page_title')}</h2>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('depenses.page_title')}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                   {t('depenses.page_subtitle')}
                 </p>
               </div>
             </div>
             <Button
               onClick={openNewForm}
-              className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
+              className="w-full sm:w-auto bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
               <Plus className="me-2 h-4 w-4" />
               {t('depenses.new_button')}
             </Button>
           </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column - Table */}
-        <div className="lg:col-span-3 space-y-4">
-          {/* Search & Filters */}
+        <div className="lg:col-span-3 space-y-4 min-w-0">
+          {/* Search & Filters — filter becomes full-width on mobile */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
@@ -378,7 +378,7 @@ export function DepensesList() {
               />
             </div>
             <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-              <SelectTrigger className="h-10 w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm">
+              <SelectTrigger className="h-10 w-full sm:w-[160px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm">
                 <Filter className="h-3.5 w-3.5 text-slate-400 me-2" />
                 <SelectValue placeholder={t('shared.table.payment')} />
               </SelectTrigger>
@@ -392,8 +392,9 @@ export function DepensesList() {
             </Select>
           </div>
 
-          {/* Table */}
+          {/* Table — wrapped in `overflow-x-auto` for mobile scroll */}
           <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden dark:border-white/10 dark:rounded-sm">
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/5">
@@ -553,6 +554,7 @@ export function DepensesList() {
                 )}
               </TableBody>
             </Table>
+            </div>
 
             {!isLoading && paginatedDepenses.length > 0 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">

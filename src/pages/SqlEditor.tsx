@@ -46,27 +46,27 @@ export function SqlEditor() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 max-w-5xl mx-auto">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Éditeur SQL</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground">Éditeur SQL</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Exécutez des requêtes SQL personnalisées pour nettoyer ou modifier la base de données.
         </p>
       </div>
 
       <Card className="border border-slate-200 shadow-none rounded-[6px]">
-        <CardHeader className="border-b border-slate-100 px-6 py-4">
-          <CardTitle className="flex items-center gap-2 text-lg">
+        <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-3 sm:py-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Terminal className="h-5 w-5 text-[#267E54]" />
             Requête SQL
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Attention : Les requêtes exécutées ici modifient directement la base de données.
             <br/>
             <span className="text-red-500 font-semibold">Note :</span> Pour que cet éditeur fonctionne, vous devez d'abord créer la fonction <code>execute_sql</code> dans votre tableau de bord Supabase.
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-6 space-y-4">
+        <CardContent className="p-4 sm:p-6 space-y-4">
           <Textarea
             value={sql}
             onChange={(e) => setSql(e.target.value)}

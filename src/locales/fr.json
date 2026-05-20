@@ -207,7 +207,6 @@
     "suppliers": "Fournisseurs",
     "products": "Produits",
     "settings": "Paramètres",
-    "import_export": "Import / Export",
     "transactions": "Transactions"
   },
   "nav": {
@@ -253,7 +252,6 @@
       "suppliers": "Gestion des fournisseurs",
       "products": "Gestion du catalogue",
       "settings": "Configuration de l'application",
-      "import_export": "Transfert de données",
       "transactions": "Historique des opérations"
     }
   },
@@ -1136,94 +1134,6 @@
       "postal_required":       "Le code postal est requis",
       "phone_required":        "Le téléphone est requis",
       "email_invalid":         "Email invalide"
-    }
-  },
-  "import_export": {
-    "page_title":    "Import / Export",
-    "page_subtitle": "Gérez vos sauvegardes et exportez vos données pour votre comptabilité.",
-
-    "tabs": {
-      "export":    "Export",
-      "import":    "Import",
-      "comptable": "Comptable",
-      "reset":     "Reset"
-    },
-
-    "export": {
-      "card_title":       "Sauvegarde Complète",
-      "card_subtitle":    "Téléchargez l'intégralité de vos données (produits, factures, clients, etc.) dans un seul fichier Excel.",
-      "info_title":       "Recommandation",
-      "info_body":        "Nous vous conseillons d'exporter une sauvegarde complète au moins une fois par semaine pour sécuriser vos données.",
-      "btn_exporting":    "Exportation en cours...",
-      "btn_export":       "Exporter en Excel (.xlsx)",
-      "toast_success":    "Sauvegarde complète exportée avec succès",
-      "toast_error":      "Erreur lors de l'exportation de la sauvegarde",
-      "toast_unsaved_title": "Modifications non enregistrées",
-      "toast_unsaved_body":  "Veuillez enregistrer vos paramètres avant d'exporter."
-    },
-
-    "import": {
-      "card_title":       "Restaurer une Sauvegarde",
-      "card_subtitle":    "Importez un fichier Excel précédemment exporté pour restaurer vos données.",
-      "warning_title":    "Attention",
-      "warning_body":     "L'importation peut écraser ou modifier vos données actuelles. Assurez-vous d'avoir une sauvegarde récente avant de procéder.",
-      "dropzone_label":   "Glissez votre fichier ici ou cliquez pour parcourir",
-      "dropzone_format":  "Format accepté : .xlsx uniquement",
-      "btn_importing":    "Importation en cours...",
-      "btn_select":       "Sélectionner un fichier",
-      "toast_success":    "Sauvegarde restaurée avec succès",
-      "toast_partial":    "Import partiel",
-      "toast_error_read": "Erreur lors de la lecture ou de l'importation du fichier",
-      "toast_error":      "Erreur lors de l'importation",
-      "toast_relogin":    "Veuillez vous reconnecter avant d'importer",
-      "toast_unsaved_title": "Modifications non enregistrées",
-      "toast_unsaved_body":  "Veuillez enregistrer vos paramètres avant d'exporter."
-    },
-
-    "linking": {
-      "dialog_title":     "Liaison en cours",
-      "dialog_desc":      "Veuillez patienter pendant que nous lions les clients et fournisseurs...",
-      "in_progress":      "Importation en cours...",
-      "linking_entities": "Liaison des clients et fournisseurs...",
-      "wait_hint":        "Cette opération peut prendre quelques secondes..."
-    },
-
-    "comptable": {
-      "card_title":       "Export pour Comptabilité",
-      "card_subtitle":    "Générez un fichier Excel structuré par onglets pour faciliter le travail de votre comptable.",
-      "feature_sales":    "Ventes & Achats",
-      "feature_sales_sub":"Historique complet des factures et bons de commande.",
-      "feature_expenses": "Dépenses",
-      "feature_expenses_sub": "Détail des charges et frais de fonctionnement.",
-      "feature_vat":      "Analyse TVA",
-      "feature_vat_sub":  "Calcul automatique de la TVA collectée et déductible.",
-      "feature_payments": "Paiements",
-      "feature_payments_sub": "Suivi des règlements et des impayés.",
-      "btn_generating":   "Génération en cours...",
-      "btn_generate":     "Générer l'Export Comptable",
-      "toast_success":    "Export comptable généré avec succès",
-      "toast_error":      "Erreur lors de la génération de l'export comptable",
-      "toast_unsaved_title": "Modifications non enregistrées",
-      "toast_unsaved_body":  "Veuillez enregistrer vos paramètres avant d'exporter."
-    },
-
-    "reset": {
-      "card_title":       "Réinitialisation Totale",
-      "card_subtitle":    "Supprimez définitivement toutes les données de l'application. Cette action est irréversible.",
-      "danger_title":     "Zone de Danger",
-      "danger_body":      "En cliquant sur le bouton ci-dessous, vous supprimerez tous les clients, produits, factures, et historiques. Assurez-vous d'avoir exporté une sauvegarde avant de continuer.",
-      "btn_open_dialog":  "Réinitialiser toutes les données",
-      "dialog_title":     "Confirmation de sécurité",
-      "dialog_desc":      "Cette action est extrêmement dangereuse. Pour confirmer la suppression de TOUTES les données, veuillez saisir vos identifiants de connexion.",
-      "label_email":      "Email",
-      "placeholder_email":"votre@email.com",
-      "label_password":   "Mot de passe",
-      "btn_cancel":       "Annuler",
-      "btn_resetting":    "Réinitialisation...",
-      "btn_confirm":      "Confirmer la suppression totale",
-      "toast_success":    "Base de données réinitialisée avec succès",
-      "toast_error_creds":"Veuillez saisir votre email et mot de passe",
-      "toast_error":      "Erreur lors de la réinitialisation"
     }
   }
 }

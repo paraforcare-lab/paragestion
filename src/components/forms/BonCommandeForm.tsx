@@ -336,8 +336,11 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
           </Button>
         </div>
 
+        {/* Line items grid — wrapped in `overflow-x-auto` so the wide row
+            scrolls horizontally on phones instead of overflowing the page. */}
         <div className="border border-slate-200 rounded-[6px] overflow-hidden dark:border-white/10 dark:rounded-sm">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-slate-100 border-b border-slate-200 dark:bg-slate-900/60 dark:border-white/10">
               <tr>
                 <th className="p-3 text-start font-semibold text-slate-600 dark:text-slate-400">{t('shared.table.product')}</th>
@@ -423,6 +426,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

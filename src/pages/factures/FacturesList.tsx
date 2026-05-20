@@ -596,21 +596,21 @@ export function FacturesList() {
       </div>
 
       {showForm ? (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={closeForm}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">
                 {editingFacture ? t('factures.dialog_edit') : t('factures.dialog_create')}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 {editingFacture ? t('factures.dialog_subtitle_edit', { number: editingFacture.numero }) : t('factures.dialog_subtitle_create')}
               </p>
             </div>
           </div>
-          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-4 sm:p-6">
             <FactureForm
               initialData={editingFacture}
               onSuccess={() => {
@@ -622,27 +622,30 @@ export function FacturesList() {
         </div>
       ) : (
         <>
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-rose-500/10 dark:border-rose-500/20 bg-rose-50 border border-rose-200/50">
+          {/* Responsive header: stacks below sm, full-width button on mobile. */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-rose-500/10 dark:border-rose-500/20 bg-rose-50 border border-rose-200/50 shrink-0">
                 <Receipt className="h-5 w-5 text-rose-500" />
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-foreground">{t('factures.page_title')}</h2>
-                <p className="text-sm text-muted-foreground">{t('factures.page_subtitle')}</p>
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('factures.page_title')}</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{t('factures.page_subtitle')}</p>
               </div>
             </div>
             <Button
               onClick={openNewForm}
-              className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none"
+              className="w-full sm:w-auto bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none"
             >
               <Plus className="me-2 h-4 w-4" />
               {t('factures.new_button')}
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="lg:col-span-3 space-y-4 min-w-0">
+              {/* Filters row: stacks vertically below sm; selects become
+                  full-width so they're tappable on phones. */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 dark:text-muted-foreground text-slate-400" />
@@ -655,7 +658,7 @@ export function FacturesList() {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="h-10 w-[140px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                  <SelectTrigger className="h-10 w-full sm:w-[140px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
                     <Filter className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
                     <SelectValue placeholder={t('shared.table.status')} />
                   </SelectTrigger>
@@ -667,7 +670,7 @@ export function FacturesList() {
                   </SelectContent>
                 </Select>
                 <Select value={timeFilter} onValueChange={setTimeFilter}>
-                  <SelectTrigger className="h-10 w-[150px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
+                  <SelectTrigger className="h-10 w-full sm:w-[150px] dark:bg-slate-900 dark:border-white/5 bg-white border-slate-200 rounded-sm shadow-none text-sm">
                     <CalendarDays className="h-3.5 w-3.5 dark:text-muted-foreground text-slate-400 me-2" />
                     <SelectValue placeholder={t('shared.filters.all_periods')} />
                   </SelectTrigger>
@@ -680,7 +683,10 @@ export function FacturesList() {
                 </Select>
               </div>
 
+              {/* `overflow-x-auto` lets the wide table scroll horizontally on
+                  narrow screens rather than overflowing the page. */}
               <Card className="border dark:border-white/10 border-slate-200 shadow-none rounded-sm overflow-hidden">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b dark:border-white/5 border-slate-100">
@@ -870,6 +876,7 @@ export function FacturesList() {
                     )}
                   </TableBody>
                 </Table>
+                </div>
 
                 {!isLoading && paginatedFactures.length > 0 && (
                   <div className="flex items-center justify-between px-4 py-3 border-t dark:border-white/5 border-slate-100">
