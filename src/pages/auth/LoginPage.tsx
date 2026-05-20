@@ -89,7 +89,7 @@ export function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col mx-4"
+      className="min-h-screen flex flex-col mx-2 sm:mx-4"
       style={{
         // Light mode keeps the original soft teal radial wash. Dark mode uses
         // the same deep navy palette as the dashboard (#0F172A) with a subtle
@@ -144,8 +144,11 @@ export function LoginPage() {
         <LanguageSelector />
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-100 dark:border-white/10 shadow-[0_20px_50px_rgba(8,112,184,0.07)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-8 md:p-10">
+      {/* `pt-20 sm:pt-4` reserves headroom on mobile so the fixed top-right
+          controls (theme toggle + language) never overlap the login card on
+          short screens. From sm up the original centred layout is restored. */}
+      <div className="flex-1 flex items-center justify-center p-3 sm:p-4 pt-20 sm:pt-4">
+        <div className="w-full max-w-md bg-white dark:bg-[#0F172A] rounded-2xl border border-slate-100 dark:border-white/10 shadow-[0_20px_50px_rgba(8,112,184,0.07)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-6 sm:p-8 md:p-10">
           {/* Logo + headline */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-[0_4px_12px_rgba(16,185,129,0.3)] mb-4">

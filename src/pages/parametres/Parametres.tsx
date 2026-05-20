@@ -441,77 +441,86 @@ export function Parametres() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{t('parametres.page_title')}</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{t('parametres.page_title')}</h1>
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1.5">
           {t('parametres.page_subtitle')}
         </p>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-          {/* Navigation Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          {/* Navigation Cards — responsive
+              ─────────────────────────────────────────────────────────────
+              Mobile (<sm): single column stack, tighter padding, the chevron
+              hides since the active state is now visually clear with the
+              full-width emphasis.
+              Tablet (sm-md): 3 small icon-only buttons in a row (subtitle/title
+              hidden) keep the picker compact while content gets more room.
+              Desktop (md+): the original 3-column card layout with full text. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
             <button
               type="button"
               onClick={() => setActiveTab('general')}
-                            className={`flex items-center gap-4 p-5 rounded-2xl border text-left w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
+                            className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
                 activeTab === 'general' ? 'ring-2 ring-primary/20 border-primary bg-slate-50 dark:border-primary/50 dark:bg-slate-800/50' : ''
               }`}
             >
-              <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
-                <Building2 className="h-6 w-6 text-blue-500 dark:text-blue-400" />
-                {tabErrors.general && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
+              <div className="relative flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
+                <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 dark:text-blue-400" />
+                {tabErrors.general && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-white">{t('parametres.nav_profile')}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_profile_sub')}</p>
+              {/* On tablets we hide the description block to keep the row
+                  compact; mobile and desktop both show full text. */}
+              <div className="flex-1 min-w-0 sm:hidden md:block">
+                <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{t('parametres.nav_profile')}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_profile_sub')}</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
+              <ChevronRight className="hidden md:block h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('fiscal')}
-              className={`flex items-center gap-4 p-5 rounded-2xl border text-left w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
+              className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
                 activeTab === 'fiscal' ? 'ring-2 ring-primary/20 border-primary bg-slate-50 dark:border-primary/50 dark:bg-slate-800/50' : ''
               }`}
             >
-              <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0 relative">
-                <FileText className="h-6 w-6 text-emerald-500 dark:text-emerald-400" />
-                {tabErrors.fiscal && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
+              <div className="relative flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500 dark:text-emerald-400" />
+                {tabErrors.fiscal && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-white">{t('parametres.nav_fiscal')}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_fiscal_sub')}</p>
+              <div className="flex-1 min-w-0 sm:hidden md:block">
+                <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{t('parametres.nav_fiscal')}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_fiscal_sub')}</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
+              <ChevronRight className="hidden md:block h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('personalisation')}
-              className={`flex items-center gap-4 p-5 rounded-2xl border text-left w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
+              className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
                 activeTab === 'personalisation' ? 'ring-2 ring-primary/20 border-primary bg-slate-50 dark:border-primary/50 dark:bg-slate-800/50' : ''
               }`}
             >
-              <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0 relative">
-                <Palette className="h-6 w-6 text-purple-500 dark:text-purple-400" />
-                {tabErrors.personalisation && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
+              <div className="relative flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
+                <Palette className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 dark:text-purple-400" />
+                {tabErrors.personalisation && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-slate-900 dark:text-white">{t('parametres.nav_appearance')}</p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_appearance_sub')}</p>
+              <div className="flex-1 min-w-0 sm:hidden md:block">
+                <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{t('parametres.nav_appearance')}</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">{t('parametres.nav_appearance_sub')}</p>
               </div>
-              <ChevronRight className="h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
+              <ChevronRight className="hidden md:block h-5 w-5 text-slate-300 dark:text-slate-600 shrink-0 rtl:rotate-180" />
             </button>
           </div>
 
           {/* Content Area */}
-          <div className="p-6 rounded-2xl border border-slate-200 bg-white dark:bg-[#0b1222] dark:border-white/5">
+          <div className="p-3 sm:p-4 lg:p-6 rounded-2xl border border-slate-200 bg-white dark:bg-[#0b1222] dark:border-white/5">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsContent value="general" className="mt-0">
               <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-6 py-5 dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                       <Building2 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
@@ -670,7 +679,7 @@ export function Parametres() {
 
             <TabsContent value="fiscal" className="mt-0 space-y-6">
               <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-6 py-5 dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                       <FileText className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
@@ -759,7 +768,7 @@ export function Parametres() {
               </Card>
 
               <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-6 py-5 dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                       <Landmark className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
@@ -820,7 +829,7 @@ export function Parametres() {
               </Card>
 
               <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-6 py-5 dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                       <CreditCard className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
@@ -859,7 +868,7 @@ export function Parametres() {
 
             <TabsContent value="personalisation" className="mt-0 space-y-6">
               <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-6 py-5 dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                       <Palette className="h-5 w-5 text-purple-500 dark:text-purple-400" />
@@ -1120,7 +1129,7 @@ export function Parametres() {
               </Dialog>
 
               <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-6 py-5 dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
                       <FileText className="h-5 w-5 text-purple-500 dark:text-purple-400" />

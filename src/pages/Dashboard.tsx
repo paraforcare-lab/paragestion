@@ -270,7 +270,7 @@ export function Dashboard() {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
       /*
        * RTL Note: `dir` is already set on <html> by App.tsx's RtlSynchronizer
        * and on the DashboardLayout wrapper. We set it here too so this page is
@@ -282,20 +282,23 @@ export function Dashboard() {
       {/*
        * RTL: justify-between + flex automatically mirrors — title sits at the
        * logical start, stock mini-card at the logical end.
+       *
+       * Responsive: title uses a fluid size (text-xl → text-2xl). On very
+       * narrow phones the stock mini-card wraps below the title via flex-wrap.
        */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">{td('header.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-1">{td('header.subtitle')}</p>
+      <div className="flex items-center justify-between gap-3 sm:gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground truncate">{td('header.title')}</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 line-clamp-2">{td('header.subtitle')}</p>
         </div>
 
         {/* Stock value mini-card — logical end (right in LTR, left in RTL) */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Package className="h-5 w-5 text-muted-foreground shrink-0" />
           <div className="text-start">
-            <p className="text-xs text-muted-foreground">{td('header.stock_value_label')}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground">{td('header.stock_value_label')}</p>
             {/* dir=ltr keeps the number reading left→right even in Arabic */}
-            <p className="text-lg font-bold text-foreground" dir="ltr">
+            <p className="text-base sm:text-lg font-bold text-foreground" dir="ltr">
               {fmt(stats?.stockValueHT ?? 0)}
             </p>
           </div>
@@ -303,73 +306,82 @@ export function Dashboard() {
       </div>
 
       {/* ── KPI Row 1: Financial KPIs ─────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Mobile: 2 columns (full-width single-col makes huge cards waste
+          vertical space). Tablet/desktop: 2-4 cols. */}
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-4">
+        {/*
+         * Each KPICard's `iconContainerClass` now declares BOTH light- and
+         * dark-mode tints on the same line. Light mode uses the *-50 tint
+         * backgrounds with *-200 borders and *-600 icon strokes, which is
+         * the conventional shadcn pastel-on-paper treatment and matches the
+         * saturation of the dark-mode *-400 icons at parity contrast.
+         */}
         <KPICard
           title={td('kpi.revenue.title')}
           value={fmt(stats?.totalRevenue ?? 0)}
           subtitle={td('kpi.revenue.subtitle')}
           icon={DollarSign}
-          iconContainerClass="dark:bg-emerald-500/10 dark:border dark:border-emerald-500/20 dark:text-emerald-400"
+          iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
         />
         <KPICard
           title={td('kpi.receivables.title')}
           value={fmt(stats?.unpaidRevenue ?? 0)}
           subtitle={td('kpi.receivables.subtitle')}
           icon={CreditCard}
-          iconContainerClass="dark:bg-blue-500/10 dark:border dark:border-blue-500/20 dark:text-blue-400"
+          iconContainerClass="bg-blue-50 border border-blue-200/60 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-400"
         />
         <KPICard
           title={td('kpi.expenses.title')}
           value={fmt(stats?.totalDepenses ?? 0)}
           subtitle={td('kpi.expenses.subtitle')}
           icon={Activity}
-          iconContainerClass="dark:bg-rose-500/10 dark:border dark:border-rose-500/20 dark:text-rose-400"
+          iconContainerClass="bg-rose-50 border border-rose-200/60 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"
         />
         <KPICard
           title={td('kpi.profit.title')}
           value={fmt(stats?.profit ?? 0)}
           subtitle={td('kpi.profit.subtitle')}
           icon={ShieldCheck}
-          iconContainerClass="dark:bg-rose-500/10 dark:border dark:border-rose-500/20 dark:text-rose-400"
+          iconContainerClass="bg-rose-50 border border-rose-200/60 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"
         />
       </div>
 
       {/* ── KPI Row 2: Counter cards ──────────────────────────────────────── */}
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 sm:grid-cols-3 xl:grid-cols-5">
         <KPICard
           title={td('kpi.purchase_orders.title')}
           value={String(stats?.bonsCommandeCount ?? 0)}
           subtitle={td('kpi.purchase_orders.subtitle')}
           icon={ClipboardList}
-          iconContainerClass="dark:bg-emerald-500/10 dark:border dark:border-emerald-500/20 dark:text-emerald-400"
+          iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
         />
         <KPICard
           title={td('kpi.clients.title')}
           value={String(stats?.clientsCount ?? 0)}
           subtitle={td('kpi.clients.subtitle')}
           icon={Users}
-          iconContainerClass="dark:bg-blue-500/10 dark:border dark:border-blue-500/20 dark:text-blue-400"
+          iconContainerClass="bg-blue-50 border border-blue-200/60 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-400"
         />
         <KPICard
           title={td('kpi.suppliers.title')}
           value={String(stats?.fournisseursCount ?? 0)}
           subtitle={td('kpi.suppliers.subtitle')}
           icon={Building2}
-          iconContainerClass="dark:bg-indigo-500/10 dark:border dark:border-indigo-500/20 dark:text-indigo-400"
+          iconContainerClass="bg-indigo-50 border border-indigo-200/60 text-indigo-600 dark:bg-indigo-500/10 dark:border-indigo-500/20 dark:text-indigo-400"
         />
         <KPICard
           title={td('kpi.products.title')}
           value={String(stats?.produitsCount ?? 0)}
           subtitle={td('kpi.products.subtitle')}
           icon={Package}
-          iconContainerClass="dark:bg-amber-500/10 dark:border dark:border-amber-500/20 dark:text-amber-400"
+          iconContainerClass="bg-amber-50 border border-amber-200/60 text-amber-600 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400"
         />
         <KPICard
           title={td('kpi.invoices.title')}
           value={String(stats?.facturesCount ?? 0)}
           subtitle={td('kpi.invoices.subtitle')}
           icon={FileText}
-          iconContainerClass="dark:bg-emerald-500/10 dark:border dark:border-emerald-500/20 dark:text-emerald-400"
+          iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
         />
       </div>
 
@@ -379,11 +391,13 @@ export function Dashboard() {
        * (lg:col-span-4) naturally sits on the RIGHT in Arabic — correct for
        * a right-to-left reading order where the primary visual comes first.
        */}
-      <div className="grid gap-6 lg:grid-cols-7">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-7">
 
-        {/* Cash-flow chart */}
-        <Card className="lg:col-span-4 shadow-none rounded-[6px]">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 gap-4 flex-wrap">
+        {/* Cash-flow chart — `min-w-0` lets Recharts ResponsiveContainer
+            shrink properly inside the grid cell on small screens. Without it
+            the chart could push the grid wider than the viewport. */}
+        <Card className="lg:col-span-4 shadow-none rounded-[6px] min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 gap-3 sm:gap-4 flex-wrap">
             <div className="space-y-1 min-w-0">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary shrink-0" />
@@ -420,7 +434,7 @@ export function Dashboard() {
              * The surrounding UI text (title, legend) inherits RTL from the
              * parent dir=rtl and mirrors correctly on its own.
              */}
-            <div className="h-[320px] w-full" dir="ltr">
+            <div className="h-[240px] sm:h-[280px] lg:h-[320px] w-full" dir="ltr">
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart
                   data={stats?.monthlyData ?? []}
@@ -477,7 +491,7 @@ export function Dashboard() {
         </Card>
 
         {/* Recent Invoices */}
-        <Card className="lg:col-span-3 shadow-none rounded-[6px]">
+        <Card className="lg:col-span-3 shadow-none rounded-[6px] min-w-0">
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div className="space-y-1 min-w-0">
               <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -582,7 +596,7 @@ export function Dashboard() {
       </div>
 
       {/* ── Second row: Quick Actions + Stock Alerts ──────────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
 
         {/* Quick Actions */}
         <Card className="shadow-none rounded-[6px]">
@@ -681,18 +695,18 @@ export function Dashboard() {
       {/* ── TVA Summary ───────────────────────────────────────────────────── */}
       <Card className="shadow-none rounded-[6px]">
         {/* Card header banner */}
-        <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-6 py-4 border-b border-primary/10 flex items-center gap-3">
+        <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 px-4 sm:px-6 py-3 sm:py-4 border-b border-primary/10 flex items-center gap-3">
           <div className="p-2 rounded-[6px] bg-primary/10 shrink-0">
             <PieChart className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h3 className="font-bold text-foreground">{td('tva.section_title')}</h3>
-            <p className="text-xs text-muted-foreground">{td('tva.section_subtitle')}</p>
+          <div className="min-w-0">
+            <h3 className="font-bold text-foreground text-sm sm:text-base">{td('tva.section_title')}</h3>
+            <p className="text-[11px] sm:text-xs text-muted-foreground">{td('tva.section_subtitle')}</p>
           </div>
         </div>
 
-        <CardContent className="p-6">
-          <div className="grid gap-8 md:grid-cols-3">
+        <CardContent className="p-4 sm:p-6">
+          <div className="grid gap-6 sm:gap-8 md:grid-cols-3">
 
             {/* TVA Collectée */}
             <div className="space-y-3">

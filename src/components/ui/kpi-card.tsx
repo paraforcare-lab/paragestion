@@ -40,31 +40,34 @@ export function KPICard({
   iconContainerClass,
 }: KPICardProps) {
   return (
-    <div className="rounded-[6px] bg-card p-5 border border-border">
+    /* Responsive padding: tighter on phones (more cards per screen), generous
+       on desktop. The icon and text sizes scale together so the visual rhythm
+       stays consistent at every breakpoint. */
+    <div className="rounded-[6px] bg-card p-3 sm:p-4 lg:p-5 border border-border">
       {/* Icon row — justify-between so icon sits at logical END,
           matching the original design's top-right placement in LTR
           and auto-mirroring to top-left in RTL */}
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between mb-2 sm:mb-3">
         {/* invisible spacer keeps the icon pushed to the end */}
         <span />
         <div
           className={cn(
-            'h-10 w-10 rounded-sm flex items-center justify-center shrink-0',
+            'h-8 w-8 sm:h-10 sm:w-10 rounded-sm flex items-center justify-center shrink-0',
             iconContainerClass ?? 'bg-emerald-50 text-emerald-600',
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </div>
 
       {/* Title — `text-start` = left in LTR, right in RTL */}
-      <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase text-start">
+      <p className="text-[10px] sm:text-xs font-medium text-muted-foreground tracking-wide uppercase text-start line-clamp-2">
         {title}
       </p>
 
       {/* Value — always LTR so DH 1,234.56 / ١٬٢٣٤٫٥٦ درهم reads correctly */}
       <p
-        className="text-2xl font-bold text-card-foreground mt-0.5 tracking-tight text-start"
+        className="text-lg sm:text-xl lg:text-2xl font-bold text-card-foreground mt-0.5 tracking-tight text-start truncate"
         dir="ltr"
       >
         {value}

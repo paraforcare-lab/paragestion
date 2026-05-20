@@ -426,7 +426,7 @@ export function Workspace() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div
-      className="space-y-6 pb-8 animate-in fade-in duration-500"
+      className="space-y-4 sm:space-y-6 pb-6 sm:pb-8 animate-in fade-in duration-500"
       /*
        * RTL Note: `dir` is already set on <html> by DashboardLayout / App.tsx.
        * We set it here too so this component is self-contained and correct even
@@ -435,28 +435,30 @@ export function Workspace() {
       dir={isRTL ? 'rtl' : 'ltr'}
     >
       {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Mobile uses 2 columns instead of 1 so the dashboard feels dense on
+          phones without each card taking up a full screen-height. */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {metrics.map((metric, i) => (
           <motion.div
             key={metric.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.08 }}
-            className="rounded-[8px] bg-card p-5 border border-border"
+            className="rounded-[8px] bg-card p-3 sm:p-4 lg:p-5 border border-border"
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className={cn("h-10 w-10 rounded-[8px] flex items-center justify-center shrink-0", metric.iconBg)}>
-                <metric.icon className="h-5 w-5" />
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className={cn("h-8 w-8 sm:h-10 sm:w-10 rounded-[8px] flex items-center justify-center shrink-0", metric.iconBg)}>
+                <metric.icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
             </div>
-            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+            <p className="text-[10px] sm:text-xs font-medium text-muted-foreground tracking-wide uppercase line-clamp-2">
               {metric.label}
             </p>
             {/*
              * RTL Note: numeric values should always render LTR so digits read
              * left-to-right regardless of page direction.
              */}
-            <p className="text-2xl font-bold text-card-foreground mt-0.5 tracking-tight" dir="ltr">
+            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-card-foreground mt-0.5 tracking-tight truncate" dir="ltr">
               {metric.value}
             </p>
             {metric.change && (
@@ -478,44 +480,48 @@ export function Workspace() {
       </div>
 
       {/* ── Main 12-col Grid ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
         {/* ── Left / Start Column (7 cols) ─────────────────────────────────
          *  RTL Note: CSS Grid column flow reverses automatically with dir=rtl.
          *  `lg:col-span-7` will correctly appear on the RIGHT side in Arabic.
+         *  `min-w-0` prevents wide tables/charts inside from forcing the
+         *  column wider than its grid track on small screens.
          */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-4 sm:space-y-6 min-w-0">
 
           {/* Performance Chart */}
           <Card className="shadow-none hover:shadow-none rounded-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2 gap-2 flex-wrap">
               {/*
                * RTL Note: `flex-row` items auto-reverse in RTL via dir attribute.
                * ms-auto (margin-inline-start) keeps the Tabs at the logical end.
+               * On mobile, flex-wrap lets the range tabs drop to a new line so
+               * they aren't crammed next to the title.
                */}
-              <div>
-                <CardTitle className="text-base font-semibold text-card-foreground">
+              <div className="min-w-0">
+                <CardTitle className="text-sm sm:text-base font-semibold text-card-foreground">
                   {t('workspace.chart.title')}
                 </CardTitle>
-                <CardDescription className="text-xs mt-0.5">
+                <CardDescription className="text-[11px] sm:text-xs mt-0.5">
                   {chartSubtitle}
                 </CardDescription>
               </div>
               <Tabs value={selectedRange} onValueChange={setSelectedRange} className="ms-auto">
                 <TabsList className="bg-muted dark:bg-white/5 rounded-[4px] p-0.5">
-                  <TabsTrigger value="1m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
+                  <TabsTrigger value="1m" className="text-xs px-2 sm:px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
                     {t('workspace.chart.filter_1m')}
                   </TabsTrigger>
-                  <TabsTrigger value="6m" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
+                  <TabsTrigger value="6m" className="text-xs px-2 sm:px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
                     {t('workspace.chart.filter_6m')}
                   </TabsTrigger>
-                  <TabsTrigger value="1y" className="text-xs px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
+                  <TabsTrigger value="1y" className="text-xs px-2 sm:px-3 py-1.5 data-[state=active]:bg-card rounded-[4px]">
                     {t('workspace.chart.filter_1y')}
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
             </CardHeader>
-            <CardContent className={cn("h-[300px] pt-4 transition-opacity duration-300", isLoading && "opacity-40")}>
+            <CardContent className={cn("h-[240px] sm:h-[280px] lg:h-[300px] pt-4 transition-opacity duration-300", isLoading && "opacity-40")}>
               {/*
                * RTL Note: Recharts itself doesn't natively support RTL axis mirroring.
                * We keep the chart container dir=ltr so axes and data flow are correct.
@@ -595,10 +601,14 @@ export function Workspace() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+              {/* Horizontal scroll wrapper: keeps the table layout on small
+                  screens (rather than collapsing to cards) while letting users
+                  swipe to see the secondary columns. */}
+              <div className="overflow-x-auto">
+              <Table className="min-w-[480px]">
                 <TableHeader>
                   <TableRow className="border-border">
-                    <TableHead className="text-xs font-medium text-card-foreground h-9 px-5">
+                    <TableHead className="text-xs font-medium text-card-foreground h-9 px-3 sm:px-5">
                       {t('workspace.stock_table.col_product')}
                     </TableHead>
                     <TableHead className="text-xs font-medium text-card-foreground h-9">
@@ -684,11 +694,12 @@ export function Workspace() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
 
           {/* Summary Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
               <div className="h-10 w-10 rounded-[8px] bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0">
                 <FileText className="h-5 w-5" />
@@ -707,7 +718,10 @@ export function Workspace() {
                 <p className="text-lg font-bold text-card-foreground" dir="ltr">{newClients}</p>
               </div>
             </div>
-            <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
+            {/* col-span-2 sm:col-span-1: on the 2-col mobile grid this stat
+                spans the full width so we don't get a lonely card on its own
+                second row. On tablets+ we revert to a normal cell. */}
+            <div className="col-span-2 sm:col-span-1 rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
               <div className="h-10 w-10 rounded-[8px] bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
                 <AlertTriangle className="h-5 w-5" />
               </div>
@@ -722,7 +736,7 @@ export function Workspace() {
         </div>
 
         {/* ── Right / End Column (5 cols) ──────────────────────────────────── */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-4 sm:space-y-6 min-w-0">
 
           {/* AI Optimization Card */}
           <div className="rounded-[8px] bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-5 card-glow-active">

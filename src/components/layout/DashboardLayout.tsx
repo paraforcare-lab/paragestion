@@ -95,43 +95,58 @@ export function DashboardLayout() {
         onMobileClose={() => setIsMobileOpen(false)}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <div className="lg:hidden fixed top-4 left-4 z-50">
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => setIsMobileOpen(true)}
-            className="h-10 w-10 rounded-[6px] bg-background/90 backdrop-blur-sm border border-border"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        </div>
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+        {/* Header — responsive layout
+           ─────────────────────────────────────────────────────────────
+           Mobile (<lg): the mobile menu trigger lives INSIDE the header
+           on the leading edge so it doesn't overlap content. We use
+           logical `start/end` so RTL flips correctly. The right cluster
+           drops its name/role text and divider on small screens to keep
+           the row compact. Subtitle wraps to two lines and remains
+           readable on phones. */}
+        <header className="bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-white/10 px-3 sm:px-4 lg:px-8 py-3 sm:py-4 shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:gap-4 lg:gap-6">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              {/* In-flow mobile menu trigger (replaces the previous fixed-position one). */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileOpen(true)}
+                aria-label="Open menu"
+                className="lg:hidden h-9 w-9 shrink-0 -ms-1 rounded-[6px] text-foreground hover:bg-muted"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
 
-        <header className="bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-white/10 px-6 lg:px-8 py-4 shrink-0">
-          <div className="flex items-center justify-between gap-6">
-            <div className="min-w-0">
-              <h1 className="text-xl font-semibold text-foreground tracking-tight">
-                {routeTitle}
-              </h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {subtitle && <>{subtitle} - </>}
-                <span className="text-emerald-600 font-medium">{t('header.system_active')}</span>
-              </p>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-lg lg:text-xl font-semibold text-foreground tracking-tight truncate">
+                  {routeTitle}
+                </h1>
+                <p className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground mt-0.5 truncate">
+                  {subtitle && <span className="hidden sm:inline">{subtitle} - </span>}
+                  <span className="text-emerald-600 font-medium">{t('header.system_active')}</span>
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-4 shrink-0">
-              <LanguageSelector />
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 shrink-0">
+              {/* On the smallest screens we hide the language selector to
+                  keep room for the bell + avatar. It's still reachable via
+                  /parametres. From sm up everything is shown. */}
+              <div className="hidden sm:block">
+                <LanguageSelector />
+              </div>
 
               <NotificationBell />
 
-              <div className="w-px h-8 bg-border" />
+              <div className="hidden lg:block w-px h-8 bg-border" />
 
               <div className="relative" ref={profileRef}>
                 <div
-                  className="flex items-center gap-3 cursor-pointer group"
+                  className="flex items-center gap-2 lg:gap-3 cursor-pointer group"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
                 >
-                  <div className="text-right hidden sm:block">
+                  <div className="text-end hidden lg:block">
                     <p className="text-sm font-semibold text-foreground transition-colors">
                       {displayName}
                     </p>
@@ -148,20 +163,24 @@ export function DashboardLayout() {
                       {userInitial}
                     </AvatarFallback>
                   </Avatar>
-                    <ChevronDown className={cn(
-                    "h-4 w-4 text-muted-foreground group-hover:text-foreground transition-all duration-200 hidden sm:block",
+                  <ChevronDown className={cn(
+                    "h-4 w-4 text-muted-foreground group-hover:text-foreground transition-all duration-200 hidden lg:block",
                     profileDropdownOpen && "rotate-180"
                   )} />
                 </div>
 
                 {profileDropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 z-50 w-52 bg-popover border border-border rounded-[4px] shadow-lg overflow-hidden">
+                  /* `end-0` is RTL-aware: anchors to the right in LTR, left in RTL. */
+                  <div className="absolute end-0 top-full mt-2 z-50 w-52 bg-popover border border-border rounded-[4px] shadow-lg overflow-hidden">
                     <div className="px-4 py-3 border-b border-border">
                       <p className="text-sm font-semibold text-popover-foreground truncate">{displayName}</p>
                       <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     </div>
 
                     <div className="py-1">
+                      {/* Mobile-only entry to switch language since the selector
+                          is hidden in the header below sm. We just navigate to
+                          settings where the locale picker also lives. */}
                       <button
                         onClick={() => { setProfileDropdownOpen(false); navigate('/parametres'); }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-popover-foreground hover:bg-muted transition-colors"
@@ -184,7 +203,10 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 h-full overflow-y-auto overscroll-none p-4 lg:p-8 bg-white dark:bg-[#0F172A]">
+        {/* Main content — `min-w-0` on the wrapper above prevents wide
+            children (tables, charts) from forcing the whole flex column
+            wider than the viewport and pushing the layout horizontally. */}
+        <main className="flex-1 h-full overflow-y-auto overscroll-none p-3 sm:p-4 lg:p-8 bg-white dark:bg-[#0F172A]">
           <div className="max-w-[1600px] mx-auto">
             <Outlet />
           </div>

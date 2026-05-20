@@ -113,27 +113,34 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
       )}
 
       <div className={cn(
+        // Logical `start-0` + `rtl:translate-x-full` so the drawer slides
+        // in from the leading edge in BOTH directions: from the left in LTR,
+        // from the right in RTL.
         "flex flex-col h-full transition-all duration-300 ease-out relative z-50 bg-[#0F172A] dark:bg-[#0b1222] border-r border-slate-200/10 dark:border-white/5",
         isCollapsed ? "w-20" : "w-64",
-        "fixed lg:relative inset-y-0 left-0",
-        isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        "fixed lg:relative inset-y-0 start-0",
+        isMobileOpen
+          ? "translate-x-0"
+          : "-translate-x-full rtl:translate-x-full lg:translate-x-0 lg:rtl:translate-x-0"
       )}>
+        {/* Collapse toggle — pinned to the trailing edge of the sidebar so
+            it flips correctly in RTL (logical `end-*`). */}
         <Button
           variant="secondary"
           size="icon"
           onClick={onToggle}
           className={cn(
-            "hidden lg:flex absolute -right-3 top-20 h-8 w-8 rounded-sm bg-[#0F172A] dark:bg-[#0b1222] border border-white/10 text-slate-300 hover:bg-emerald-600 hover:border-emerald-500 hover:text-white transition-all duration-200 z-50"
+            "hidden lg:flex absolute -end-3 top-20 h-8 w-8 rounded-sm bg-[#0F172A] dark:bg-[#0b1222] border border-white/10 text-slate-300 hover:bg-emerald-600 hover:border-emerald-500 hover:text-white transition-all duration-200 z-50"
           )}
         >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {isCollapsed ? <ChevronRight className="h-4 w-4 rtl:rotate-180" /> : <ChevronLeft className="h-4 w-4 rtl:rotate-180" />}
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
           onClick={onMobileClose}
-          className="lg:hidden absolute right-4 top-4 text-slate-400 hover:bg-white/10 hover:text-white z-50"
+          className="lg:hidden absolute end-4 top-4 text-slate-400 hover:bg-white/10 hover:text-white z-50"
         >
           <X className="h-6 w-6" />
         </Button>
@@ -198,12 +205,14 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                           )}
                         >
                           {isActive && !isCollapsed && (
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-emerald-500" />
+                            /* Active indicator pinned to the start edge so it
+                               flips to the right in RTL. */
+                            <div className="absolute start-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-e-full bg-emerald-500" />
                           )}
                           <item.icon
                             className={cn(
                               isActive ? 'text-white opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.15)]' : 'text-slate-400 opacity-70 group-hover:text-white group-hover:opacity-100',
-                              isCollapsed ? "h-5 w-5" : "mr-3 h-4 w-4",
+                              isCollapsed ? "h-5 w-5" : "me-3 h-4 w-4",
                               'flex-shrink-0 transition-all duration-200'
                             )}
                           />
@@ -254,7 +263,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
               isCollapsed ? "px-0 justify-center" : "px-3"
             )}
           >
-            <LogOut className={cn("h-5 w-5", !isCollapsed && "mr-3")} />
+            <LogOut className={cn("h-5 w-5", !isCollapsed && "me-3")} />
             {!isCollapsed && <span className="font-medium">{t('header.logout')}</span>}
           </Button>
         </div>
