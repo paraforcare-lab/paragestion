@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, Search, FileEdit, Trash2, Package, AlertTriangle,
+  ArrowLeft, Plus, Search, FileEdit, Trash2, Package, AlertTriangle,
   ChevronLeft, ChevronRight, ImageIcon
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils'
@@ -17,14 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+
 import { toast } from 'sonner'
 import { ProduitForm } from '@/components/forms/ProduitForm'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -57,7 +50,7 @@ export function ProduitsList() {
   const { user } = useAuth();
   const [produits, setProduits] = useState<Produit[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingProduit, setEditingProduit] = useState<Produit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -146,12 +139,17 @@ export function ProduitsList() {
 
   const handleEdit = (produit: Produit) => {
     setEditingProduit(produit);
-    setIsDialogOpen(true);
+    setShowForm(true);
   };
 
   const openNewForm = () => {
     setEditingProduit(null);
-    setIsDialogOpen(true);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingProduit(null);
   };
 
   const filteredProduits = useMemo(() => {
@@ -201,25 +199,46 @@ export function ProduitsList() {
         description={t('shared.confirm_delete.body_product')}
       />
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-amber-50 border border-amber-200/50 dark:bg-[#0F172A]/60 dark:border-white/10">
-            <Package className="h-5 w-5 text-amber-500 dark:text-emerald-400" />
+      {showForm ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={closeForm}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                {editingProduit ? t('produits.dialog_edit') : t('produits.dialog_create')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {editingProduit ? t('produits.dialog_subtitle_edit', { name: editingProduit.designation || editingProduit.nom }) : t('produits.dialog_subtitle_create')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">{t('produits.page_title')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('produits.page_subtitle')}
-            </p>
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+            <ProduitForm
+              initialData={editingProduit}
+              onSuccess={() => {
+                closeForm();
+                fetchProduits();
+              }}
+            />
           </div>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) setEditingProduit(null);
-        }}>
-          <DialogTrigger render={
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-amber-50 border border-amber-200/50 dark:bg-[#0F172A]/60 dark:border-white/10">
+                <Package className="h-5 w-5 text-amber-500 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('produits.page_title')}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('produits.page_subtitle')}
+                </p>
+              </div>
+            </div>
             <Button
               onClick={openNewForm}
               className="bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
@@ -227,39 +246,7 @@ export function ProduitsList() {
               <Plus className="mr-2 h-4 w-4" />
               {t('produits.new_button')}
             </Button>
-          } />
-          <DialogContent fullScreen className="dark:bg-[#0F172A] dark:border-white/10">
-            <div className="flex flex-col h-full">
-              <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-[#0F172A] dark:border-white/10">
-                <div className="max-w-7xl mx-auto w-full">
-                  <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingProduit ? t('produits.dialog_edit') : t('produits.dialog_create')}
-                  </DialogTitle>
-                  <DialogDescription className="mt-1 text-muted-foreground">
-                    {editingProduit
-                      ? t('produits.dialog_subtitle_edit', { name: editingProduit.designation || editingProduit.nom })
-                      : t('produits.dialog_subtitle_create')}
-                  </DialogDescription>
-                </div>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-7xl mx-auto">
-                  <div className="rounded-[6px] border border-slate-200 bg-white p-8 dark:bg-[#0F172A] dark:border-white/10">
-                    <ProduitForm
-                      initialData={editingProduit}
-                      onSuccess={() => {
-                        setIsDialogOpen(false);
-                        setEditingProduit(null);
-                        fetchProduits();
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Table */}
@@ -527,6 +514,8 @@ export function ProduitsList() {
           </Card>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

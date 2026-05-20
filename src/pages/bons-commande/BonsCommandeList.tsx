@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, Search, FileEdit, Trash2, Download, ShoppingCart, Package,
+  Plus, Search, FileEdit, Trash2, Download,   ArrowLeft, ShoppingCart, Package,
   FileText, Clock, CheckCircle, Ban, Truck, Send, ChevronLeft,
   ChevronRight, CalendarDays, Filter, Building2, ArrowUpRight
 } from 'lucide-react';
@@ -25,14 +25,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency, formatCurrencyLocale, formatDate } from '@/lib/utils'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { toast } from 'sonner'
 import { BonCommandeForm } from '@/components/forms/BonCommandeForm'
 import { useReactToPrint } from 'react-to-print'
@@ -75,7 +67,7 @@ export function BonsCommandeList() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingBon, setEditingBon] = useState<any | null>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const [selectedBon, setSelectedBon] = useState<any>(null);
@@ -228,7 +220,7 @@ export function BonsCommandeList() {
       };
 
       setEditingBon(mappedData);
-      setIsDialogOpen(true);
+      setShowForm(true);
     } catch (error) {
       console.error('Error loading bon:', error);
       toast.error(t('bons_commande.toast_load_error'));
@@ -309,7 +301,12 @@ export function BonsCommandeList() {
 
   const openNewForm = () => {
     setEditingBon(null);
-    setIsDialogOpen(true);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingBon(null);
   };
 
   const filteredBons = useMemo(() => {
@@ -373,25 +370,46 @@ export function BonsCommandeList() {
         <BonCommandeDocument ref={componentRef} bon={selectedBon} entreprise={entreprise} lang={i18n.language} />
       </div>
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
-            <ShoppingCart className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+      {showForm ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={closeForm}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                {editingBon ? t('bons_commande.dialog_edit') : t('bons_commande.dialog_create')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {editingBon ? t('bons_commande.dialog_subtitle_edit', { number: editingBon.numero }) : t('bons_commande.dialog_subtitle_create')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">{t('bons_commande.page_title')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('bons_commande.page_subtitle')}
-            </p>
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+            <BonCommandeForm
+              initialData={editingBon}
+              onSuccess={() => {
+                closeForm();
+                fetchBons();
+              }}
+            />
           </div>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) setEditingBon(null);
-        }}>
-          <DialogTrigger render={
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
+                <ShoppingCart className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('bons_commande.page_title')}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('bons_commande.page_subtitle')}
+                </p>
+              </div>
+            </div>
             <Button
               onClick={openNewForm}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
@@ -399,39 +417,7 @@ export function BonsCommandeList() {
               <Plus className="me-2 h-4 w-4" />
               {t('bons_commande.new_button')}
             </Button>
-          } />
-          <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900">
-            <div className="flex flex-col h-full">
-              <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                <div className="max-w-7xl mx-auto w-full">
-                  <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingBon ? t('bons_commande.dialog_edit') : t('bons_commande.dialog_create')}
-                  </DialogTitle>
-                  <DialogDescription className="mt-1 text-muted-foreground">
-                    {editingBon
-                      ? t('bons_commande.dialog_subtitle_edit', { number: editingBon.numero })
-                      : t('bons_commande.dialog_subtitle_create')}
-                  </DialogDescription>
-                </div>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-7xl mx-auto">
-                  <div className="rounded-[6px] border border-slate-200 bg-white p-8 dark:border-white/10 dark:bg-slate-900 dark:rounded-sm">
-                    <BonCommandeForm
-                      initialData={editingBon}
-                      onSuccess={() => {
-                        setIsDialogOpen(false);
-                        setEditingBon(null);
-                        fetchBons();
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Table */}
@@ -795,6 +781,8 @@ export function BonsCommandeList() {
           </Card>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

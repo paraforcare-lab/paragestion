@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, Search, FileEdit, Trash2, Receipt, Wallet, Building2,
+  ArrowLeft, Plus, Search, FileEdit, Trash2, Receipt, Wallet, Building2,
   ChevronLeft, ChevronRight, Filter, TrendingUp, TrendingDown,
   Landmark, CreditCard, Banknote, CalendarDays, ArrowUpRight
 } from 'lucide-react';
@@ -25,14 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency, formatCurrencyLocale, formatDate } from '@/lib/utils'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from '@/components/ui/dialog';
+
 import { DepenseForm } from '@/components/forms/DepenseForm'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -64,7 +57,7 @@ export function DepensesList() {
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingDepense, setEditingDepense] = useState<any | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [depenseToDelete, setDepenseToDelete] = useState<number | null>(null);
@@ -164,7 +157,7 @@ export function DepensesList() {
       };
 
       setEditingDepense(mappedData);
-      setIsDialogOpen(true);
+      setShowForm(true);
     } catch (error) {
       console.error('Error loading depense:', error);
       toast.error(t('depenses.toast_load_error'));
@@ -173,7 +166,12 @@ export function DepensesList() {
 
   const openNewForm = () => {
     setEditingDepense(null);
-    setIsDialogOpen(true);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingDepense(null);
   };
 
   const getCategoryConfig = (categorie: string) => {
@@ -315,25 +313,46 @@ export function DepensesList() {
         description={t('shared.confirm_delete.body_expense')}
       />
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-red-50 border border-red-200/50 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
-            <Wallet className="h-5 w-5 text-red-500 dark:text-rose-400" />
+      {showForm ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={closeForm}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                {editingDepense ? t('depenses.dialog_edit') : t('depenses.dialog_create')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {editingDepense ? t('depenses.dialog_subtitle_edit', { reference: editingDepense.reference }) : t('depenses.dialog_subtitle_create')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">{t('depenses.page_title')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('depenses.page_subtitle')}
-            </p>
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+            <DepenseForm
+              initialData={editingDepense}
+              onSuccess={() => {
+                closeForm();
+                fetchDepenses();
+              }}
+            />
           </div>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) setEditingDepense(null);
-        }}>
-          <DialogTrigger render={
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-red-50 border border-red-200/50 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
+                <Wallet className="h-5 w-5 text-red-500 dark:text-rose-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('depenses.page_title')}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('depenses.page_subtitle')}
+                </p>
+              </div>
+            </div>
             <Button
               onClick={openNewForm}
               className="bg-rose-500 hover:bg-rose-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
@@ -341,39 +360,7 @@ export function DepensesList() {
               <Plus className="me-2 h-4 w-4" />
               {t('depenses.new_button')}
             </Button>
-          } />
-          <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900">
-            <div className="flex flex-col h-full">
-              <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900/50">
-                <div className="max-w-7xl mx-auto w-full">
-                  <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingDepense ? t('depenses.dialog_edit') : t('depenses.dialog_create')}
-                  </DialogTitle>
-                  <DialogDescription className="mt-1 text-muted-foreground">
-                    {editingDepense
-                      ? t('depenses.dialog_subtitle_edit', { reference: editingDepense.reference })
-                      : t('depenses.dialog_subtitle_create')}
-                  </DialogDescription>
-                </div>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-7xl mx-auto">
-                  <div className="rounded-[6px] border border-slate-200 bg-white p-8 dark:border-white/10 dark:bg-slate-900 dark:rounded-sm">
-                    <DepenseForm
-                      initialData={editingDepense}
-                      onSuccess={() => {
-                        setIsDialogOpen(false);
-                        setEditingDepense(null);
-                        fetchDepenses();
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Table */}
@@ -688,6 +675,8 @@ export function DepensesList() {
           </Card>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

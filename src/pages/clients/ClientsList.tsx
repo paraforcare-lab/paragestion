@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Plus, Search, FileEdit, Trash2, Users, Building2, User,
+  ArrowLeft, Plus, Search, FileEdit, Trash2, Users, Building2, User,
   ChevronLeft, ChevronRight, Mail, Phone, MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
@@ -17,14 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+
 import { toast } from 'sonner'
 import { ClientForm } from '@/components/forms/ClientForm'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -51,7 +44,7 @@ export function ClientsList() {
   const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -116,12 +109,17 @@ export function ClientsList() {
 
   const handleEdit = (client: Client) => {
     setEditingClient(client);
-    setIsDialogOpen(true);
+    setShowForm(true);
   };
 
   const openNewForm = () => {
     setEditingClient(null);
-    setIsDialogOpen(true);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingClient(null);
   };
 
   const filteredClients = useMemo(() => {
@@ -165,25 +163,46 @@ export function ClientsList() {
         description={t('shared.confirm_delete.body_client')}
       />
 
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:bg-emerald-500/10 dark:border-emerald-500/20">
-            <Users className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+      {showForm ? (
+        <div className="space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={closeForm}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
+                {editingClient ? t('clients.dialog_edit') : t('clients.dialog_create')}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {editingClient ? t('clients.dialog_subtitle_edit', { name: editingClient.nom }) : t('clients.dialog_subtitle_create')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">{t('clients.page_title')}</h2>
-            <p className="text-sm text-muted-foreground">
-              {t('clients.page_subtitle')}
-            </p>
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-6">
+            <ClientForm
+              initialData={editingClient}
+              onSuccess={() => {
+                closeForm();
+                fetchClients();
+              }}
+            />
           </div>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) setEditingClient(null);
-        }}>
-          <DialogTrigger render={
+      ) : (
+        <>
+          {/* Header */}
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+                <Users className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">{t('clients.page_title')}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {t('clients.page_subtitle')}
+                </p>
+              </div>
+            </div>
             <Button
               onClick={openNewForm}
               className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
@@ -191,39 +210,7 @@ export function ClientsList() {
               <Plus className="mr-2 h-4 w-4" />
               {t('clients.new_button')}
             </Button>
-          } />
-          <DialogContent fullScreen className="bg-gradient-to-br from-background to-muted/20 dark:bg-slate-900 dark:border-white/10">
-            <div className="flex flex-col h-full">
-              <DialogHeader className="px-8 py-6 border-b border-border/50 bg-white/50 backdrop-blur-sm dark:bg-slate-900 dark:border-white/10">
-                <div className="max-w-7xl mx-auto w-full">
-                  <DialogTitle className="text-2xl font-black text-foreground">
-                    {editingClient ? t('clients.dialog_edit') : t('clients.dialog_create')}
-                  </DialogTitle>
-                  <DialogDescription className="mt-1 text-muted-foreground">
-                    {editingClient
-                      ? t('clients.dialog_subtitle_edit', { name: editingClient.nom })
-                      : t('clients.dialog_subtitle_create')}
-                  </DialogDescription>
-                </div>
-              </DialogHeader>
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-7xl mx-auto">
-                  <div className="rounded-[6px] border border-slate-200 bg-white p-8 dark:bg-slate-900 dark:border-white/10">
-                    <ClientForm
-                      initialData={editingClient}
-                      onSuccess={() => {
-                        setIsDialogOpen(false);
-                        setEditingClient(null);
-                        fetchClients();
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column - Table */}
@@ -496,6 +483,8 @@ export function ClientsList() {
           </Card>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }
