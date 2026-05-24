@@ -152,6 +152,27 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
     { ht: 0, tva: 0, ttc: 0 }
   );
 
+  async function generateBCReference(): Promise<string> {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('bons_commande')
+      .select('numero')
+      .like('numero', `BC-${year}-%`)
+      .not('numero', 'is', null)
+      .eq('user_id', user?.id);
+    let maxNum = 0;
+    if (existing) {
+      for (const b of existing) {
+        const match = b.numero?.match(new RegExp(`^BC-${year}-(\\d+)$`));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+    return `BC-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
   const onSubmit = async (data: BCFormValues) => {
     setIsLoading(true);
     try {
@@ -159,10 +180,16 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
       let numero;
 
       if (!bonId) {
-        const year = new Date().getFullYear();
-        const { count } = await supabase.from('bons_commande').select('*', { count: 'exact', head: true });
-        const randomNum = String((count || 0) + 1).padStart(4, '0');
-        numero = `BC-${year}-${randomNum}`;
+        let attempts = 0;
+        while (attempts < 10) {
+          const candidate = await generateBCReference();
+          const { data: dup } = await supabase.from('bons_commande').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+          if (!dup) {
+            numero = candidate;
+            break;
+          }
+          attempts++;
+        }
       }
 
       const fournisseurId = data.fournisseurId && data.fournisseurId !== 'none' && data.fournisseurId !== '' 
@@ -184,7 +211,14 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
       }
 
       if (!bonId) {
-        const { data: newBon, error } = await supabase.from('bons_commande').insert([{ ...payload, user_id: user?.id }]).select().single();
+        let { data: newBon, error } = await supabase.from('bons_commande').insert([{ ...payload, user_id: user?.id }]).select().single();
+        if (error?.message?.includes('duplicate key') || error?.code === '23505') {
+          numero = await generateBCReference();
+          payload.numero = numero;
+          const retry = await supabase.from('bons_commande').insert([{ ...payload, user_id: user?.id }]).select().single();
+          newBon = retry.data;
+          error = retry.error;
+        }
         if (error) {
           console.error('Insert error:', error);
           throw error;

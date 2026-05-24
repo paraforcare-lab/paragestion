@@ -156,18 +156,43 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     }
   }, [totals.ttc, watchStatut, initialData]);
 
+  async function generateFactureRef(): Promise<string> {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('factures')
+      .select('numero')
+      .like('numero', `FAC-${year}-%`)
+      .eq('user_id', user?.id);
+    let maxNum = 0;
+    for (const f of existing || []) {
+      const match = f.numero?.match(new RegExp(`^FAC-${year}-(\\d+)$`));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `FAC-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
   const onSubmit = async (data: FactureFormValues) => {
     setIsLoading(true);
     try {
-      const year = new Date().getFullYear();
-      const randomNum = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
-      const invoiceNum = `FAC-${year}-${randomNum}`;
+      let invoiceNum: string | undefined;
+      if (!initialData?.id) {
+        let attempts = 0;
+        while (attempts < 10) {
+          const candidate = await generateFactureRef();
+          const { data: dup } = await supabase.from('factures').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+          if (!dup) { invoiceNum = candidate; break; }
+          attempts++;
+        }
+      }
 
       const payload = {
         client_id: data.clientId === 'none' ? null : Number(data.clientId),
         date_emission: new Date(data.dateEmission).toISOString(),
         date_echeance: data.dateEcheance ? new Date(data.dateEcheance).toISOString() : null,
-        numero: invoiceNum,
+        numero: invoiceNum || initialData?.numero,
         statut: data.statut || 'brouillon',
         mode_paiement: data.modePaiement || 'Virement',
         notes: data.notes || '',
@@ -181,7 +206,14 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
       let factureId = initialData?.id;
 
       if (!factureId) {
-        const { data: newFacture, error } = await supabase.from('factures').insert([{ ...payload, user_id: user?.id }]).select().single();
+        let { data: newFacture, error } = await supabase.from('factures').insert([{ ...payload, user_id: user?.id }]).select().single();
+        if (error?.message?.includes('duplicate key') || error?.code === '23505') {
+          invoiceNum = await generateFactureRef();
+          payload.numero = invoiceNum;
+          const retry = await supabase.from('factures').insert([{ ...payload, user_id: user?.id }]).select().single();
+          newFacture = retry.data;
+          error = retry.error;
+        }
         if (error) throw error;
         factureId = newFacture.id;
       } else {

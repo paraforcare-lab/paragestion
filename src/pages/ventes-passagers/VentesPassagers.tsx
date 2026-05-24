@@ -165,17 +165,30 @@ export default function VentesPassagers() {
     const totalCogs = panier.reduce((sum, item) => sum + (Number(item.prixAchatHt || 0) * item.quantite), 0);
 
     try {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const hour = String(now.getHours()).padStart(2, '0');
-      const minute = String(now.getMinutes()).padStart(2, '0');
-      const second = String(now.getSeconds()).padStart(2, '0');
-      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-      const numero = `VP-${year}${month}${day}${hour}${minute}${second}-${random}`;
+      let numero: string | undefined;
+      const year = new Date().getFullYear();
+      let attempts = 0;
+      while (!numero && attempts < 10) {
+        const { data: existing } = await supabase
+          .from('ventes_passagers')
+          .select('numero')
+          .like('numero', `VP-${year}-%`)
+          .eq('user_id', user?.id);
+        let maxNum = 0;
+        for (const v of existing || []) {
+          const match = v.numero?.match(new RegExp(`^VP-${year}-(\\d+)$`));
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNum) maxNum = num;
+          }
+        }
+        const candidate = `VP-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+        const { data: dup } = await supabase.from('ventes_passagers').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+        if (!dup) { numero = candidate; break; }
+        attempts++;
+      }
 
-      const { data: venteData, error: venteError } = await supabase
+      let { data: venteData, error: venteError } = await supabase
         .from('ventes_passagers')
         .insert([{
           user_id: user?.id,
@@ -189,6 +202,22 @@ export default function VentesPassagers() {
         .select()
         .single();
 
+      if (venteError?.message?.includes('duplicate key') || venteError?.code === '23505') {
+        const { data: dupCheck } = await supabase.from('ventes_passagers').select('numero').eq('numero', numero).eq('user_id', user?.id).maybeSingle();
+        if (dupCheck) {
+          const year2 = new Date().getFullYear();
+          const { data: all } = await supabase.from('ventes_passagers').select('numero').like('numero', `VP-${year2}-%`).eq('user_id', user?.id);
+          let mn = 0;
+          for (const v of all || []) {
+            const m = v.numero?.match(new RegExp(`^VP-${year2}-(\\d+)$`));
+            if (m) { const n = parseInt(m[1], 10); if (n > mn) mn = n; }
+          }
+          numero = `VP-${year2}-${String(mn + 1).padStart(4, '0')}`;
+          const retry = await supabase.from('ventes_passagers').upsert([{ user_id: user?.id, numero, montant_ht: totalHt, montant_tva: totalTva, montant_ttc: totalTtc, cogs: totalCogs, date: new Date().toISOString() }]).select().single();
+          venteData = retry.data;
+          venteError = retry.error;
+        }
+      }
       if (venteError) throw venteError;
 
       const lignesPayload = panier.map((item, index) => ({

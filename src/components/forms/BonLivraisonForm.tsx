@@ -164,6 +164,24 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
     { ht: 0, tva: 0, ttc: 0 }
   );
 
+  async function generateBLRef(): Promise<string> {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('bons_livraison')
+      .select('numero')
+      .like('numero', `BL-${year}-%`)
+      .eq('user_id', user?.id);
+    let maxNum = 0;
+    for (const b of existing || []) {
+      const match = b.numero?.match(new RegExp(`^BL-${year}-(\\d+)$`));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `BL-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
   const onSubmit = async (data: BLFormValues) => {
     setIsLoading(true);
     try {
@@ -171,10 +189,13 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
       let numero;
 
       if (!bonId) {
-        const year = new Date().getFullYear();
-        const { count } = await supabase.from('bons_livraison').select('*', { count: 'exact', head: true });
-        const randomNum = String((count || 0) + 1).padStart(4, '0');
-        numero = `BL-${year}-${randomNum}`;
+        let attempts = 0;
+        while (attempts < 10) {
+          const candidate = await generateBLRef();
+          const { data: dup } = await supabase.from('bons_livraison').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+          if (!dup) { numero = candidate; break; }
+          attempts++;
+        }
       }
 
       const fournisseurId = data.fournisseurId && data.fournisseurId !== 'none' && data.fournisseurId !== '' 
@@ -196,7 +217,14 @@ export function BonLivraisonForm({ initialData, onSuccess }: BLFormProps) {
       }
 
       if (!bonId) {
-        const { data: newBon, error } = await supabase.from('bons_livraison').insert([{ ...payload, user_id: user?.id }]).select().single();
+        let { data: newBon, error } = await supabase.from('bons_livraison').insert([{ ...payload, user_id: user?.id }]).select().single();
+        if (error?.message?.includes('duplicate key') || error?.code === '23505') {
+          numero = await generateBLRef();
+          payload.numero = numero;
+          const retry = await supabase.from('bons_livraison').insert([{ ...payload, user_id: user?.id }]).select().single();
+          newBon = retry.data;
+          error = retry.error;
+        }
         if (error) {
           console.error('Insert error:', error);
           throw error;

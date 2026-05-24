@@ -313,12 +313,23 @@ export function FacturesList() {
       .eq('facture_id', factureId)
       .order('ordre');
 
+    let numeroAvoir: string | undefined;
     const year = new Date().getFullYear();
-    const { count } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
-    const randomNum = String((count || 0) + 1).padStart(4, '0');
-    const numeroAvoir = `AV-${year}-${randomNum}`;
+    let attempts = 0;
+    while (!numeroAvoir && attempts < 10) {
+      const { data: existing } = await supabase.from('avoirs').select('numero').like('numero', `AV-${year}-%`).eq('user_id', user?.id);
+      let maxNum = 0;
+      for (const a of existing || []) {
+        const match = a.numero?.match(new RegExp(`^AV-${year}-(\\d+)$`));
+        if (match) { const n = parseInt(match[1], 10); if (n > maxNum) maxNum = n; }
+      }
+      const candidate = `AV-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+      const { data: dup } = await supabase.from('avoirs').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+      if (!dup) { numeroAvoir = candidate; break; }
+      attempts++;
+    }
 
-    const { data: avoirData, error: avoirError } = await supabase
+    let { data: avoirData, error: avoirError } = await supabase
       .from('avoirs')
       .insert([{
         user_id: user?.id,
@@ -335,6 +346,18 @@ export function FacturesList() {
       .select()
       .single();
 
+    if (avoirError?.message?.includes('duplicate key') || avoirError?.code === '23505') {
+      const { data: all } = await supabase.from('avoirs').select('numero').like('numero', `AV-${year}-%`).eq('user_id', user?.id);
+      let mn = 0;
+      for (const a of all || []) {
+        const m = a.numero?.match(new RegExp(`^AV-${year}-(\\d+)$`));
+        if (m) { const n = parseInt(m[1], 10); if (n > mn) mn = n; }
+      }
+      numeroAvoir = `AV-${year}-${String(mn + 1).padStart(4, '0')}`;
+      const retry = await supabase.from('avoirs').upsert([{ user_id: user?.id, numero: numeroAvoir, facture_id: factureData.id, client_id: factureData.client_id, date_emission: new Date().toISOString(), montant_ht: factureData.montant_ht, montant_tva: factureData.montant_tva, montant_ttc: factureData.montant_ttc, statut: 'Généré', notes: `Avoir pour annulation de la facture ${factureData.numero}` }]).select().single();
+      avoirData = retry.data;
+      avoirError = retry.error;
+    }
     if (avoirError) throw avoirError;
 
     if (lignesData && lignesData.length > 0) {

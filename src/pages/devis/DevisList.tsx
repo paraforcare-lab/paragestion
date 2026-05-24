@@ -217,10 +217,21 @@ export function DevisList() {
 
       const { data: devisLignes } = await supabase.from('devis_lignes').select('*').eq('devis_id', id);
 
-      let year = new Date().getFullYear();
-      const { count } = await supabase.from('factures').select('*', { count: 'exact', head: true });
-      const randomNum = String((count || 0) + 1).padStart(4, '0');
-      const numero = `FAC-${year}-${randomNum}`;
+      let numero: string | undefined;
+      const year = new Date().getFullYear();
+      let attempts = 0;
+      while (!numero && attempts < 10) {
+        const { data: existing } = await supabase.from('factures').select('numero').like('numero', `FAC-${year}-%`).eq('user_id', user?.id);
+        let maxNum = 0;
+        for (const f of existing || []) {
+          const match = f.numero?.match(new RegExp(`^FAC-${year}-(\\d+)$`));
+          if (match) { const n = parseInt(match[1], 10); if (n > maxNum) maxNum = n; }
+        }
+        const candidate = `FAC-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+        const { data: dup } = await supabase.from('factures').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+        if (!dup) { numero = candidate; break; }
+        attempts++;
+      }
 
       const payload = {
         user_id: user?.id,
@@ -236,7 +247,20 @@ export function DevisList() {
         numero: numero,
       };
 
-      const { data: newFacture, error: insertError } = await supabase.from('factures').insert([payload]).select().single();
+      let { data: newFacture, error: insertError } = await supabase.from('factures').insert([payload]).select().single();
+      if (insertError?.message?.includes('duplicate key') || insertError?.code === '23505') {
+        const { data: all } = await supabase.from('factures').select('numero').like('numero', `FAC-${year}-%`).eq('user_id', user?.id);
+        let mn = 0;
+        for (const f of all || []) {
+          const m = f.numero?.match(new RegExp(`^FAC-${year}-(\\d+)$`));
+          if (m) { const n = parseInt(m[1], 10); if (n > mn) mn = n; }
+        }
+        numero = `FAC-${year}-${String(mn + 1).padStart(4, '0')}`;
+        payload.numero = numero;
+        const retry = await supabase.from('factures').insert([payload]).select().single();
+        newFacture = retry.data;
+        insertError = retry.error;
+      }
       if (insertError) throw insertError;
 
       if (devisLignes && devisLignes.length > 0) {

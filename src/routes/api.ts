@@ -525,15 +525,21 @@ const handleAvoirLogic = async (factureId: any, newStatut: string, oldStatut: st
   if (newStatut === 'annulÃ©e' && oldStatut !== 'annulÃ©e') {
     const { data: existingAvoir } = await supabase.from('avoirs').select('id').eq('facture_id', factureId).single();
     if (!existingAvoir) {
-      const { count: avoirCount } = await supabase.from('avoirs').select('*', { count: 'exact', head: true });
-      const avoirNumero = `AVO/${new Date().getFullYear()}/${String((avoirCount || 0) + 1).padStart(5, '0')}`;
-
       const { data: facture } = await supabase.from('factures').select('*').eq('id', factureId).single();
+      if (!facture) return;
+
+      const year = new Date().getFullYear();
+      const { data: existing } = await supabase.from('avoirs').select('numero').like('numero', `AV-${year}-%`).eq('user_id', facture.user_id);
+      let maxNum = 0;
+      for (const a of existing || []) { const m = a.numero?.match(new RegExp(`^AV-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; } }
+      const avoirNumero = `AV-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+
       const { data: factureLignes } = await supabase.from('facture_lignes').select('*').eq('facture_id', factureId);
 
       if (facture) {
-        const avoirData = {
+        const avoirData: any = {
           numero: avoirNumero,
+          user_id: facture.user_id,
           facture_id: factureId,
           client_id: facture.client_id,
           date_emission: new Date().toISOString().split('T')[0],
@@ -1006,10 +1012,22 @@ router.get('/produits', async (req, res) => {
 
 router.post('/produits', async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (!authError && user) userId = user.id;
+      } catch (e) { /* ignore */ }
+    }
+
     let reference = req.body.reference;
     if (!reference) {
-      const { count } = await supabase.from('produits').select('*', { count: 'exact', head: true });
-      reference = `REF-${String((count || 0) + 1).padStart(6, '0')}`;
+      const q = supabase.from('produits').select('*', { count: 'exact', head: true });
+      if (userId) q.eq('user_id', userId);
+      const { count } = await q;
+      reference = `REF-${String((count || 0) + 1).padStart(3, '0')}`;
       
       // Check if reference already exists
       let isUnique = false;
@@ -1019,19 +1037,21 @@ router.post('/produits', async (req, res) => {
           .from('produits')
           .select('id')
           .eq('reference', reference)
+          .eq('user_id', userId)
           .maybeSingle();
         
         if (!existing && !checkError) {
           isUnique = true;
         } else {
           attempt++;
-          reference = `REF-${String((count || 0) + 1 + attempt).padStart(6, '0')}`;
+          reference = `REF-${String((count || 0) + 1 + attempt).padStart(3, '0')}`;
         }
       }
     }
 
     const data: any = {
       reference,
+      user_id: userId,
       designation: req.body.designation || req.body.nom || 'Produit sans nom',
       nom: req.body.nom || req.body.designation || 'Produit sans nom',
       description: req.body.description,
@@ -1319,22 +1339,23 @@ router.get('/factures', async (req, res) => {
 
 router.post('/factures', async (req, res) => {
   try {
-    const { lignes, ...factureData } = req.body;
-    
-    // Auto-generate numero
-    const { count, error: countError } = await supabase
-      .from('factures')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.error('Error counting factures:', countError);
-      return res.status(500).json({ error: 'Failed to generate invoice number', details: countError.message });
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try { const token = authHeader.split(' ')[1]; const { data: { user } } = await supabaseAdmin.auth.getUser(token); if (user) userId = user.id; } catch (e) { /* ignore */ }
     }
 
-    const numero = `FAC/${new Date().getFullYear()}/${String((count || 0) + 1).padStart(5, '0')}`;
+    const { lignes, ...factureData } = req.body;
     
-    const data = {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase.from('factures').select('numero').like('numero', `FAC-${year}-%`).eq('user_id', userId);
+    let maxNum = 0;
+    for (const f of existing || []) { const m = f.numero?.match(new RegExp(`^FAC-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; } }
+    const numero = `FAC-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+    
+    const data: any = {
       numero,
+      user_id: userId,
       client_id: factureData.clientId,
       date_emission: factureData.dateEmission,
       date_echeance: factureData.dateEcheance,
@@ -1751,21 +1772,23 @@ router.get('/devis', async (req, res) => {
 
 router.post('/devis', async (req, res) => {
   try {
-    const { lignes, ...devisData } = req.body;
-    
-    const { count, error: countError } = await supabase
-      .from('devis')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.error('Error counting devis:', countError);
-      return res.status(500).json({ error: 'Failed to generate devis number', details: countError.message });
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try { const token = authHeader.split(' ')[1]; const { data: { user } } = await supabaseAdmin.auth.getUser(token); if (user) userId = user.id; } catch (e) { /* ignore */ }
     }
 
-    const numero = `DEV/${new Date().getFullYear()}/${String((count || 0) + 1).padStart(5, '0')}`;
+    const { lignes, ...devisData } = req.body;
     
-    const data = {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase.from('devis').select('numero').like('numero', `DEV-${year}-%`).eq('user_id', userId);
+    let maxNum = 0;
+    for (const d of existing || []) { const m = d.numero?.match(new RegExp(`^DEV-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; } }
+    const numero = `DEV-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+    
+    const data: any = {
       numero,
+      user_id: userId,
       client_id: devisData.clientId,
       date_emission: devisData.dateEmission,
       date_validite: devisData.dateValidite,
@@ -2056,22 +2079,40 @@ router.get('/bons-commande/:id', async (req, res) => {
 
 router.post('/bons-commande', async (req, res) => {
   try {
-    const { lignes, ...bonData } = req.body;
-    
-    // Generate order number
-    const { count, error: countError } = await supabase
-      .from('bons_commande')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.error('Error counting bons de commande:', countError);
-      return res.status(500).json({ error: 'Failed to generate order number', details: countError.message });
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (!authError && user) userId = user.id;
+      } catch (e) { /* ignore */ }
     }
 
-    const numero = `BC/${new Date().getFullYear()}/${String((count || 0) + 1).padStart(5, '0')}`;
+    const { lignes, ...bonData } = req.body;
     
-    const data = {
+    // Generate order number (per-user)
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('bons_commande')
+      .select('numero')
+      .like('numero', `BC-${year}-%`)
+      .eq('user_id', userId);
+    let maxNum = 0;
+    if (existing) {
+      for (const b of existing) {
+        const match = b.numero?.match(new RegExp(`^BC-${year}-(\\d+)$`));
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+    const numero = `BC-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+    
+    const data: any = {
       numero,
+      user_id: userId,
       fournisseur_id: bonData.fournisseurId,
       date_commande: bonData.dateCommande,
       date_livraison_prevue: bonData.dateLivraisonPrevue,
@@ -2150,11 +2191,15 @@ router.post('/bons-commande', async (req, res) => {
         // derived from `statut` (livré/livrée) instead.
 
         // Create a linked Bon de Livraison
-        const { count: blCount } = await supabaseAdmin.from('bons_livraison').select('*', { count: 'exact', head: true });
-        const blNumero = `BL/${new Date().getFullYear()}/${String((blCount || 0) + 1).padStart(5, '0')}`;
+        const year = new Date().getFullYear();
+        const { data: blExisting } = await supabaseAdmin.from('bons_livraison').select('numero').like('numero', `BL-${year}-%`).eq('user_id', bon.user_id);
+        let blMax = 0;
+        for (const b of blExisting || []) { const m = b.numero?.match(new RegExp(`^BL-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > blMax) blMax = n; } }
+        const blNumero = `BL-${year}-${String(blMax + 1).padStart(4, '0')}`;
         
         const blData: any = {
           numero: blNumero,
+          user_id: bon.user_id,
           fournisseur_id: bon.fournisseur_id,
           date_livraison: new Date().toISOString(),
           statut: 'livré',
@@ -2244,15 +2289,18 @@ router.put('/bons-commande/:id', async (req, res) => {
 
     if (isNowLivré && !waslivré) {
       // Create a linked Bon de Livraison
-      const { count: blCount } = await supabaseAdmin.from('bons_livraison').select('*', { count: 'exact', head: true });
-      const blNumero = `BL/${new Date().getFullYear()}/${String((blCount || 0) + 1).padStart(5, '0')}`;
-      
+      const year = new Date().getFullYear();
       const { data: bonDetails } = await supabaseAdmin.from('bons_commande').select('*').eq('id', id).single();
       const { data: bonLignes } = await supabaseAdmin.from('bon_commande_lignes').select('*').eq('bon_commande_id', id);
 
       if (bonDetails) {
+        const { data: blExisting } = await supabaseAdmin.from('bons_livraison').select('numero').like('numero', `BL-${year}-%`).eq('user_id', bonDetails.user_id);
+        let blMax = 0;
+        for (const b of blExisting || []) { const m = b.numero?.match(new RegExp(`^BL-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > blMax) blMax = n; } }
+        const blNumero = `BL-${year}-${String(blMax + 1).padStart(4, '0')}`;
         const blData: any = {
           numero: blNumero,
+          user_id: bonDetails.user_id,
           fournisseur_id: bonDetails.fournisseur_id,
           date_livraison: new Date().toISOString(),
           statut: 'livré',
@@ -2450,11 +2498,6 @@ router.put(['/bons-commande/:id/statut', '/bons-commande/:id/status'], async (re
     // --- Linked Bon de Livraison sync ----------------------------------------
     if (isNowLivré && !wasLivré) {
       try {
-        const { count: blCount } = await supabaseAdmin
-          .from('bons_livraison')
-          .select('*', { count: 'exact', head: true });
-        const blNumero = `BL/${new Date().getFullYear()}/${String((blCount || 0) + 1).padStart(5, '0')}`;
-
         const { data: bonDetails } = await supabaseAdmin
           .from('bons_commande')
           .select('*')
@@ -2466,8 +2509,14 @@ router.put(['/bons-commande/:id/statut', '/bons-commande/:id/status'], async (re
           .eq('bon_commande_id', id);
 
         if (bonDetails) {
+          const year = new Date().getFullYear();
+          const { data: blExisting } = await supabaseAdmin.from('bons_livraison').select('numero').like('numero', `BL-${year}-%`).eq('user_id', bonDetails.user_id);
+          let blMax = 0;
+          for (const b of blExisting || []) { const m = b.numero?.match(new RegExp(`^BL-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > blMax) blMax = n; } }
+          const blNumero = `BL-${year}-${String(blMax + 1).padStart(4, '0')}`;
           const blData: any = {
             numero: blNumero,
+            user_id: bonDetails.user_id,
             fournisseur_id: bonDetails.fournisseur_id,
             date_livraison: new Date().toISOString(),
             statut: 'livré',
@@ -2636,21 +2685,23 @@ router.get('/bons-livraison/:id', async (req, res) => {
 
 router.post('/bons-livraison', async (req, res) => {
   try {
-    const { lignes, ...blData } = req.body;
-    
-    const { count, error: countError } = await supabase
-      .from('bons_livraison')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.error('Error counting bons de livraison:', countError);
-      return res.status(500).json({ error: 'Failed to generate order number', details: countError.message });
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try { const token = authHeader.split(' ')[1]; const { data: { user } } = await supabaseAdmin.auth.getUser(token); if (user) userId = user.id; } catch (e) { /* ignore */ }
     }
 
-    const numero = `BL/${new Date().getFullYear()}/${String((count || 0) + 1).padStart(5, '0')}`;
+    const { lignes, ...blData } = req.body;
     
-    const data = {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase.from('bons_livraison').select('numero').like('numero', `BL-${year}-%`).eq('user_id', userId);
+    let maxNum = 0;
+    for (const b of existing || []) { const m = b.numero?.match(new RegExp(`^BL-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; } }
+    const numero = `BL-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+    
+    const data: any = {
       numero,
+      user_id: userId,
       fournisseur_id: blData.fournisseurId,
       date_livraison: blData.dateLivraison,
       statut: blData.statut || 'en_attente',
@@ -2976,15 +3027,25 @@ router.get('/ventes-passagers', async (req, res) => {
 
 router.post('/ventes-passagers', async (req, res) => {
   try {
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try { const token = authHeader.split(' ')[1]; const { data: { user } } = await supabaseAdmin.auth.getUser(token); if (user) userId = user.id; } catch (e) { /* ignore */ }
+    }
+
     const { lignes, ...vpData } = req.body;
     
-    const { count } = await supabase.from('ventes_passagers').select('*', { count: 'exact', head: true });
-    const numero = `VP/${new Date().getFullYear()}/${String((count || 0) + 1).padStart(5, '0')}`;
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase.from('ventes_passagers').select('numero').like('numero', `VP-${year}-%`).eq('user_id', userId);
+    let maxNum = 0;
+    for (const v of existing || []) { const m = v.numero?.match(new RegExp(`^VP-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; } }
+    const numero = `VP-${year}-${String(maxNum + 1).padStart(4, '0')}`;
     
     const { data: vp, error: vpError } = await supabase
       .from('ventes_passagers')
       .insert([{
         numero,
+        user_id: userId,
         date: vpData.date || new Date().toISOString(),
         montant_ht: vpData.montantHt || 0,
         montant_tva: vpData.montantTva || 0,
@@ -3383,18 +3444,22 @@ router.get('/depenses', async (req, res) => {
 
 router.post('/depenses', async (req, res) => {
   try {
-    const { count, error: countError } = await supabase
-      .from('depenses')
-      .select('*', { count: 'exact', head: true });
-    
-    if (countError) {
-      console.warn('Error counting depenses:', countError.message);
+    const authHeader = req.headers.authorization;
+    let userId = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      try { const token = authHeader.split(' ')[1]; const { data: { user } } = await supabaseAdmin.auth.getUser(token); if (user) userId = user.id; } catch (e) { /* ignore */ }
     }
 
-    const reference = `DEP/${new Date().getFullYear()}/${String((count || 0) + 1).padStart(5, '0')}`;
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase.from('depenses').select('reference').like('reference', `DEP-${year}-%`).eq('user_id', userId);
+    let maxNum = 0;
+    for (const d of existing || []) { const m = d.reference?.match(new RegExp(`^DEP-${year}-(\\d+)$`)); if (m) { const n = parseInt(m[1], 10); if (n > maxNum) maxNum = n; } }
+    const reference = `DEP-${year}-${String(maxNum + 1).padStart(4, '0')}`;
     
     // Build data object with only known safe fields
     const data: any = {
+      reference,
+      user_id: userId,
       categorie: req.body.categorie,
       description: req.body.description || '',
       montant_ht: Number(req.body.montantHt) || 0,
@@ -3407,16 +3472,6 @@ router.post('/depenses', async (req, res) => {
     if (req.body.montantTva !== undefined) data.montant_tva = Number(req.body.montantTva) || 0;
     if (req.body.modePaiement) data.mode_paiement = req.body.modePaiement;
     if (req.body.notes) data.notes = req.body.notes;
-    
-    // Only add reference if column exists
-    try {
-      const { error: refError } = await supabase.from('depenses').select('reference').limit(1);
-      if (!refError) {
-        data.reference = reference;
-      }
-    } catch {
-      // Column doesn't exist, skip
-    }
 
     const { data: depense, error: insertError } = await supabase
       .from('depenses')

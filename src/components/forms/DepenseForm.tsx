@@ -89,6 +89,7 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
             tva: Number(initialData.tva || 20),
           });
         } else {
+          generateDepenseRef().then(ref => form.setValue('reference', ref));
           form.reset({
             reference: '',
             categorie: 'fournitures',
@@ -109,6 +110,24 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
     fetchData();
   }, [initialData?.id]);
 
+  async function generateDepenseRef(): Promise<string> {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('depenses')
+      .select('reference')
+      .like('reference', `DEP-${year}-%`)
+      .eq('user_id', user?.id);
+    let maxNum = 0;
+    for (const d of existing || []) {
+      const match = d.reference?.match(new RegExp(`^DEP-${year}-(\\d+)$`));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `DEP-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
   const onSubmit = async (data: DepenseFormValues) => {
     try {
       const montantHt = Number(data.montantHt);
@@ -116,12 +135,15 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
       const montantTva = montantHt * (tva / 100);
       const montantTtc = montantHt + montantTva;
 
-      let reference = data.reference?.trim();
+      let reference = data.reference?.trim() || null;
       if (!reference && !initialData?.id) {
-        const year = new Date().getFullYear();
-        const { count } = await supabase.from('depenses').select('*', { count: 'exact', head: true });
-        const num = String((count || 0) + 1).padStart(4, '0');
-        reference = `DEP-${year}-${num}`;
+        let attempts = 0;
+        while (!reference && attempts < 10) {
+          const candidate = await generateDepenseRef();
+          const { data: dup } = await supabase.from('depenses').select('id').eq('reference', candidate).eq('user_id', user?.id).maybeSingle();
+          if (!dup) { reference = candidate; break; }
+          attempts++;
+        }
       }
 
       const payload: any = {
@@ -146,7 +168,13 @@ export function DepenseForm({ initialData, onSuccess }: DepenseFormProps) {
         if (error) throw error;
         toast.success('Dépense modifiée');
       } else {
-        const { error } = await supabase.from('depenses').insert([{ ...payload, user_id: user?.id }]);
+        let { error } = await supabase.from('depenses').insert([{ ...payload, user_id: user?.id }]);
+        if (error?.message?.includes('duplicate key') || error?.code === '23505') {
+          reference = await generateDepenseRef();
+          payload.reference = reference;
+          const retry = await supabase.from('depenses').insert([{ ...payload, user_id: user?.id }]);
+          error = retry.error;
+        }
         if (error) throw error;
         toast.success('Dépense ajoutée');
       }

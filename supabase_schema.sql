@@ -14,7 +14,8 @@ $$ language 'plpgsql';
 CREATE TABLE IF NOT EXISTS produits (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    reference TEXT UNIQUE,
+    reference TEXT,
+    UNIQUE(user_id, reference),
     designation TEXT NOT NULL,
     nom TEXT,
     description TEXT,
@@ -78,7 +79,8 @@ CREATE TABLE IF NOT EXISTS fournisseurs (
 CREATE TABLE IF NOT EXISTS devis (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    numero TEXT UNIQUE NOT NULL,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
     client_id BIGINT REFERENCES clients(id),
     date_emission DATE DEFAULT CURRENT_DATE,
     date_validite DATE,
@@ -111,7 +113,8 @@ CREATE TABLE IF NOT EXISTS devis_lignes (
 CREATE TABLE IF NOT EXISTS factures (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    numero TEXT UNIQUE NOT NULL,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
     client_id BIGINT REFERENCES clients(id),
     devis_id BIGINT REFERENCES devis(id),
     date_emission DATE DEFAULT CURRENT_DATE,
@@ -148,7 +151,8 @@ CREATE TABLE IF NOT EXISTS facture_lignes (
 CREATE TABLE IF NOT EXISTS bons_commande (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    numero TEXT UNIQUE NOT NULL,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
     fournisseur_id BIGINT REFERENCES fournisseurs(id),
     date_commande DATE DEFAULT CURRENT_DATE,
     date_livraison_prevue DATE,
@@ -180,7 +184,8 @@ CREATE TABLE IF NOT EXISTS bon_commande_lignes (
 CREATE TABLE IF NOT EXISTS bons_livraison (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    numero TEXT UNIQUE NOT NULL,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
     fournisseur_id BIGINT REFERENCES fournisseurs(id),
     bon_commande_id BIGINT REFERENCES bons_commande(id),
     date_livraison DATE DEFAULT CURRENT_DATE,
@@ -213,7 +218,8 @@ CREATE TABLE IF NOT EXISTS bon_livraison_lignes (
 CREATE TABLE IF NOT EXISTS ventes_passagers (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    numero TEXT UNIQUE NOT NULL,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
     date DATE DEFAULT CURRENT_DATE,
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
@@ -243,6 +249,7 @@ CREATE TABLE IF NOT EXISTS depenses (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     reference TEXT,
+    UNIQUE(user_id, reference),
     categorie TEXT DEFAULT 'autre',
     description TEXT,
     montant_ht DECIMAL(15, 2) DEFAULT 0,
@@ -259,7 +266,8 @@ CREATE TABLE IF NOT EXISTS depenses (
 CREATE TABLE IF NOT EXISTS avoirs (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    numero TEXT UNIQUE NOT NULL,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
     facture_id BIGINT REFERENCES factures(id),
     client_id BIGINT REFERENCES clients(id),
     date_emission DATE DEFAULT CURRENT_DATE,

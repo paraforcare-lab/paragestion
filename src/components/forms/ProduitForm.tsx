@@ -65,8 +65,30 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
+    } else {
+      generateReference().then(ref => form.setValue('reference', ref));
     }
   }, [initialData, form]);
+
+  async function generateReference(): Promise<string> {
+    const { data: existing } = await supabase
+      .from('produits')
+      .select('reference')
+      .like('reference', 'REF-%')
+      .not('reference', 'is', null)
+      .eq('user_id', user?.id);
+    let maxNum = 0;
+    if (existing) {
+      for (const p of existing) {
+        const match = p.reference?.match(/^REF-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+    return `REF-${String(maxNum + 1).padStart(3, '0')}`;
+  }
 
   async function onSubmit(data: ProduitFormValues) {
     try {
@@ -78,8 +100,23 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
       const stockActuel = Number(data.stockActuel) || 0;
       const stockMin = Number(data.stockMin) || 5;
 
+      let reference = data.reference?.trim() || null;
+      if (!initialData?.id) {
+        let attempts = 0;
+        while (attempts < 10) {
+          const candidate = reference || await generateReference();
+          const { data: dup } = await supabase.from('produits').select('id').eq('reference', candidate).eq('user_id', user?.id).maybeSingle();
+          if (!dup) {
+            reference = candidate;
+            break;
+          }
+          reference = null;
+          attempts++;
+        }
+      }
+
        const payload = {
-         reference: data.reference?.trim() || null,
+         reference,
          nom: data.nom?.trim() || null,
          designation: data.nom?.trim() || null,
          marque: data.marque?.trim() || null,
@@ -101,6 +138,11 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
         result = await supabase.from('produits').update(payload).eq('id', initialData.id).select();
       } else {
         result = await supabase.from('produits').insert([{ ...payload, user_id: user?.id }]).select();
+        if (result.error?.message?.includes('duplicate key') || result.error?.code === '23505') {
+          reference = await generateReference();
+          payload.reference = reference;
+          result = await supabase.from('produits').insert([{ ...payload, user_id: user?.id }]).select();
+        }
       }
 
       if (result.error) {

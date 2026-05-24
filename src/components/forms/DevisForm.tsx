@@ -136,13 +136,36 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
     { ht: 0, tva: 0, ttc: 0 }
   );
 
+  async function generateDevisRef(): Promise<string> {
+    const year = new Date().getFullYear();
+    const { data: existing } = await supabase
+      .from('devis')
+      .select('numero')
+      .like('numero', `DEV-${year}-%`)
+      .eq('user_id', user?.id);
+    let maxNum = 0;
+    for (const d of existing || []) {
+      const match = d.numero?.match(new RegExp(`^DEV-${year}-(\\d+)$`));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+    return `DEV-${year}-${String(maxNum + 1).padStart(4, '0')}`;
+  }
+
   const onSubmit = async (data: DevisFormValues) => {
     setIsLoading(true);
     try {
-      if (!initialData?.numero) {
-        const year = new Date().getFullYear();
-        const randomNum = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
-        var devisNum = `DEV-${year}-${randomNum}`;
+      let devisNum: string | undefined;
+      if (!initialData?.id) {
+        let attempts = 0;
+        while (attempts < 10) {
+          const candidate = await generateDevisRef();
+          const { data: dup } = await supabase.from('devis').select('id').eq('numero', candidate).eq('user_id', user?.id).maybeSingle();
+          if (!dup) { devisNum = candidate; break; }
+          attempts++;
+        }
       }
 
       const payload = {
@@ -160,7 +183,14 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
       let devisId = initialData?.id;
 
       if (!devisId) {
-        const { data: newDevis, error } = await supabase.from('devis').insert([{ ...payload, user_id: user?.id }]).select().single();
+        let { data: newDevis, error } = await supabase.from('devis').insert([{ ...payload, user_id: user?.id }]).select().single();
+        if (error?.message?.includes('duplicate key') || error?.code === '23505') {
+          devisNum = await generateDevisRef();
+          payload.numero = devisNum;
+          const retry = await supabase.from('devis').insert([{ ...payload, user_id: user?.id }]).select().single();
+          newDevis = retry.data;
+          error = retry.error;
+        }
         if (error) throw error;
         devisId = newDevis.id;
       } else {
