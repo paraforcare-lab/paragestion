@@ -20,6 +20,21 @@
     "toast_error":        "An error occurred while signing in"
   },
   "dashboard": {
+    "date_range": {
+      "placeholder": "Filter by period",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this_week": "This week",
+      "last_week": "Last week",
+      "this_month": "This month",
+      "last_month": "Last month",
+      "this_year": "This year",
+      "last_year": "Last year",
+      "all": "All",
+      "custom": "Custom",
+      "more": "More...",
+      "all_time": "All time"
+    },
     "header": {
       "title": "Dashboard",
       "subtitle": "Welcome to ParaGestion",

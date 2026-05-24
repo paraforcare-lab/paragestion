@@ -20,6 +20,21 @@
     "toast_error":        "Une erreur est survenue lors de la connexion"
   },
   "dashboard": {
+    "date_range": {
+      "placeholder": "Filtrer par période",
+      "today": "Aujourd'hui",
+      "yesterday": "Hier",
+      "this_week": "Cette semaine",
+      "last_week": "Semaine dernière",
+      "this_month": "Ce mois-ci",
+      "last_month": "Mois dernier",
+      "this_year": "Cette année",
+      "last_year": "Année dernière",
+      "all": "Tout",
+      "custom": "Personnalisé",
+      "more": "Plus...",
+      "all_time": "Toute la période"
+    },
     "header": {
       "title": "Tableau de Bord",
       "subtitle": "Bienvenue sur ParaGestion",

@@ -430,7 +430,7 @@ export function FacturesList() {
 
   const handleStatusChange = async (id: number, newStatut: string) => {
     try {
-      const { data: facture } = await supabase.from('factures').select('statut').eq('id', id).single();
+      const { data: facture } = await supabase.from('factures').select('statut, stock_updated').eq('id', id).single();
 
       if (facture?.statut === 'annulée' && newStatut !== 'annulée') {
         const { data: avoir } = await supabase.from('avoirs').select('id').eq('facture_id', id).single();
@@ -441,6 +441,7 @@ export function FacturesList() {
       }
 
       const oldStatut = facture?.statut;
+      const stockUpdated = facture?.stock_updated ?? false;
       const updateData: any = { statut: newStatut };
       if (newStatut === 'payée') {
         updateData.reste_a_payer = 0;
@@ -455,9 +456,9 @@ export function FacturesList() {
       const wasActive = activeStatuses.includes(oldStatut);
       const isActive = activeStatuses.includes(newStatut);
 
-      // Stock update logic
+      // Stock update logic — protected by stock_updated flag
       const changedIds: (number | string)[] = [];
-      if (isActive && !wasActive) {
+      if (isActive && !wasActive && !stockUpdated) {
         const { data: lignes } = await supabase
           .from('facture_lignes')
           .select('produit_id, quantite')
@@ -471,7 +472,8 @@ export function FacturesList() {
             }
           }
         }
-      } else if (!isActive && wasActive && newStatut === 'annulée') {
+        updateData.stock_updated = true;
+      } else if (!isActive && wasActive && stockUpdated) {
         const { data: lignes } = await supabase
           .from('facture_lignes')
           .select('produit_id, quantite')
@@ -484,6 +486,7 @@ export function FacturesList() {
             }
           }
         }
+        updateData.stock_updated = false;
       }
 
       if (changedIds.length > 0) {

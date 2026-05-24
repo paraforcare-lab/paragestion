@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download,   ArrowLeft, ShoppingCart, Package,
   FileText, Clock, CheckCircle, Ban, Truck, Send, ChevronLeft,
-  ChevronRight, CalendarDays, Filter, Building2, ArrowUpRight
+  ChevronRight, CalendarDays, Filter, Building2, ArrowUpRight, XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -80,6 +80,7 @@ export function BonsCommandeList() {
     { value: 'confirmé', label: t('shared.status.confirmed'), icon: CheckCircle, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
     { value: 'livré', label: t('shared.status.delivered'), icon: Truck, color: 'text-violet-700', bgColor: 'bg-violet-50 text-violet-700 border border-violet-200/50' },
     { value: 'annulé', label: t('shared.status.cancelled'), icon: Ban, color: 'text-rose-700', bgColor: 'bg-rose-50 text-rose-700 border border-rose-200/50' },
+    { value: 'refusé', label: t('shared.status.refused'), icon: XCircle, color: 'text-red-700', bgColor: 'bg-red-50 text-red-700 border border-red-200/50' },
   ];
 
   const componentRef = useRef<HTMLDivElement>(null);

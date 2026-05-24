@@ -313,6 +313,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
                 <SelectItem value="confirmé">{t('shared.status.confirmed')}</SelectItem>
                 <SelectItem value="livré">{t('shared.status.delivered')}</SelectItem>
                 <SelectItem value="annulé">{t('shared.status.cancelled')}</SelectItem>
+                <SelectItem value="refusé">{t('shared.status.refused')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -20,6 +20,21 @@
     "toast_error":        "حدث خطأ أثناء تسجيل الدخول"
   },
   "dashboard": {
+    "date_range": {
+      "placeholder": "تصفية حسب الفترة",
+      "today": "اليوم",
+      "yesterday": "أمس",
+      "this_week": "هذا الأسبوع",
+      "last_week": "الأسبوع الماضي",
+      "this_month": "هذا الشهر",
+      "last_month": "الشهر الماضي",
+      "this_year": "هذه السنة",
+      "last_year": "السنة الماضية",
+      "all": "الكل",
+      "custom": "مخصص",
+      "more": "المزيد...",
+      "all_time": "كل الفترة"
+    },
     "header": {
       "title": "لوحة التحكم",
       "subtitle": "مرحباً بك في ParaGestion",

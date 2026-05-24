@@ -10,10 +10,13 @@ import {
   DollarSign, CreditCard, Activity, FileText, Users, Package,
   TrendingUp, ShieldCheck, ChevronRight, Receipt, Building2,
   HeartPulse, ClipboardList, Plus, ShoppingCart, AlertTriangle,
-  Pill, PieChart,
+  Pill, PieChart, CalendarDays, Filter,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { KPICard } from '@/components/ui/kpi-card'
@@ -55,6 +58,95 @@ function toDateLocale(lang: string): string {
   return 'fr-FR'
 }
 
+// ─── Date range types & helpers ────────────────────────────────────────────────
+
+type DateRangeKey = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'this_year' | 'last_year' | 'all' | 'custom'
+
+const DATE_RANGE_OPTIONS: { key: DateRangeKey; labelKey: string }[] = [
+  { key: 'today',       labelKey: 'date_range.today' },
+  { key: 'yesterday',   labelKey: 'date_range.yesterday' },
+  { key: 'this_week',   labelKey: 'date_range.this_week' },
+  { key: 'last_week',   labelKey: 'date_range.last_week' },
+  { key: 'this_month',  labelKey: 'date_range.this_month' },
+  { key: 'last_month',  labelKey: 'date_range.last_month' },
+  { key: 'this_year',   labelKey: 'date_range.this_year' },
+  { key: 'last_year',   labelKey: 'date_range.last_year' },
+  { key: 'all',         labelKey: 'date_range.all' },
+  { key: 'custom',      labelKey: 'date_range.custom' },
+]
+
+function getDateRange(option: DateRangeKey, customStart?: string, customEnd?: string): { start: Date | null; end: Date | null } {
+  const now = new Date()
+  const start = new Date(now)
+  const end = new Date(now)
+
+  switch (option) {
+    case 'today':
+      start.setHours(0, 0, 0, 0)
+      end.setHours(23, 59, 59, 999)
+      break
+    case 'yesterday':
+      start.setDate(start.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      end.setDate(end.getDate() - 1)
+      end.setHours(23, 59, 59, 999)
+      break
+    case 'this_week': {
+      const day = start.getDay()
+      const diff = day === 0 ? 6 : day - 1
+      start.setDate(start.getDate() - diff)
+      start.setHours(0, 0, 0, 0)
+      break
+    }
+    case 'last_week': {
+      const day = start.getDay()
+      const diff = day === 0 ? 6 : day - 1
+      start.setDate(start.getDate() - diff - 7)
+      start.setHours(0, 0, 0, 0)
+      end.setDate(end.getDate() - diff - 1)
+      end.setHours(23, 59, 59, 999)
+      break
+    }
+    case 'this_month':
+      start.setDate(1)
+      start.setHours(0, 0, 0, 0)
+      break
+    case 'last_month':
+      start.setMonth(start.getMonth() - 1, 1)
+      start.setHours(0, 0, 0, 0)
+      end.setMonth(end.getMonth(), 0)
+      end.setHours(23, 59, 59, 999)
+      break
+    case 'this_year':
+      start.setMonth(0, 1)
+      start.setHours(0, 0, 0, 0)
+      break
+    case 'last_year':
+      start.setFullYear(start.getFullYear() - 1, 0, 1)
+      start.setHours(0, 0, 0, 0)
+      end.setFullYear(end.getFullYear() - 1, 11, 31)
+      end.setHours(23, 59, 59, 999)
+      break
+    case 'custom': {
+      const s = customStart ? new Date(customStart) : null
+      const e = customEnd ? new Date(customEnd) : null
+      if (s) s.setHours(0, 0, 0, 0)
+      if (e) e.setHours(23, 59, 59, 999)
+      return { start: s, end: e }
+    }
+    case 'all':
+    default:
+      return { start: null, end: null }
+  }
+  return { start, end }
+}
+
+function applyDateFilter(q: any, field: string, start: Date | null, end: Date | null) {
+  if (start) q = q.gte(field, start.toISOString())
+  if (end) q = q.lte(field, end.toISOString())
+  return q
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
@@ -70,6 +162,11 @@ export function Dashboard() {
 
   const [stats, setStats]     = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [dateRange, setDateRange] = useState<DateRangeKey>('this_month')
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+
+  const { start: filterStart, end: filterEnd } = getDateRange(dateRange, customStart, customEnd)
 
   // Locale-aware currency formatter (memoised to the current language)
   const fmt = (n: number | null | undefined) => formatCurrencyLocale(n, lang)
@@ -81,23 +178,31 @@ export function Dashboard() {
       return
     }
 
-    const fetchStats = async () => {
-      try {
-        const now          = new Date()
-        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString()
+    const fetchStats = () => {
+      let factQuery = supabase.from('factures').select('*').eq('user_id', user.id)
+      let vpQuery = supabase.from('ventes_passagers').select('*').eq('user_id', user.id)
+      let depQuery = supabase.from('depenses').select('*').eq('user_id', user.id)
+      let bcQuery = supabase.from('bons_commande').select('*').eq('user_id', user.id)
+      let recentQuery = supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5)
 
-        const [factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes] =
-          await Promise.all([
-            supabase.from('factures').select('*').eq('user_id', user.id).gte('date_emission', sixMonthsAgo),
-            supabase.from('ventes_passagers').select('*').eq('user_id', user.id).gte('date', sixMonthsAgo),
-            supabase.from('depenses').select('*').eq('user_id', user.id).gte('date_depense', sixMonthsAgo),
-            supabase.from('produits').select('*').eq('user_id', user.id),
-            supabase.from('clients').select('*').eq('user_id', user.id),
-            supabase.from('fournisseurs').select('*').eq('user_id', user.id),
-            supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5),
-            supabase.from('bons_commande').select('*').eq('user_id', user.id),
-          ])
+      if (dateRange !== 'all') {
+        factQuery = applyDateFilter(factQuery, 'date_emission', filterStart, filterEnd)
+        vpQuery = applyDateFilter(vpQuery, 'date', filterStart, filterEnd)
+        depQuery = applyDateFilter(depQuery, 'date_depense', filterStart, filterEnd)
+        bcQuery = applyDateFilter(bcQuery, 'date_commande', filterStart, filterEnd)
+        recentQuery = applyDateFilter(recentQuery, 'date_emission', filterStart, filterEnd)
+      }
 
+      Promise.all([
+        factQuery,
+        vpQuery,
+        depQuery,
+        supabase.from('produits').select('*').eq('user_id', user.id),
+        supabase.from('clients').select('*').eq('user_id', user.id),
+        supabase.from('fournisseurs').select('*').eq('user_id', user.id),
+        recentQuery,
+        bcQuery,
+      ]).then(([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes]) => {
         const factures         = factRes.data  ?? []
         const ventesPassagers  = vpRes.data    ?? []
         const depenses         = depRes.data   ?? []
@@ -107,104 +212,100 @@ export function Dashboard() {
         const recentFacturesRaw = recentRes.data ?? []
         const bonsCommande     = bcRes.data    ?? []
 
-        const allFactures   = [...factures, ...ventesPassagers]
-        const validFact     = allFactures.filter((f: any) => f.statut !== 'annulée')
-        const payeesFact    = allFactures.filter((f: any) => f.statut === 'payée')
-        const resteAPayerFact = allFactures.filter((f: any) => f.statut === 'reste_a_payer')
-        const brouillonFact = allFactures.filter((f: any) => f.statut === 'brouillon')
+        const facturesValides = factures.filter((f: any) =>
+          ['payée', 'reste_a_payer'].includes(f.statut)
+        )
+        const payeesFact    = factures.filter((f: any) => f.statut === 'payée')
+        const resteAPayerFact = factures.filter((f: any) => f.statut === 'reste_a_payer')
+        const brouillonFact = factures.filter((f: any) => f.statut === 'brouillon')
         const bonsCommandeValides = bonsCommande.filter((b: any) =>
-          ['confirmé', 'livré', 'livrée'].includes(b.statut),
+          ['livré', 'livrée'].includes(b.statut),
         )
 
-        const totalRevenue   = validFact.reduce((s, f: any) => s + Number(f.montant_ttc || 0), 0)
-        const totalDepenses  = depenses.reduce((s, d: any) => s + Number(d.montant_ttc || 0), 0)
-          + bonsCommandeValides.reduce((s, b: any) => s + Number(b.montant_ttc || 0), 0)
-        const unpaidRevenue  = resteAPayerFact.reduce((s, f: any) => s + Number(f.reste_a_payer || 0), 0)
+        const caVP = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.montant_ttc || 0), 0)
+        const caFactures = facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
+        const totalRevenue = caVP + caFactures
 
-        const totalTvaCollectee  = validFact.reduce((s, f: any) => s + Number(f.montant_tva || 0), 0)
-        const totalTvaDeductible = depenses.reduce((s, d: any) => s + Number(d.montant_tva || 0), 0)
-          + bonsCommandeValides.reduce((s, b: any) => s + Number(b.montant_tva || 0), 0)
+        const totalDepenses = depenses.reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0)
+          + bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_ttc || 0), 0)
+        const unpaidRevenue = resteAPayerFact.reduce((s: number, f: any) => s + Number(f.reste_a_payer || 0), 0)
+        const profit = totalRevenue - totalDepenses
+
+        const tvaVP = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.montant_tva || 0), 0)
+        const tvaFactures = facturesValides.reduce((s: number, f: any) => s + Number(f.montant_tva || 0), 0)
+        const totalTvaCollectee = tvaVP + tvaFactures
+        const tvaDepenses = depenses.reduce((s: number, d: any) => s + Number(d.montant_tva || 0), 0)
+        const tvaBC = bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_tva || 0), 0)
+        const totalTvaDeductible = tvaDepenses + tvaBC
         const tvaNet = totalTvaCollectee - totalTvaDeductible
 
-        const totalCOGS = allFactures.reduce((s, f: any) => s + Number(f.cogs || 0), 0)
-          + bonsCommandeValides.reduce((s, b: any) => s + Number(b.montant_ht || 0), 0)
-        const ventesHT  = validFact.reduce((s, f: any) => s + Number(f.montant_ht || 0), 0)
-        const profit    = totalRevenue - totalDepenses - totalCOGS
+        const ventesHT = caVP + facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0)
+        const totalCOGS = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.cogs || 0), 0)
+          + facturesValides.reduce((s: number, f: any) => s + Number(f.cogs || 0), 0)
 
-        // Build monthly chart data with translated month names
         const monthlyData: Stats['monthlyData'] = []
-        for (let i = 5; i >= 0; i--) {
-          const d     = new Date()
-          d.setMonth(d.getMonth() - i)
-          const month = d.getMonth()        // 0-based
-          const year  = d.getFullYear()
+        const chartStart = filterStart || new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1)
+        const chartEnd = filterEnd || new Date()
+        const daysDiff = Math.ceil((chartEnd.getTime() - chartStart.getTime()) / (1000 * 60 * 60 * 24))
+        const useDaily = daysDiff <= 31
 
-          const monthRevenue = [
-            ...factures.filter((f: any) =>
-              new Date(f.date_emission).getMonth() === month &&
-              new Date(f.date_emission).getFullYear() === year,
-            ),
-            ...ventesPassagers.filter((f: any) =>
-              new Date(f.date).getMonth() === month &&
-              new Date(f.date).getFullYear() === year,
-            ),
-          ].reduce((s, f: any) => s + Number(f.montant_ttc || 0), 0)
-
-          const monthExpense = depenses
-            .filter((dep: any) =>
-              new Date(dep.date_depense).getMonth() === month &&
-              new Date(dep.date_depense).getFullYear() === year,
-            )
-            .reduce((s, dep: any) => s + Number(dep.montant_ttc || 0), 0)
-
-          // Translate month name from the locale dictionary
-          const nameKey = MONTH_KEYS[month]
-          monthlyData.push({
-            name:     t(`dashboard.chart.months.${nameKey}`),
-            revenue:  monthRevenue,
-            expenses: monthExpense,
-          })
+        if (useDaily) {
+          const dayCount = Math.max(1, daysDiff)
+          for (let i = dayCount - 1; i >= 0; i--) {
+            const d = new Date(chartEnd)
+            d.setDate(d.getDate() - i)
+            const dateStr = d.toISOString().split('T')[0]
+            const dayRev = [...facturesValides, ...ventesPassagers]
+              .filter((f: any) => new Date(f.date || f.date_emission).toISOString().split('T')[0] === dateStr)
+              .reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
+            const dayExp = [...depenses, ...bonsCommandeValides]
+              .filter((entry: any) => new Date(entry.date_depense || entry.date_commande).toISOString().split('T')[0] === dateStr)
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0)
+            monthlyData.push({ name: d.getDate().toString(), revenue: dayRev, expenses: dayExp })
+          }
+        } else {
+          const startMonth = chartStart.getMonth() + chartStart.getFullYear() * 12
+          const endMonth = chartEnd.getMonth() + chartEnd.getFullYear() * 12
+          const monthCount = Math.max(1, endMonth - startMonth + 1)
+          for (let i = 0; i < monthCount; i++) {
+            const d = new Date(chartStart.getFullYear(), chartStart.getMonth() + i, 1)
+            const month = d.getMonth()
+            const year = d.getFullYear()
+            const monthRev = [...facturesValides, ...ventesPassagers]
+              .filter((f: any) => { const fd = new Date(f.date || f.date_emission); return fd.getMonth() === month && fd.getFullYear() === year })
+              .reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
+            const monthExp = [...depenses, ...bonsCommandeValides]
+              .filter((entry: any) => { const ed = new Date(entry.date_depense || entry.date_commande); return ed.getMonth() === month && ed.getFullYear() === year })
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0)
+            const nameKey = MONTH_KEYS[month]
+            monthlyData.push({ name: t(`dashboard.chart.months.${nameKey}`), revenue: monthRev, expenses: monthExp })
+          }
         }
 
-        const stockValueHT = produits.reduce((s, p: any) => {
-          return s + (Number(p.stock_actuel || 0) * Number(p.prix_achat_ht || 0))
-        }, 0)
+        const stockValueHT = produits.reduce((s, p: any) => s + (Number(p.stock_actuel || 0) * Number(p.prix_achat_ht || 0)), 0)
 
         setStats({
-          clientsCount:      clients.length,
-          facturesCount:     payeesFact.length + resteAPayerFact.length + brouillonFact.length,
-          produitsCount:     produits.length,
+          clientsCount: clients.length,
+          facturesCount: payeesFact.length + resteAPayerFact.length + brouillonFact.length,
+          produitsCount: produits.length,
           fournisseursCount: fournisseurs.length,
-          totalRevenue,
-          unpaidRevenue,
-          totalDepenses,
-          profit,
-          totalTvaCollectee,
-          totalTvaDeductible,
-          tvaNet,
-          ventesHT,
-          totalCOGS,
-          stockValueHT,
-          monthlyData,
-          bonsCommandeCount: bonsCommande.filter((b: any) =>
-            ['confirmé', 'livré'].includes(b.statut),
-          ).length,
-          lowStockProduits: produits
-            .filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min))
-            .slice(0, 5),
+          totalRevenue, unpaidRevenue, totalDepenses, profit,
+          totalTvaCollectee, totalTvaDeductible, tvaNet,
+          ventesHT, totalCOGS, stockValueHT, monthlyData,
+          bonsCommandeCount: bonsCommande.filter((b: any) => ['livré', 'livrée'].includes(b.statut)).length,
+          lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
           recentFactures: recentFacturesRaw,
         })
-      } catch (err) {
+      }).catch((err) => {
         console.error('Failed to fetch stats', err)
         setStats(null)
-      } finally {
+      }).finally(() => {
         setLoading(false)
-      }
+      })
     }
-
     fetchStats()
   // Re-fetch whenever the language changes so month labels update immediately
-  }, [user?.id, lang])
+  }, [user?.id, lang, dateRange, customStart, customEnd])
 
   // ─── Loading state ───────────────────────────────────────────────────────
   if (loading) {
@@ -302,6 +403,66 @@ export function Dashboard() {
               {fmt(stats?.stockValueHT ?? 0)}
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* ── Date Range Filter ──────────────────────────────────────────────── */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-1 flex-wrap">
+            {(['today', 'yesterday', 'this_week', 'this_month', 'this_year'] as const).map((key) => (
+              <button
+                key={key}
+                onClick={() => { setDateRange(key); setLoading(true) }}
+                className={cn(
+                  'px-3 py-1.5 text-xs font-medium rounded-md border transition-all',
+                  dateRange === key
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                {t(`dashboard.date_range.${key}`)}
+              </button>
+            ))}
+            <Select value={dateRange} onValueChange={(v) => { setDateRange(v as DateRangeKey); setLoading(true) }}>
+              <SelectTrigger className="w-[130px] h-8 text-xs">
+                <SelectValue placeholder={td('date_range.more')} />
+              </SelectTrigger>
+              <SelectContent>
+                {(['last_week', 'last_month', 'last_year', 'all', 'custom'] as const).map((key) => (
+                  <SelectItem key={key} value={key} className="text-xs">
+                    {t(`dashboard.date_range.${key}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        {dateRange === 'custom' && (
+          <div className="flex items-center gap-2 ps-6">
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => { setCustomStart(e.target.value); setLoading(true) }}
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
+            />
+            <span className="text-xs text-muted-foreground">-</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => { setCustomEnd(e.target.value); setLoading(true) }}
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
+            />
+          </div>
+        )}
+        <div className="ps-6">
+          <p className="text-[11px] text-muted-foreground">
+            <CalendarDays className="inline h-3 w-3 me-1" />
+            {filterStart && filterEnd
+              ? `${filterStart.toLocaleDateString(dateFmt)} – ${filterEnd.toLocaleDateString(dateFmt)}`
+              : t('dashboard.date_range.all_time')}
+          </p>
         </div>
       </div>
 

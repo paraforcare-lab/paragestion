@@ -168,12 +168,16 @@ export function Workspace() {
       const produits  = (prodRes.data  || []);
       const clients   = (cliRes.data   || []);
 
-      const allInvoices   = [...factures, ...vp];
-      const validInvoices = allInvoices.filter((f: any) => f.statut !== 'annulée');
-      const totalRevenue  = validInvoices.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
+      const facturesValides = factures.filter((f: any) =>
+        ['pay\u00E9e', 'reste_a_payer'].includes(f.statut)
+      );
+      const totalRevenue  = vp.reduce((sum: number, v: any) => sum + Number(v.montant_ttc || 0), 0)
+        + facturesValides.reduce((sum: number, f: any) => sum + Number(f.montant_ttc || 0), 0);
 
       const monthsToShow = selectedRange === '1m' ? 1 : selectedRange === '1y' ? 12 : 6;
       const chartDataCalc: any[] = [];
+
+      const { data: bonsCommande } = await supabase.from('bons_commande').select('*').in('statut', ['livr\u00E9', 'livr\u00E9e']);
 
       for (let i = monthsToShow - 1; i >= 0; i--) {
         const d = new Date();
@@ -182,13 +186,18 @@ export function Workspace() {
         const year  = d.getFullYear();
 
         const monthRevenue = [
-          ...factures.filter((f: any) => new Date(f.date_emission).getMonth() === month && new Date(f.date_emission).getFullYear() === year),
+          ...facturesValides.filter((f: any) => new Date(f.date_emission).getMonth() === month && new Date(f.date_emission).getFullYear() === year),
           ...vp.filter((v: any) => new Date(v.date).getMonth() === month && new Date(v.date).getFullYear() === year),
         ].reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0);
 
-        const monthExpense = depenses.filter((dep: any) =>
-          new Date(dep.date_depense).getMonth() === month && new Date(dep.date_depense).getFullYear() === year
-        ).reduce((s: number, dep: any) => s + Number(dep.montant_ttc || 0), 0);
+        const monthExpense = [
+          ...depenses.filter((dep: any) =>
+            new Date(dep.date_depense).getMonth() === month && new Date(dep.date_depense).getFullYear() === year
+          ),
+          ...(bonsCommande || []).filter((bc: any) =>
+            new Date(bc.date_commande).getMonth() === month && new Date(bc.date_commande).getFullYear() === year
+          ),
+        ].reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0);
 
         chartDataCalc.push({
           name: monthNames[month],

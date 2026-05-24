@@ -53,6 +53,28 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// --- DELETE USER (Admin) - cascades to all user data ---
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: 'ID utilisateur requis' });
+    }
+
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ success: true, message: 'Utilisateur et toutes ses donnÃ©es supprimÃ©s avec succÃ¨s' });
+  } catch (error: any) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // --- DATABASE INITIALIZATION ---
 const initializeDatabase = async () => {
   try {
@@ -556,86 +578,98 @@ const handleAvoirLogic = async (factureId: any, newStatut: string, oldStatut: st
 // --- DASHBOARD DATA ---
 router.get('/dashboard-data', async (req, res) => {
   try {
-    const { data: factures } = await supabase.from('factures').select('*').in('statut', ['payÃ©e', 'reste_a_payer', 'annulÃ©e']);
-    const { data: ventesPassagers } = await supabase.from('ventes_passagers').select('*');
-    const { data: bonsCommande } = await supabase.from('bons_commande').select('*').in('statut', ['confirmÃ©', 'livré', 'livrée']);
-    const { data: depenses } = await supabase.from('depenses').select('*');
-    const { data: produits } = await supabase.from('produits').select('*');
-    
-    // TVA CollectÃ©e: Factures (annulÃ©es count as negative) + Ventes Passagers
-    const tvaFactures = (factures || []).reduce((sum, f) => {
-      const val = Number(f.montant_tva || 0);
-      return sum + (f.statut === 'annulÃ©e' ? -val : val);
-    }, 0);
-    const tvaVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_tva || 0), 0);
-    const totalTvaCollectee = tvaFactures + tvaVP;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
 
-    // TVA DÃ©ductible: Bons de Commande + DÃ©penses
-    const tvaBC = (bonsCommande || []).reduce((sum, bc) => sum + Number(bc.montant_tva || 0), 0);
+    const applyDateFilter = (q: any, field: string) => {
+      if (startDate) q = q.gte(field, startDate);
+      if (endDate) q = q.lte(field, endDate);
+      return q;
+    };
+
+    // Factures: only statuts validÃ©s (exclure brouillon, en_attente, annulÃ©e)
+    const validFactureStatuses = ['payÃ©e', 'reste_a_payer'];
+    let factQuery = supabase.from('factures').select('*').in('statut', validFactureStatuses);
+    let vpQuery = supabase.from('ventes_passagers').select('*');
+    let bcQuery = supabase.from('bons_commande').select('*').in('statut', ['livrÃ©', 'livrÃ©e']);
+    let depQuery = supabase.from('depenses').select('*');
+
+    if (startDate || endDate) {
+      factQuery = applyDateFilter(factQuery, 'date_emission');
+      vpQuery = applyDateFilter(vpQuery, 'date');
+      bcQuery = applyDateFilter(bcQuery, 'date_commande');
+      depQuery = applyDateFilter(depQuery, 'date_depense');
+    }
+
+    const [factures, ventesPassagers, bonsCommande, depenses, produits] = (await Promise.all([
+      factQuery, vpQuery, bcQuery, depQuery,
+      supabase.from('produits').select('*'),
+    ])).map(r => r.data || []);
+
+    // Chiffre d'Affaires = Ventes Passagers + Factures validÃ©es (TTC)
+    const caVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0);
+    const caFactures = (factures || []).reduce((sum, f) => sum + Number(f.montant_ttc || 0), 0);
+    const totalRevenue = caVP + caFactures;
+
+    // CrÃ©ances = reste Ã  payer des factures partiellement payÃ©es
+    const unpaidRevenue = (factures || [])
+      .filter(f => f.statut === 'reste_a_payer')
+      .reduce((sum, f) => sum + Number(f.reste_a_payer || 0), 0);
+
+    // DÃ©penses Totales (TTC) = DÃ©penses + Bons de Commande LivrÃ©
+    const depensesTTC = (depenses || []).reduce((sum, d) => sum + Number(d.montant_ttc || 0), 0);
+    const bcDepensesTTC = (bonsCommande || []).reduce((sum, bc) => sum + Number(bc.montant_ttc || 0), 0);
+    const totalDepenses = depensesTTC + bcDepensesTTC;
+
+    // BÃ©nÃ©fice Net = CA - DÃ©penses Totales
+    const profit = totalRevenue - totalDepenses;
+
+    // TVA CollectÃ©e
+    const tvaVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_tva || 0), 0);
+    const tvaFactures = (factures || []).reduce((sum, f) => sum + Number(f.montant_tva || 0), 0);
+    const totalTvaCollectee = tvaVP + tvaFactures;
+
+    // TVA DÃ©ductible
     const tvaDepenses = (depenses || []).reduce((sum, d) => sum + Number(d.montant_tva || 0), 0);
-    const totalTvaDeductible = tvaBC + tvaDepenses;
+    const tvaBC = (bonsCommande || []).reduce((sum, bc) => sum + Number(bc.montant_tva || 0), 0);
+    const totalTvaDeductible = tvaDepenses + tvaBC;
 
     const tvaNet = totalTvaCollectee - totalTvaDeductible;
 
-    // Ventes Totales (HT)
-    const ventesHT = (factures || []).reduce((sum, f) => {
-      const val = Number(f.montant_ht || 0);
-      return sum + (f.statut === 'annulÃ©e' ? -val : val);
-    }, 0) + (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ht || 0), 0);
-
-    // COGS (Cost of Goods Sold)
-    const cogsFactures = (factures || []).reduce((sum, f) => {
-      const val = Number(f.cogs || 0);
-      return sum + (f.statut === 'annulÃ©e' ? -val : val);
-    }, 0);
-    const cogsVP = (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.cogs || 0), 0);
-    const totalCOGS = cogsFactures + cogsVP;
-
-    // Profit: Ventes HT - COGS - DÃ©penses HT
-    const totalDepensesHT = (depenses || []).reduce((sum, d) => sum + Number(d.montant_ht || 0), 0);
-    const profit = ventesHT - totalCOGS - totalDepensesHT;
-
-    // Revenue (TTC)
-    const totalRevenue = (factures || []).reduce((sum, f) => {
-      const val = Number(f.montant_ttc || 0);
-      return sum + (f.statut === 'annulÃ©e' ? -val : val);
-    }, 0) + (ventesPassagers || []).reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0);
-
-    const unpaidRevenue = (factures || []).filter(f => f.statut === 'reste_a_payer').reduce((sum, f) => sum + Number(f.reste_a_payer || 0), 0);
-
+    // Monthly chart data
     const range = (req.query.range as string) || '6m';
     const monthlyData = [];
     const monthNames = ['Jan', 'FÃ©v', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'AoÃ»', 'Sep', 'Oct', 'Nov', 'DÃ©c'];
-    
+
     if (range === '1m') {
-      // Last 30 days
       for (let i = 29; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
         const dateStr = d.toISOString().split('T')[0];
-        
+
         const dayFactures = (factures || []).filter(f => {
           const fDate = new Date(f.date_emission).toISOString().split('T')[0];
           return fDate === dateStr;
         });
-
         const dayVP = (ventesPassagers || []).filter(vp => {
           const vpDate = new Date(vp.date).toISOString().split('T')[0];
           return vpDate === dateStr;
         });
-        
-        const dayDepenses = (depenses || []).filter(d => {
-          const dDate = new Date(d.date_depense).toISOString().split('T')[0];
+        const dayDepenses = (depenses || []).filter(d2 => {
+          const dDate = new Date(d2.date_depense).toISOString().split('T')[0];
           return dDate === dateStr;
         });
-        
+        const dayBC = (bonsCommande || []).filter(bc => {
+          const bcDate = new Date(bc.date_commande).toISOString().split('T')[0];
+          return bcDate === dateStr;
+        });
+
         monthlyData.push({
           name: d.getDate().toString(),
-          revenue: dayFactures.reduce((sum, f) => {
-            const val = Number(f.montant_ttc || 0);
-            return sum + (f.statut === 'annulÃ©e' ? -val : val);
-          }, 0) + dayVP.reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0),
-          expenses: dayDepenses.reduce((sum, d) => sum + Number(d.montant_ttc || 0), 0)
+          revenue: dayFactures.reduce((sum, f) => sum + Number(f.montant_ttc || 0), 0)
+            + dayVP.reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0),
+          expenses: dayDepenses.reduce((sum, d2) => sum + Number(d2.montant_ttc || 0), 0)
+            + dayBC.reduce((sum, bc) => sum + Number(bc.montant_ttc || 0), 0)
         });
       }
     } else {
@@ -645,29 +679,30 @@ router.get('/dashboard-data', async (req, res) => {
         d.setMonth(d.getMonth() - i);
         const month = d.getMonth();
         const year = d.getFullYear();
-        
+
         const monthFactures = (factures || []).filter(f => {
           const fDate = new Date(f.date_emission);
           return fDate.getMonth() === month && fDate.getFullYear() === year;
         });
-
         const monthVP = (ventesPassagers || []).filter(vp => {
           const vpDate = new Date(vp.date);
           return vpDate.getMonth() === month && vpDate.getFullYear() === year;
         });
-        
-        const monthDepenses = (depenses || []).filter(d => {
-          const dDate = new Date(d.date_depense);
+        const monthDepenses = (depenses || []).filter(d2 => {
+          const dDate = new Date(d2.date_depense);
           return dDate.getMonth() === month && dDate.getFullYear() === year;
         });
-        
+        const monthBC = (bonsCommande || []).filter(bc => {
+          const bcDate = new Date(bc.date_commande);
+          return bcDate.getMonth() === month && bcDate.getFullYear() === year;
+        });
+
         monthlyData.push({
           name: monthNames[month],
-          revenue: monthFactures.reduce((sum, f) => {
-            const val = Number(f.montant_ttc || 0);
-            return sum + (f.statut === 'annulÃ©e' ? -val : val);
-          }, 0) + monthVP.reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0),
-          expenses: monthDepenses.reduce((sum, d) => sum + Number(d.montant_ttc || 0), 0)
+          revenue: monthFactures.reduce((sum, f) => sum + Number(f.montant_ttc || 0), 0)
+            + monthVP.reduce((sum, vp) => sum + Number(vp.montant_ttc || 0), 0),
+          expenses: monthDepenses.reduce((sum, d2) => sum + Number(d2.montant_ttc || 0), 0)
+            + monthBC.reduce((sum, bc) => sum + Number(bc.montant_ttc || 0), 0)
         });
       }
     }
@@ -676,19 +711,25 @@ router.get('/dashboard-data', async (req, res) => {
       .filter(p => Number(p.stock_actuel) <= Number(p.stock_min))
       .slice(0, 5);
 
-    const { data: recentFactures } = await supabase
-      .from('factures')
-      .select('*, client:clients(*)')
-      .order('date_emission', { ascending: false })
-      .limit(5);
+    let recentQuery = supabase.from('factures').select('*, client:clients(*)').order('date_emission', { ascending: false }).limit(5);
+    if (startDate || endDate) {
+      recentQuery = applyDateFilter(recentQuery, 'date_emission');
+    }
+    const { data: recentFactures } = await recentQuery;
+
+    let clientsQuery = supabase.from('clients').select('*', { count: 'exact', head: true });
+    if (startDate || endDate) {
+      clientsQuery = applyDateFilter(clientsQuery, 'created_at');
+    }
+    const clientsCount = (await clientsQuery).count || 0;
 
     res.json({
-      clientsCount: (await supabase.from('clients').select('*', { count: 'exact', head: true })).count || 0,
-      facturesCount: (await supabase.from('factures').select('*', { count: 'exact', head: true }).in('statut', ['payÃ©e', 'reste_a_payer'])).count || 0,
+      clientsCount,
+      facturesCount: factures?.length || 0,
       produitsCount: produits?.length || 0,
       totalRevenue,
       unpaidRevenue,
-      totalDepenses: (depenses || []).reduce((sum, d) => sum + Number(d.montant_ttc), 0),
+      totalDepenses,
       profit,
       totalTvaCollectee,
       totalTvaDeductible,
@@ -3031,18 +3072,16 @@ router.delete('/ventes-passagers/:id', async (req, res) => {
 // --- SMART INSIGHTS ---
 router.get('/smart-insights', async (req, res) => {
   try {
-    const { data: factures } = await supabase.from('factures').select('*').in('statut', ['payÃ©e', 'reste_a_payer', 'annulÃ©e']);
+    const { data: factures } = await supabase.from('factures').select('*').in('statut', ['payÃ©e', 'reste_a_payer']);
     const { data: produits } = await supabase.from('produits').select('*');
     const { data: depenses } = await supabase.from('depenses').select('*');
-    const { data: bonsCommande } = await supabase.from('bons_commande').select('*').in('statut', ['confirmÃ©', 'livré', 'livrée']);
+    const { data: bonsCommande } = await supabase.from('bons_commande').select('*').in('statut', ['livrÃ©', 'livrÃ©e']);
     
     const insights: any[] = [];
 
     // 1. Performance Insight
-    const totalVentes = (factures || []).reduce((sum, f) => {
-      const val = Number(f.montant_ttc || 0);
-      return sum + (f.statut === 'annulÃ©e' ? -val : val);
-    }, 0);
+    const totalVentes = (factures || []).reduce((sum, f) => sum + Number(f.montant_ttc || 0), 0)
+      + (await supabase.from('ventes_passagers').select('montant_ttc')).data?.reduce((s: number, vp: any) => s + Number(vp.montant_ttc || 0), 0) || 0;
     
     if (totalVentes > 100000) {
       insights.push({
@@ -3072,10 +3111,7 @@ router.get('/smart-insights', async (req, res) => {
     }
 
     // 3. Finance Insight (TVA)
-    const tvaCollectee = (factures || []).reduce((sum, f) => {
-      const val = Number(f.montant_tva || 0);
-      return sum + (f.statut === 'annulÃ©e' ? -val : val);
-    }, 0);
+    const tvaCollectee = (factures || []).reduce((sum, f) => sum + Number(f.montant_tva || 0), 0);
     const tvaDeductible = (bonsCommande || []).reduce((sum, bc) => sum + Number(bc.montant_tva || 0), 0) + 
                           (depenses || []).reduce((sum, d) => sum + Number(d.montant_tva || 0), 0);
     const tvaAPayer = tvaCollectee - tvaDeductible;
