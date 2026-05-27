@@ -29,7 +29,98 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+/*
+ * Label registry context
+ * ──────────────────────
+ * Base UI's `<Select.Value>` renders the raw `value` of the selected item by
+ * default. That meant filter dropdowns across the app were showing things
+ * like `en_attente` or `thisYear` in the trigger instead of their translated
+ * labels.
+ *
+ * To fix this app-wide WITHOUT touching every call site, the `<Select>`
+ * wrapper now exposes a per-instance registry. Each `<SelectItem>` registers
+ * its rendered children under its `value`, and `<SelectValue>` consults the
+ * registry to display the proper label.
+ *
+ * No caller-side API changes are required — the existing
+ *   <SelectValue placeholder={...} />
+ * pattern now automatically resolves to a localized label.
+ */
+type LabelRegistry = {
+  register: (value: string, label: React.ReactNode) => void
+  unregister: (value: string) => void
+  get: (value: string) => React.ReactNode | undefined
+  subscribe: (cb: () => void) => () => void
+}
+
+const SelectLabelsContext = React.createContext<LabelRegistry | null>(null)
+
+/**
+ * Recursively walk a React children tree to collect every `<SelectItem>`'s
+ * `value` → `children` mapping. Used so the trigger can show a translated
+ * label even when the popup hasn't been opened yet (Base UI's popup, and
+ * therefore the items inside it, are not mounted until the first open).
+ */
+function collectLabels(
+  children: React.ReactNode,
+  out: Map<string, React.ReactNode>
+): void {
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return
+    // `SelectItem` is the only element type that contributes a label.
+    if (child.type === SelectItem) {
+      const props = child.props as { value?: unknown; children?: React.ReactNode }
+      if (props.value != null) {
+        out.set(String(props.value), props.children)
+      }
+      return
+    }
+    // Recurse into any container (Fragment, SelectContent, SelectGroup, …).
+    const props = (child.props ?? {}) as { children?: React.ReactNode }
+    if (props.children !== undefined) {
+      collectLabels(props.children, out)
+    }
+  })
+}
+
+function Select({ children, ...props }: SelectPrimitive.Root.Props<unknown>) {
+  // Re-scan whenever the children change so newly added items contribute
+  // labels (and removed ones disappear).
+  const labels = React.useMemo(() => {
+    const map = new Map<string, React.ReactNode>()
+    collectLabels(children, map)
+    return map
+  }, [children])
+
+  // Stable subscriber set. Currently unused (labels are derived from
+  // children so SelectValue re-renders alongside Select), but kept for API
+  // symmetry in case future callers register out-of-band.
+  const subsRef = React.useRef(new Set<() => void>())
+
+  const registry = React.useMemo<LabelRegistry>(() => ({
+    register: (value, label) => {
+      labels.set(value, label)
+      subsRef.current.forEach((cb) => cb())
+    },
+    unregister: (value) => {
+      labels.delete(value)
+      subsRef.current.forEach((cb) => cb())
+    },
+    get: (value) => labels.get(value),
+    subscribe: (cb) => {
+      subsRef.current.add(cb)
+      return () => {
+        subsRef.current.delete(cb)
+      }
+    },
+  }), [labels])
+
+  return (
+    <SelectLabelsContext.Provider value={registry}>
+      <SelectPrimitive.Root {...props}>{children}</SelectPrimitive.Root>
+    </SelectLabelsContext.Provider>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -41,13 +132,41 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+function SelectValue({ className, children, ...props }: SelectPrimitive.Value.Props) {
+  const registry = React.useContext(SelectLabelsContext)
+
+  // Re-render whenever the labels registry changes (items mount/unmount).
+  const [, forceUpdate] = React.useReducer((x: number) => x + 1, 0)
+  React.useEffect(() => {
+    if (!registry) return
+    return registry.subscribe(() => forceUpdate())
+  }, [registry])
+
+  // If the caller already passed an explicit render fn or node, honor it
+  // verbatim — that's a deliberate override (e.g. status pills in tables).
+  const resolvedChildren: SelectPrimitive.Value.Props["children"] =
+    children !== undefined
+      ? children
+      : registry
+        ? (value: unknown) => {
+            if (value == null || value === "") return null
+            const key = String(value)
+            const label = registry.get(key)
+            // Fall back to the raw value if no label was registered yet
+            // (e.g. before items have mounted). This preserves the previous
+            // behaviour rather than rendering nothing.
+            return label !== undefined ? label : key
+          }
+        : undefined
+
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-start", className)}
       {...props}
-    />
+    >
+      {resolvedChildren}
+    </SelectPrimitive.Value>
   )
 }
 
@@ -192,6 +311,8 @@ function SelectItem({
   children,
   ...props
 }: SelectPrimitive.Item.Props) {
+  // Labels are collected at the <Select> wrapper level by walking the JSX
+  // children tree, so no per-item registration is needed here.
   return (
     <SelectPrimitive.Item
       data-slot="select-item"

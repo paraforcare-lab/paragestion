@@ -427,7 +427,16 @@ export function Dashboard() {
             ))}
             <Select value={dateRange} onValueChange={(v) => { setDateRange(v as DateRangeKey); setLoading(true) }}>
               <SelectTrigger className="w-[130px] h-8 text-xs">
-                <SelectValue placeholder={td('date_range.more')} />
+                {/*
+                 * The active dateRange may have been chosen via a quick-pill
+                 * above (e.g. `this_month`) which isn't listed as a SelectItem
+                 * inside this dropdown. Rendering an explicit child here
+                 * guarantees the trigger always shows a translated label
+                 * instead of the raw enum value.
+                 */}
+                <SelectValue placeholder={td('date_range.more')}>
+                  {t(`dashboard.date_range.${dateRange}`)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {(['last_week', 'last_month', 'last_year', 'all', 'custom'] as const).map((key) => (
