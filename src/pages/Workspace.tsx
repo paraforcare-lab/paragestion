@@ -177,7 +177,11 @@ export function Workspace() {
       const monthsToShow = selectedRange === '1m' ? 1 : selectedRange === '1y' ? 12 : 6;
       const chartDataCalc: any[] = [];
 
-      const { data: bonsCommande } = await supabase.from('bons_commande').select('*').in('statut', ['livr\u00E9', 'livr\u00E9e']);
+      // BC statuses that count toward expense totals. Rule:
+      //   brouillon / en_attente / envoyé / annulé / refusé → excluded
+      //   confirmé + livré / livrée                          → included
+      // Stock effects are still gated to livré only (handled elsewhere).
+      const { data: bonsCommande } = await supabase.from('bons_commande').select('*').in('statut', ['confirm\u00E9', 'livr\u00E9', 'livr\u00E9e']);
 
       for (let i = monthsToShow - 1; i >= 0; i--) {
         const d = new Date();

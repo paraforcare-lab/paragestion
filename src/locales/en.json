@@ -883,6 +883,8 @@
     "toast_save_error":"Error saving sale",
     "toast_detail_error": "Error loading details",
     "toast_item_added":"{{name}} added to cart",
+    "toast_print_error": "Unable to open the print preview",
+    "toast_delete_error":"Error deleting sale",
     "walk_in_client":  "Walk-in customer",
     "counter_sale":    "Counter sale",
     "sale_info":       "Sale Information",

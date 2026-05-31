@@ -218,8 +218,12 @@ export function Dashboard() {
         const payeesFact    = factures.filter((f: any) => f.statut === 'payée')
         const resteAPayerFact = factures.filter((f: any) => f.statut === 'reste_a_payer')
         const brouillonFact = factures.filter((f: any) => f.statut === 'brouillon')
+        // BC statuses that count toward expense calculations.
+        // Rule: brouillon / en_attente / envoyé / annulé / refusé → excluded.
+        // confirmé and livré/livrée → included in monetary totals (TTC, TVA).
+        // Stock effects are still gated separately on livré only.
         const bonsCommandeValides = bonsCommande.filter((b: any) =>
-          ['livré', 'livrée'].includes(b.statut),
+          ['confirmé', 'livré', 'livrée'].includes(b.statut),
         )
 
         const caVP = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.montant_ttc || 0), 0)

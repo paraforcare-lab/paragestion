@@ -883,6 +883,8 @@
     "toast_save_error":"خطأ في حفظ البيع",
     "toast_detail_error": "خطأ في تحميل التفاصيل",
     "toast_item_added":"تمت إضافة {{name}} إلى السلة",
+    "toast_print_error": "تعذّر فتح معاينة الطباعة",
+    "toast_delete_error":"خطأ في حذف البيع",
     "walk_in_client":  "عميل عابر",
     "counter_sale":    "بيع شباك",
     "sale_info":       "معلومات البيع",

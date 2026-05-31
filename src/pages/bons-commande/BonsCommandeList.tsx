@@ -277,17 +277,261 @@ export function BonsCommandeList() {
     }
   };
 
+  /**
+   * Update the status of a Bon de Commande and apply all side effects in
+   * an idempotent way.
+   *
+   * Business rules (per the user spec):
+   *
+   *   • brouillon / en_attente / envoyé / annulé / refusé
+   *       → not counted in expense totals, no stock effect.
+   *   • confirmé
+   *       → counted in expense totals (handled by Dashboard.tsx /
+   *         BonsCommandeList stats), no stock effect.
+   *   • livré / livrée
+   *       → counted in totals AND adds stock + creates a linked Bon
+   *         de Livraison.
+   *
+   * Idempotency is driven by the persistent `bons_commande.stock_updated`
+   * flag, NOT by the previous status. This guarantees:
+   *
+   *   1. Switching between non-"livré" statuses never touches stock.
+   *   2. Switching to "livré" from any non-livré state increments stock
+   *      exactly once.
+   *   3. Switching away from "livré" reverts stock exactly once.
+   *   4. Switching back to "livré" later increments stock again — but
+   *      still only once per "entry into the livré state".
+   *
+   * The flag is flipped atomically with the side-effects so the state
+   * stays consistent even if the user spams status changes.
+   */
+  const changeBonCommandeStatus = async (id: number, newStatus: string) => {
+    const isLivréStatus = (s?: string | null) =>
+      s === 'livré' || s === 'livrée'
+    const isNowLivré = isLivréStatus(newStatus)
+
+    // --- 1. fetch the existing row to know the idempotency flag --------
+    const { data: oldBon, error: fetchError } = await supabase
+      .from('bons_commande')
+      .select('statut, fournisseur_id, numero, user_id, stock_updated')
+      .eq('id', id)
+      .single()
+    if (fetchError || !oldBon) {
+      throw new Error(`Bon de commande ${id} introuvable`)
+    }
+    // SQLite stores booleans as 0/1; treat any truthy value as "applied".
+    const wasStockUpdated = Boolean(Number(oldBon.stock_updated || 0))
+
+    // --- 2. update the status ------------------------------------------
+    const { error: updateError } = await supabase
+      .from('bons_commande')
+      .update({ statut: newStatus })
+      .eq('id', id)
+    if (updateError) {
+      throw new Error(updateError.message || 'Failed to update status')
+    }
+
+    // --- 3. linked Bon de Livraison sync -------------------------------
+    // BL existence mirrors the stock flag (1 BL per "into livré" entry).
+    if (isNowLivré && !wasStockUpdated) {
+      try {
+        const { data: bonDetails } = await supabase
+          .from('bons_commande')
+          .select('*')
+          .eq('id', id)
+          .single()
+        const { data: bonLignes } = await supabase
+          .from('bon_commande_lignes')
+          .select('*')
+          .eq('bon_commande_id', id)
+
+        if (bonDetails) {
+          const year = new Date().getFullYear()
+          const { data: blExisting } = await supabase
+            .from('bons_livraison')
+            .select('numero')
+            .like('numero', `BL-${year}-%`)
+            .eq('user_id', bonDetails.user_id)
+          let blMax = 0
+          for (const b of blExisting || []) {
+            const m = b.numero?.match(new RegExp(`^BL-${year}-(\\d+)$`))
+            if (m) {
+              const n = parseInt(m[1], 10)
+              if (n > blMax) blMax = n
+            }
+          }
+          const blNumero = `BL-${year}-${String(blMax + 1).padStart(4, '0')}`
+          const blData: any = {
+            numero: blNumero,
+            user_id: bonDetails.user_id,
+            fournisseur_id: bonDetails.fournisseur_id,
+            date_livraison: new Date().toISOString(),
+            statut: 'livré',
+            notes: `Généré automatiquement depuis Bon de Commande ${bonDetails.numero}`,
+            montant_ht: bonDetails.montant_ht || 0,
+            montant_tva: bonDetails.montant_tva || 0,
+            montant_ttc: bonDetails.montant_ttc || 0,
+            bon_commande_id: id,
+          }
+          const { data: newBL, error: blError } = await supabase
+            .from('bons_livraison')
+            .insert([blData])
+            .select()
+            .single()
+          if (!blError && newBL && bonLignes && bonLignes.length > 0) {
+            const blLignesData = (bonLignes as any[]).map((l: any, index: number) => ({
+              bon_livraison_id: newBL.id,
+              produit_id: l.produit_id,
+              reference: l.reference,
+              designation: l.designation,
+              quantite: l.quantite,
+              prix_unitaire_ht: l.prix_unitaire_ht,
+              tva: l.tva,
+              montant_ht:
+                l.montant_ht ||
+                Number(l.quantite || 0) * Number(l.prix_unitaire_ht || 0),
+              montant_ttc:
+                l.montant_ttc ||
+                Number(l.quantite || 0) *
+                  Number(l.prix_unitaire_ht || 0) *
+                  (1 + Number(l.tva || 0) / 100),
+              ordre: l.ordre !== undefined ? l.ordre : index,
+            }))
+            await supabase.from('bon_livraison_lignes').insert(blLignesData)
+          }
+        }
+      } catch (blSyncErr) {
+        // Non-fatal — same policy as the server (BC status update already succeeded)
+        console.error('[changeBonCommandeStatus] BL sync error (non-fatal):', blSyncErr)
+      }
+    } else if (!isNowLivré && wasStockUpdated) {
+      // Reverting: remove the auto-generated Bon de Livraison
+      await supabase.from('bons_livraison').delete().eq('bon_commande_id', id)
+    }
+
+    // --- 4. stock movement sync (idempotent via stock_updated) ---------
+    const adjustStock = async (
+      produitId: number,
+      delta: number,
+      type: string,
+      notes: string,
+      bonNumero: string | undefined,
+      fournisseurNom: string | undefined,
+      prixUnitaire?: number,
+      clampToZero?: boolean,
+    ) => {
+      if (!produitId) return
+      const { data: produit } = await supabase
+        .from('produits')
+        .select('stock_actuel')
+        .eq('id', produitId)
+        .single()
+      if (!produit) return
+      const currentStock = Number(produit.stock_actuel || 0)
+      const candidateStock = currentStock + delta
+      const newStock = clampToZero
+        ? Math.max(0, candidateStock)
+        : candidateStock
+      if (!clampToZero && newStock < 0) {
+        throw new Error(
+          `Stock insuffisant pour le produit ${produitId}. ` +
+            `Stock actuel: ${currentStock}, tentative: ${delta}`,
+        )
+      }
+      await supabase
+        .from('produits')
+        .update({ stock_actuel: newStock })
+        .eq('id', produitId)
+      await supabase.from('mouvements_stock').insert([
+        {
+          produit_id: produitId,
+          type,
+          quantite: delta,
+          notes,
+          reference_document: bonNumero,
+          entite_nom: fournisseurNom,
+          prix_unitaire: prixUnitaire || 0,
+          date_mouvement: new Date().toISOString(),
+        },
+      ])
+    }
+
+    // Only fetch lignes/context if we actually need to move stock.
+    const needStockAdd = isNowLivré && !wasStockUpdated
+    const needStockRevert = !isNowLivré && wasStockUpdated
+
+    if (needStockAdd || needStockRevert) {
+      const { data: currentLignes } = await supabase
+        .from('bon_commande_lignes')
+        .select('*')
+        .eq('bon_commande_id', id)
+      const { data: b } = await supabase
+        .from('bons_commande')
+        .select('*, fournisseur:fournisseurs(nom)')
+        .eq('id', id)
+        .single()
+      const fournisseurNom: string | undefined = b?.fournisseur?.nom
+      const bonNumero: string | undefined = b?.numero
+
+      if (needStockAdd && currentLignes && currentLignes.length > 0) {
+        for (const l of currentLignes as any[]) {
+          if (!l.produit_id) continue
+          try {
+            await adjustStock(
+              l.produit_id,
+              Number(l.quantite || 0),
+              'achat',
+              `Réception Bon de Commande ${bonNumero ?? ''}`,
+              bonNumero,
+              fournisseurNom,
+              l.prix_unitaire_ht,
+              /* clampToZero */ false,
+            )
+          } catch (stockErr) {
+            console.error(
+              `[changeBonCommandeStatus] stock increment failed for produit ${l.produit_id}:`,
+              stockErr,
+            )
+          }
+        }
+      } else if (needStockRevert && currentLignes && currentLignes.length > 0) {
+        // Revert stock — clamp to 0 so a low/zero stock does not block the
+        // administrative status change.
+        for (const l of currentLignes as any[]) {
+          if (!l.produit_id) continue
+          try {
+            await adjustStock(
+              l.produit_id,
+              -Number(l.quantite || 0),
+              'ajustement',
+              `Annulation Réception Bon de Commande ${bonNumero ?? ''}`,
+              bonNumero,
+              fournisseurNom,
+              l.prix_unitaire_ht,
+              /* clampToZero */ true,
+            )
+          } catch (stockErr) {
+            console.error(
+              `[changeBonCommandeStatus] stock revert failed for produit ${l.produit_id}:`,
+              stockErr,
+            )
+          }
+        }
+      }
+
+      // --- 5. flip the idempotency flag atomically with the side-effects -
+      // Persisted AFTER the stock work so a crash mid-flight leaves us in
+      // a state we can recover from on the next status change.
+      await supabase
+        .from('bons_commande')
+        .update({ stock_updated: needStockAdd ? 1 : 0 })
+        .eq('id', id)
+    }
+  }
+
   const handleStatusChange = async (id: number, newStatus: string) => {
     try {
-      const res = await fetch(`/api/bons-commande/${id}/statut`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ statut: newStatus }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || t('shared.toast.update_error'));
-      }
+      await changeBonCommandeStatus(id, newStatus);
       toast.success(t('shared.toast.status_updated'));
       fetchBons();
     } catch (error: any) {

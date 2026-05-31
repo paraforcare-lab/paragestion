@@ -278,11 +278,14 @@ export default function VentesPassagers() {
    * user gets exactly what they saw before saving.
    */
   const handlePrint = (vente: VentePassager) => {
+    // In Tauri's WebView, `window.open('', '_blank')` is blocked (the
+    // shell forwards external URLs to the OS browser and refuses blank
+    // targets). When that happens we fall back to printing through a
+    // hidden same-document iframe — same final HTML, same OS print
+    // dialog, no UX change. In a regular browser the original popup
+    // path is preserved verbatim.
     const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      toast.error(t('ventes.toast_popup_blocked'));
-      return;
-    }
+    const useIframeFallback = !printWindow;
 
     const settings = readTicketSettings();
     const fontFamily = fontToFamily(settings.font);
@@ -343,7 +346,7 @@ export default function VentesPassagers() {
     // NET À PAYER. Pre-computing the value here keeps the template tidy.
     const subtotal = (Number(vente.montantHt) || 0) + (Number(vente.montantTva) || 0)
 
-    printWindow.document.write(`
+    const printHtml = `
       <html lang="${esc(htmlLang)}" dir="${htmlDir}">
       <head>
         <title>Ticket ${esc(numStr)}</title>
@@ -476,8 +479,65 @@ export default function VentesPassagers() {
         </script>
       </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    if (!useIframeFallback && printWindow) {
+      // Standard browser path — unchanged behaviour.
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      return;
+    }
+
+    // Tauri / popup-blocked fallback: render the same HTML into a hidden
+    // same-document iframe and call print() on its contentWindow. The
+    // iframe is removed after the print dialog returns so it leaves no
+    // trace in the DOM.
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+      // Defer one tick so Chromium has time to wire the print job before
+      // we yank the iframe out of the DOM (yanking too early cancels it).
+      setTimeout(() => {
+        if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      }, 1000);
+    };
+
+    iframe.onload = () => {
+      try {
+        const cw = iframe.contentWindow;
+        if (!cw) {
+          cleanup();
+          return;
+        }
+        // `afterprint` fires once the OS dialog closes, regardless of
+        // whether the user pressed Print or Cancel.
+        cw.addEventListener('afterprint', cleanup);
+        cw.focus();
+        cw.print();
+      } catch {
+        // Last-ditch cleanup if something throws before afterprint.
+        cleanup();
+      }
+    };
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+      cleanup();
+      toast.error(t('ventes.toast_print_error') || 'Print failed');
+      return;
+    }
+    doc.open();
+    doc.write(printHtml);
+    doc.close();
   };
 
   const filteredVentes = useMemo(() => {

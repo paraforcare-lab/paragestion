@@ -883,6 +883,8 @@
     "toast_save_error":"Erreur lors de l'enregistrement",
     "toast_detail_error": "Erreur lors du chargement des détails",
     "toast_item_added":"{{name}} ajouté au panier",
+    "toast_print_error": "Impossible d'ouvrir l'aperçu d'impression",
+    "toast_delete_error":"Erreur lors de la suppression",
     "walk_in_client":  "Client de passage",
     "counter_sale":    "Vente comptoir",
     "sale_info":       "Information de Vente",

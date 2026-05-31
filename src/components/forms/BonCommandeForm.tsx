@@ -210,6 +210,19 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
         payload.fournisseur_id = fournisseurId;
       }
 
+      // Snapshot the previous stock_updated flag BEFORE the row gets
+      // updated, so we can decide whether stock needs to move now.
+      // For new rows the flag starts at 0 by definition.
+      let priorStockUpdated = 0;
+      if (bonId) {
+        const { data: prior } = await supabase
+          .from('bons_commande')
+          .select('stock_updated')
+          .eq('id', bonId)
+          .single();
+        priorStockUpdated = Number(prior?.stock_updated || 0);
+      }
+
       if (!bonId) {
         let { data: newBon, error } = await supabase.from('bons_commande').insert([{ ...payload, user_id: user?.id }]).select().single();
         if (error?.message?.includes('duplicate key') || error?.code === '23505') {
@@ -260,8 +273,16 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
           throw lignesError;
         }
 
-        const activeStatuses = ['livré', 'livrée'];
-        if (activeStatuses.includes(data.statut)) {
+        // Stock side-effect — **idempotent**: only fire when the target
+        // statut is "livré"/"livrée" AND the row was not already flagged
+        // stock_updated. Re-saving the same BC without changing status
+        // therefore never double-adds stock. If the user moves a "livré"
+        // BC to a non-livré status via this form, the stock is reverted
+        // exactly once (same semantics as the status dropdown helper).
+        const isLivréStatus = (s?: string) => s === 'livré' || s === 'livrée';
+        const wantStock = isLivréStatus(data.statut);
+
+        if (wantStock && priorStockUpdated === 0) {
           const changedIds: (number | string)[] = [];
           for (const ligne of lignesPayload) {
             if (ligne.produit_id) {
@@ -270,6 +291,31 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
             }
           }
           await ensureLowStockNotifications(user?.id, changedIds);
+          await supabase.from('bons_commande').update({ stock_updated: 1 }).eq('id', bonId);
+        } else if (!wantStock && priorStockUpdated === 1) {
+          // Revert stock — clamped to zero so already-consumed inventory
+          // doesn't block the administrative status change. We bypass
+          // `updateStockAndNotify` here because that helper refuses to go
+          // negative, which would silently skip the revert.
+          for (const ligne of lignesPayload) {
+            if (!ligne.produit_id) continue;
+            const { data: produit } = await supabase
+              .from('produits')
+              .select('stock_actuel')
+              .eq('id', ligne.produit_id)
+              .single();
+            if (!produit) continue;
+            const current = Number(produit.stock_actuel || 0);
+            const next = Math.max(0, current - Number(ligne.quantite || 0));
+            await supabase
+              .from('produits')
+              .update({ stock_actuel: next })
+              .eq('id', ligne.produit_id);
+          }
+          await supabase.from('bons_commande').update({ stock_updated: 0 }).eq('id', bonId);
+          // The auto-generated BL (if any) should disappear with the revert
+          // so the two views stay in sync.
+          await supabase.from('bons_livraison').delete().eq('bon_commande_id', bonId);
         }
       }
 

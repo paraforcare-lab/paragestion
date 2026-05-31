@@ -39,6 +39,7 @@ export function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => resolveInitialTheme())
+
   const { user } = useAuth()
   const navigate = useNavigate()
 
