@@ -384,9 +384,41 @@ export function FacturesList() {
     try {
       const { numero: numeroAvoir } = await createAvoirForFacture(facture.id);
 
+      // Mirror the stock logic from handleStatusChange: cancelling an
+      // invoice that was active (payée / reste_a_payer) and had its stock
+      // deducted must put the sold quantities back into stock.
+      const { data: current } = await supabase
+        .from('factures')
+        .select('statut, stock_updated')
+        .eq('id', facture.id)
+        .single();
+
+      const oldStatut = current?.statut;
+      const stockUpdated = current?.stock_updated ?? false;
+      const activeStatuses = ['payée', 'reste_a_payer'];
+      const wasActive = activeStatuses.includes(oldStatut);
+
+      const updateData: any = { statut: 'annulée' };
+
+      if (wasActive && stockUpdated) {
+        const { data: lignes } = await supabase
+          .from('facture_lignes')
+          .select('produit_id, quantite')
+          .eq('facture_id', facture.id);
+
+        if (lignes) {
+          for (const l of lignes) {
+            if (l.produit_id) {
+              await updateStockAndNotify(user?.id, l.produit_id, Number(l.quantite));
+            }
+          }
+        }
+        updateData.stock_updated = false;
+      }
+
       const { error: updateError } = await supabase
         .from('factures')
-        .update({ statut: 'annulée' })
+        .update(updateData)
         .eq('id', facture.id)
         .eq('user_id', user?.id);
 

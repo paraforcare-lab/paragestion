@@ -255,10 +255,26 @@ export default function VentesPassagers() {
 
   const handleDelete = async (id: string) => {
     try {
+      // Fetch the sale lines before deleting so we can restore the stock
+      // that was decremented when the sale was created.
+      const { data: lignes } = await supabase
+        .from('ventes_passagers_lignes')
+        .select('produit_id, quantite')
+        .eq('vp_id', id);
+
       const { error } = await supabase.from('ventes_passagers').delete().eq('id', id);
       if (error) throw error;
+
+      // Put the sold quantities back into stock (inverse of the sale).
+      for (const ligne of lignes || []) {
+        if (ligne.produit_id) {
+          await updateStockAndNotify(user?.id, ligne.produit_id, Number(ligne.quantite || 0));
+        }
+      }
+
       toast.success(t('ventes.toast_deleted'));
       fetchVentes();
+      fetchProduits();
     } catch (error) {
       toast.error(t('ventes.toast_delete_error'));
     }
