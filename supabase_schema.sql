@@ -214,6 +214,39 @@ CREATE TABLE IF NOT EXISTS bon_livraison_lignes (
     ordre INTEGER DEFAULT 0
 );
 
+-- Table: Bons de Livraison (Client / sales-side) — never impacts stock
+CREATE TABLE IF NOT EXISTS bons_livraison_client (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
+    client_id BIGINT REFERENCES clients(id),
+    facture_id BIGINT REFERENCES factures(id),
+    date_livraison DATE DEFAULT CURRENT_DATE,
+    statut TEXT DEFAULT 'en_attente',
+    montant_ht DECIMAL(15, 2) DEFAULT 0,
+    montant_tva DECIMAL(15, 2) DEFAULT 0,
+    montant_ttc DECIMAL(15, 2) DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table: Bon Livraison Client Lignes
+CREATE TABLE IF NOT EXISTS bon_livraison_client_lignes (
+    id BIGSERIAL PRIMARY KEY,
+    bon_livraison_client_id BIGINT REFERENCES bons_livraison_client(id) ON DELETE CASCADE,
+    produit_id BIGINT REFERENCES produits(id),
+    reference TEXT,
+    designation TEXT NOT NULL,
+    quantite DECIMAL(15, 2) NOT NULL,
+    prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
+    tva DECIMAL(5, 2) DEFAULT 20,
+    montant_ht DECIMAL(15, 2),
+    montant_ttc DECIMAL(15, 2),
+    ordre INTEGER DEFAULT 0
+);
+
 -- Table: Ventes Passagers
 CREATE TABLE IF NOT EXISTS ventes_passagers (
     id BIGSERIAL PRIMARY KEY,
@@ -356,7 +389,7 @@ BEGIN
     FOR t IN 
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
+        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'bons_livraison_client', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
     LOOP
         EXECUTE format('CREATE INDEX IF NOT EXISTS %I_user_id_idx ON %I (user_id)', t, t);
     END LOOP;
@@ -370,7 +403,7 @@ BEGIN
     FOR t IN 
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
+        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'bons_livraison_client', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
     LOOP
         EXECUTE format('DROP TRIGGER IF EXISTS update_%I_updated_at ON %I', t, t);
         EXECUTE format('CREATE TRIGGER update_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()', t, t);

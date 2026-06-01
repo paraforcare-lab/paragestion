@@ -18,6 +18,7 @@ import { AvoirsList } from './pages/avoirs/AvoirsList'
 import { DevisList } from './pages/devis/DevisList'
 import { BonsCommandeList } from './pages/bons-commande/BonsCommandeList'
 import { BonsLivraisonList } from './pages/bons-livraison/BonsLivraisonList'
+import { BonsLivraisonClientList } from './pages/bons-livraison-client/BonsLivraisonClientList'
 import { DepensesList } from './pages/depenses/DepensesList'
 import { Parametres } from './pages/parametres/Parametres'
 import { DatabaseManager } from './pages/DatabaseManager'
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="devis" element={<DevisList />} />
               <Route path="bons-commande" element={<BonsCommandeList />} />
               <Route path="bons-livraison" element={<BonsLivraisonList />} />
+              <Route path="bons-livraison-client" element={<BonsLivraisonClientList />} />
               <Route path="depenses" element={<DepensesList />} />
               <Route path="parametres" element={<Parametres />} />
               <Route path="database" element={<DatabaseManager />} />

@@ -95,6 +95,18 @@ export const RELATIONS: RelationMap = {
     produits:       { kind: 'belongsTo', fkColumn: 'produit_id' },
   },
 
+  // -------------------- sales-side delivery notes (client) -------------
+  // Mirror of bons_livraison but tied to a client; never touches stock.
+  bons_livraison_client: {
+    clients:                     { kind: 'belongsTo', fkColumn: 'client_id' },
+    factures:                    { kind: 'belongsTo', fkColumn: 'facture_id' },
+    bon_livraison_client_lignes: { kind: 'hasMany',   fkColumn: 'bon_livraison_client_id' },
+  },
+  bon_livraison_client_lignes: {
+    bons_livraison_client: { kind: 'belongsTo', fkColumn: 'bon_livraison_client_id' },
+    produits:              { kind: 'belongsTo', fkColumn: 'produit_id' },
+  },
+
   // -------------------- expenses ---------------------------------------
   depenses: {
     fournisseurs: { kind: 'belongsTo', fkColumn: 'fournisseur_id' },
@@ -116,9 +128,10 @@ export const RELATIONS: RelationMap = {
 
   // -------------------- reverse lookups from the master tables --------
   clients: {
-    factures: { kind: 'hasMany', fkColumn: 'client_id' },
-    devis:    { kind: 'hasMany', fkColumn: 'client_id' },
-    avoirs:   { kind: 'hasMany', fkColumn: 'client_id' },
+    factures:              { kind: 'hasMany', fkColumn: 'client_id' },
+    devis:                 { kind: 'hasMany', fkColumn: 'client_id' },
+    avoirs:                { kind: 'hasMany', fkColumn: 'client_id' },
+    bons_livraison_client: { kind: 'hasMany', fkColumn: 'client_id' },
   },
   fournisseurs: {
     bons_commande:  { kind: 'hasMany', fkColumn: 'fournisseur_id' },
@@ -131,6 +144,7 @@ export const RELATIONS: RelationMap = {
     avoir_lignes:            { kind: 'hasMany', fkColumn: 'produit_id' },
     bon_commande_lignes:     { kind: 'hasMany', fkColumn: 'produit_id' },
     bon_livraison_lignes:    { kind: 'hasMany', fkColumn: 'produit_id' },
+    bon_livraison_client_lignes: { kind: 'hasMany', fkColumn: 'produit_id' },
     ventes_passagers_lignes: { kind: 'hasMany', fkColumn: 'produit_id' },
     mouvements_stock:        { kind: 'hasMany', fkColumn: 'produit_id' },
   },

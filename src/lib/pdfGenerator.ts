@@ -309,9 +309,12 @@ function numberToWordsCurrency(amount: number, labels?: DocumentLabels): string 
 }
 
 function formatCurrency(value: number, decimals: number = 2): string {
+  // Strip trailing zeros: integers show no decimals, floats keep up to 2
+  // significant fraction digits (e.g. 269 -> "269", 53.8 -> "53,8",
+  // 53.85 -> "53,85"). The `decimals` argument now only caps the maximum.
   return new Intl.NumberFormat('fr-FR', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.min(decimals, 2),
   }).format(value);
 }
 

@@ -395,8 +395,8 @@ function numberToWordsCurrency(amount, labels) {
 }
 function formatCurrency(value, decimals = 2) {
   return new Intl.NumberFormat("fr-FR", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
+    minimumFractionDigits: 0,
+    maximumFractionDigits: Math.min(decimals, 2)
   }).format(value);
 }
 function formatDate(dateStr, language) {

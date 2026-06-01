@@ -12,7 +12,7 @@ interface BonCommandeDocumentProps {
 }
 
 const fmt2 = (n: number): string =>
-  new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
 
 const safeNum = (v: any, fallback = 0): number => {
   if (v === null || v === undefined || v === '') return fallback

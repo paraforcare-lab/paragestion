@@ -19,6 +19,7 @@ const routeMeta: Record<string, { titleKey: string; subtitleKey: string }> = {
   '/ventes-passagers':{ titleKey: 'navigation.counter_sales',  subtitleKey: 'header.subtitles.counter_sales'  },
   '/avoirs':          { titleKey: 'navigation.credit_notes',   subtitleKey: 'header.subtitles.credit_notes'   },
   '/bons-livraison':  { titleKey: 'navigation.delivery_notes', subtitleKey: 'header.subtitles.delivery_notes' },
+  '/bons-livraison-client': { titleKey: 'navigation.delivery_notes_client', subtitleKey: 'header.subtitles.delivery_notes_client' },
   '/bons-commande':   { titleKey: 'navigation.purchase_orders',subtitleKey: 'header.subtitles.purchase_orders'},
   '/depenses':        { titleKey: 'navigation.expenses',       subtitleKey: 'header.subtitles.expenses'       },
   '/clients':         { titleKey: 'navigation.clients',        subtitleKey: 'header.subtitles.clients'        },

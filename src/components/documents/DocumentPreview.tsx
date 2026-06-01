@@ -4,7 +4,7 @@ import { getDateLocale } from '@/lib/utils'
 import { numberToFrenchWords } from '@/lib/numberToWords'
 import { DOC_COLORS as C } from './docColors'
 
-type DocType = 'facture' | 'devis' | 'bon_commande' | 'bon_livraison'
+type DocType = 'facture' | 'devis' | 'bon_commande' | 'bon_livraison' | 'bon_livraison_client'
 
 interface DocumentPreviewProps {
   type: DocType
@@ -17,10 +17,10 @@ interface DocumentPreviewProps {
 const ITEMS_PER_PAGE = 22
 
 const fmt2 = (n: number): string =>
-  new Intl.NumberFormat('fr-MA', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+  new Intl.NumberFormat('fr-MA', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
 
 const fmt4 = (n: number): string =>
-  new Intl.NumberFormat('fr-MA', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(n)
+  new Intl.NumberFormat('fr-MA', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
 
 const safeNum = (v: any, fallback = 0): number => {
   if (v === null || v === undefined || v === '') return fallback
@@ -58,6 +58,7 @@ const titles: Record<DocType, string> = {
   devis: 'DEVIS',
   bon_commande: 'BON DE COMMANDE',
   bon_livraison: 'BON DE LIVRAISON',
+  bon_livraison_client: 'BON DE LIVRAISON',
 }
 
 const entityLabel: Record<DocType, string> = {
@@ -65,6 +66,7 @@ const entityLabel: Record<DocType, string> = {
   devis: 'Client',
   bon_commande: 'Fournisseur',
   bon_livraison: 'Fournisseur',
+  bon_livraison_client: 'Client',
 }
 
 /** "FACTURÉ À" → "FOURNISSEUR" / "DESTINATAIRE" depending on doc type.
@@ -74,6 +76,7 @@ const recipientBoxLabel: Record<DocType, string> = {
   devis:          'DEVIS POUR',
   bon_commande:   'FOURNISSEUR',
   bon_livraison:  'DESTINATAIRE',
+  bon_livraison_client: 'DESTINATAIRE',
 }
 
 interface TvaBucket {

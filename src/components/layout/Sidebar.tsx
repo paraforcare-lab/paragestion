@@ -28,7 +28,7 @@ const navigationGroups = [
       { nameKey: 'navigation.quotes', href: '/devis', icon: FileCheck },
       { nameKey: 'navigation.counter_sales', href: '/ventes-passagers', icon: ShoppingCart },
       { nameKey: 'navigation.credit_notes', href: '/avoirs', icon: Receipt },
-      { nameKey: 'navigation.delivery_notes', href: '/bons-livraison', icon: Truck },
+      { nameKey: 'navigation.delivery_notes_client', href: '/bons-livraison-client', icon: Truck },
     ]
   },
   {
@@ -36,6 +36,7 @@ const navigationGroups = [
     titleKey: 'nav.achats',
     items: [
       { nameKey: 'navigation.purchase_orders', href: '/bons-commande', icon: ClipboardList },
+      { nameKey: 'navigation.delivery_notes', href: '/bons-livraison', icon: Truck },
       { nameKey: 'navigation.expenses', href: '/depenses', icon: DollarSign },
     ]
   },
@@ -190,7 +191,7 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
                   <div className="space-y-1">
                     {group.items.map((item) => {
                       const isActive = location.pathname === item.href || 
-                                      (item.href !== '/' && location.pathname.startsWith(item.href));
+                                      (item.href !== '/' && location.pathname.startsWith(item.href + '/'));
                       return (
                         <Link
                           key={item.nameKey}

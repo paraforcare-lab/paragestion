@@ -310,6 +310,49 @@ pub const MIGRATIONS: &[&str] = &[
     "#,
 
     // -----------------------------------------------------------------
+    // Sales-side delivery notes (client). Mirrors `bons_livraison` but is
+    // tied to a client and NEVER touches stock — purely a printable
+    // delivery document for the customer.
+    // -----------------------------------------------------------------
+    r#"
+    CREATE TABLE IF NOT EXISTS bons_livraison_client (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero          TEXT    NOT NULL,
+        client_id       INTEGER,
+        facture_id      INTEGER,
+        date_livraison  TEXT    DEFAULT CURRENT_DATE,
+        statut          TEXT    DEFAULT 'en_attente',
+        montant_ht      REAL    DEFAULT 0,
+        montant_tva     REAL    DEFAULT 0,
+        montant_ttc     REAL    DEFAULT 0,
+        notes           TEXT,
+        created_at      TEXT    DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TEXT    DEFAULT CURRENT_TIMESTAMP,
+        user_id         TEXT,
+        FOREIGN KEY (client_id)  REFERENCES clients(id),
+        FOREIGN KEY (facture_id) REFERENCES factures(id)
+    );
+    "#,
+
+    r#"
+    CREATE TABLE IF NOT EXISTS bon_livraison_client_lignes (
+        id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+        bon_livraison_client_id  INTEGER,
+        produit_id               INTEGER,
+        reference                TEXT,
+        designation              TEXT    NOT NULL,
+        quantite                 REAL    NOT NULL,
+        prix_unitaire_ht         REAL    NOT NULL,
+        tva                      REAL    DEFAULT 20,
+        ordre                    INTEGER DEFAULT 0,
+        montant_ht               REAL    DEFAULT 0,
+        montant_ttc              REAL    DEFAULT 0,
+        FOREIGN KEY (bon_livraison_client_id) REFERENCES bons_livraison_client(id),
+        FOREIGN KEY (produit_id)              REFERENCES produits(id)
+    );
+    "#,
+
+    // -----------------------------------------------------------------
     // Expenses
     // -----------------------------------------------------------------
     r#"
@@ -532,6 +575,9 @@ pub const MIGRATIONS: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_bons_livraison_fournisseur  ON bons_livraison(fournisseur_id);",
     "CREATE INDEX IF NOT EXISTS idx_bons_livraison_bc_id        ON bons_livraison(bon_commande_id);",
     "CREATE INDEX IF NOT EXISTS idx_bl_lignes_bl_id             ON bon_livraison_lignes(bon_livraison_id);",
+    "CREATE INDEX IF NOT EXISTS idx_blc_client_id               ON bons_livraison_client(client_id);",
+    "CREATE INDEX IF NOT EXISTS idx_blc_facture_id              ON bons_livraison_client(facture_id);",
+    "CREATE INDEX IF NOT EXISTS idx_blc_lignes_blc_id           ON bon_livraison_client_lignes(bon_livraison_client_id);",
     "CREATE INDEX IF NOT EXISTS idx_depenses_fournisseur        ON depenses(fournisseur_id);",
     "CREATE INDEX IF NOT EXISTS idx_vp_lignes_vp_id             ON ventes_passagers_lignes(vente_passager_id);",
     "CREATE INDEX IF NOT EXISTS idx_mouvements_stock_produit    ON mouvements_stock(produit_id);",
