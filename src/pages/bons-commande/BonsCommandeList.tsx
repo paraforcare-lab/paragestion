@@ -65,6 +65,7 @@ export function BonsCommandeList() {
   const [bons, setBons] = useState<BonCommande[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -73,6 +74,11 @@ export function BonsCommandeList() {
   const [selectedBon, setSelectedBon] = useState<any>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bonToDelete, setBonToDelete] = useState<number | null>(null);
+  // Pending status change awaiting confirmation. `kind` selects which
+  // explanatory popup to show: 'deliver' (→ livré) or 'cancel' (→ annulé).
+  const [statusConfirm, setStatusConfirm] = useState<
+    { id: number; newStatus: string; kind: 'deliver' | 'cancel' } | null
+  >(null);
 
   const statusOptions: StatutOption[] = [
     { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
@@ -540,6 +546,41 @@ export function BonsCommandeList() {
     }
   };
 
+  const isLivréValue = (s?: string | null) => s === 'livré' || s === 'livrée';
+
+  // The status dropdown is frozen once the order reaches "livré" or
+  // "annulé": the user can no longer pick an arbitrary status from it.
+  // (A "livré" order can still be cancelled via the dedicated icon.)
+  const isStatusLocked = (statut?: string | null) =>
+    isLivréValue(statut) || statut === 'annulé';
+
+  // "annulé" is fully terminal — no transition of any kind is allowed.
+  const isStatusTerminal = (statut?: string | null) => statut === 'annulé';
+
+  /**
+   * Entry point from the status dropdown / cancel icon. Changing to
+   * "livré" (adds stock) or "annulé" (terminal) is irreversible, so we
+   * ask for an explicit confirmation that explains the consequence before
+   * applying it. Every other transition is applied directly as before.
+   *
+   * A "livré" order may still be moved to "annulé" (the cancel icon stays
+   * available); only "annulé" itself blocks every further change.
+   */
+  const requestStatusChange = (id: number, newStatus: string, currentStatus: string) => {
+    if (isStatusTerminal(currentStatus)) return; // annulé — no change allowed
+    if (newStatus === currentStatus) return;
+
+    if (isLivréValue(newStatus)) {
+      setStatusConfirm({ id, newStatus, kind: 'deliver' });
+      return;
+    }
+    if (newStatus === 'annulé') {
+      setStatusConfirm({ id, newStatus, kind: 'cancel' });
+      return;
+    }
+    handleStatusChange(id, newStatus);
+  };
+
   const getStatusConfig = (statut: string) => {
     return statusOptions.find(s => s.value === statut) || statusOptions[0];
   };
@@ -565,8 +606,63 @@ export function BonsCommandeList() {
       filtered = filtered.filter(b => b.statut === statusFilter);
     }
 
+    if (timeFilter !== 'all') {
+      const now = new Date();
+      // Inclusive start, exclusive end of the selected period.
+      let start = new Date(0);
+      let end = new Date(8640000000000000); // max date
+      const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      // Monday as the first day of the week.
+      const startOfWeek = (d: Date) => {
+        const s = startOfDay(d);
+        const day = (s.getDay() + 6) % 7; // 0 = Monday
+        s.setDate(s.getDate() - day);
+        return s;
+      };
+      switch (timeFilter) {
+        case 'today':
+          start = startOfDay(now);
+          end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+          break;
+        case 'yesterday':
+          end = startOfDay(now);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+          break;
+        case 'thisWeek':
+          start = startOfWeek(now);
+          end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+          break;
+        case 'lastWeek':
+          end = startOfWeek(now);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 7);
+          break;
+        case 'thisMonth':
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          break;
+        case 'lastMonth':
+          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'thisYear':
+          start = new Date(now.getFullYear(), 0, 1);
+          end = new Date(now.getFullYear() + 1, 0, 1);
+          break;
+        case 'lastYear':
+          start = new Date(now.getFullYear() - 1, 0, 1);
+          end = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          break;
+      }
+      filtered = filtered.filter(b => {
+        const d = new Date(b.dateCommande);
+        return d >= start && d < end;
+      });
+    }
+
     return filtered;
-  }, [bons, searchQuery, statusFilter]);
+  }, [bons, searchQuery, statusFilter, timeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredBons.length / ITEMS_PER_PAGE));
   const paginatedBons = filteredBons.slice(
@@ -576,7 +672,7 @@ export function BonsCommandeList() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, timeFilter]);
 
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -609,6 +705,27 @@ export function BonsCommandeList() {
         onConfirm={handleDelete}
         title={t('shared.confirm_delete.title_order')}
         description={t('shared.confirm_delete.body_order')}
+      />
+
+      <ConfirmDialog
+        isOpen={statusConfirm !== null}
+        onClose={() => setStatusConfirm(null)}
+        onConfirm={() => {
+          if (statusConfirm) handleStatusChange(statusConfirm.id, statusConfirm.newStatus);
+          setStatusConfirm(null);
+        }}
+        title={
+          statusConfirm?.kind === 'deliver'
+            ? t('bons_commande.confirm_deliver_title')
+            : t('bons_commande.confirm_cancel_title')
+        }
+        description={
+          statusConfirm?.kind === 'deliver'
+            ? t('bons_commande.confirm_deliver_body')
+            : t('bons_commande.confirm_cancel_body')
+        }
+        confirmText={t('bons_commande.confirm_button')}
+        cancelText={t('bons_commande.cancel_button')}
       />
 
       <div className="hidden">
@@ -691,6 +808,23 @@ export function BonsCommandeList() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={timeFilter} onValueChange={setTimeFilter}>
+              <SelectTrigger className="h-10 w-full sm:w-[150px] bg-white border-slate-200 rounded-[4px] shadow-none text-sm dark:bg-transparent dark:border-white/10 dark:rounded-sm">
+                <CalendarDays className="h-3.5 w-3.5 text-slate-400 me-2" />
+                <SelectValue placeholder={t('shared.filters.all_periods')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('shared.filters.all_periods')}</SelectItem>
+                <SelectItem value="today">{t('shared.filters.today')}</SelectItem>
+                <SelectItem value="yesterday">{t('shared.filters.yesterday')}</SelectItem>
+                <SelectItem value="thisWeek">{t('shared.filters.this_week')}</SelectItem>
+                <SelectItem value="lastWeek">{t('shared.filters.last_week')}</SelectItem>
+                <SelectItem value="thisMonth">{t('shared.filters.this_month')}</SelectItem>
+                <SelectItem value="lastMonth">{t('shared.filters.last_month')}</SelectItem>
+                <SelectItem value="thisYear">{t('shared.filters.this_year')}</SelectItem>
+                <SelectItem value="lastYear">{t('shared.filters.last_year')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Table — wrapped in `overflow-x-auto` for mobile scroll */}
@@ -726,11 +860,11 @@ export function BonsCommandeList() {
                           <Package className="h-8 w-8 text-slate-300" />
                         </div>
                         <p className="text-sm text-slate-500 font-medium dark:text-slate-400">
-                          {searchQuery || statusFilter !== 'all'
+                          {searchQuery || statusFilter !== 'all' || timeFilter !== 'all'
                             ? t('bons_commande.empty_filtered')
                             : t('bons_commande.empty_all')}
                         </p>
-                        {!searchQuery && statusFilter === 'all' && (
+                        {!searchQuery && statusFilter === 'all' && timeFilter === 'all' && (
                           <Button
                             variant="outline"
                             className="mt-1 rounded-[4px] text-sm"
@@ -804,9 +938,10 @@ export function BonsCommandeList() {
                         <TableCell className="px-4 py-5 text-center">
                           <Select
                             value={bon.statut}
-                            onValueChange={(val) => handleStatusChange(bon.id, val)}
+                            disabled={isStatusLocked(bon.statut)}
+                            onValueChange={(val) => requestStatusChange(bon.id, String(val), String(bon.statut ?? ''))}
                           >
-                            <SelectTrigger className="h-auto w-auto mx-auto bg-transparent border-none shadow-none focus:ring-0 p-0">
+                            <SelectTrigger className="h-auto w-auto mx-auto bg-transparent border-none shadow-none focus:ring-0 p-0 disabled:opacity-100 disabled:cursor-default">
                               <SelectValue>
                                 <span className={cn(
                                   "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
@@ -844,15 +979,17 @@ export function BonsCommandeList() {
                             >
                               <Download className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
-                              onClick={() => handleEdit(bon)}
-                              title={t('shared.actions.edit')}
-                            >
-                              <FileEdit className="h-4 w-4" />
-                            </Button>
+                            {bon.statut === 'brouillon' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-[4px] dark:hover:text-white dark:hover:bg-white/5 dark:rounded-sm"
+                                onClick={() => handleEdit(bon)}
+                                title={t('shared.actions.edit')}
+                              >
+                                <FileEdit className="h-4 w-4" />
+                              </Button>
+                            )}
                             {bon.statut === 'brouillon' ? (
                               <Button
                                 variant="ghost"
@@ -866,12 +1003,12 @@ export function BonsCommandeList() {
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                            ) : bon.statut !== 'annulé' ? (
+                            ) : !isStatusTerminal(bon.statut) ? (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-[4px] dark:hover:text-red-400 dark:hover:bg-white/5 dark:rounded-sm"
-                                onClick={() => handleStatusChange(bon.id, 'annulé')}
+                                onClick={() => requestStatusChange(bon.id, 'annulé', String(bon.statut ?? ''))}
                                 title={t('shared.status.cancelled')}
                               >
                                 <Ban className="h-4 w-4" />

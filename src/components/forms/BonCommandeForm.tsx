@@ -29,6 +29,10 @@ interface BCFormProps {
 export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  // Editing an existing document vs creating a new one. New documents are
+  // forced to "brouillon" (the default value) and the status dropdown is
+  // hidden during creation.
+  const isEditing = !!initialData?.id;
   const [fournisseurs, setFournisseurs] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
@@ -379,24 +383,26 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
             <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateLivraisonPrevue')} />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.status_label')}</Label>
-            <Select
-              value={form.watch('statut') || ""}
-              onValueChange={(val) => form.setValue('statut', val)}
-            >
-              <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
-                <SelectValue placeholder={t('shared.form.select_status')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="en_attente">{t('shared.status.pending')}</SelectItem>
-                <SelectItem value="confirmé">{t('shared.status.confirmed')}</SelectItem>
-                <SelectItem value="livré">{t('shared.status.delivered')}</SelectItem>
-                <SelectItem value="annulé">{t('shared.status.cancelled')}</SelectItem>
-                <SelectItem value="refusé">{t('shared.status.refused')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {isEditing && (
+            <div className="space-y-2">
+              <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.status_label')}</Label>
+              <Select
+                value={form.watch('statut') || ""}
+                onValueChange={(val) => form.setValue('statut', val)}
+              >
+                <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
+                  <SelectValue placeholder={t('shared.form.select_status')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en_attente">{t('shared.status.pending')}</SelectItem>
+                  <SelectItem value="confirmé">{t('shared.status.confirmed')}</SelectItem>
+                  <SelectItem value="livré">{t('shared.status.delivered')}</SelectItem>
+                  <SelectItem value="annulé">{t('shared.status.cancelled')}</SelectItem>
+                  <SelectItem value="refusé">{t('shared.status.refused')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </div>
 

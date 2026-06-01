@@ -29,6 +29,10 @@ interface FactureFormProps {
 export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  // Editing an existing document vs creating a new one. New documents are
+  // forced to "brouillon" (the default value) and the status dropdown is
+  // hidden during creation.
+  const isEditing = !!initialData?.id;
   const [clients, setClients] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
@@ -311,24 +315,26 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
             <Input type="date" className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300" {...form.register('dateEcheance')} />
           </div>
 
-          <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.status_label')}</Label>
-            <Select
-              value={form.watch('statut') || ""}
-              onValueChange={(val) => form.setValue('statut', val)}
-            >
-              <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-300">
-                <SelectValue placeholder={t('shared.form.select_status')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="brouillon">{t('shared.status.draft')}</SelectItem>
-                <SelectItem value="en_attente">{t('shared.status.pending')}</SelectItem>
-                <SelectItem value="payée">{t('shared.status.paid')}</SelectItem>
-                <SelectItem value="reste_a_payer">{t('shared.status.partial')}</SelectItem>
-                <SelectItem value="annulée">{t('shared.status.cancelled')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {isEditing && (
+            <div className="space-y-2">
+              <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.status_label')}</Label>
+              <Select
+                value={form.watch('statut') || ""}
+                onValueChange={(val) => form.setValue('statut', val)}
+              >
+                <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-300">
+                  <SelectValue placeholder={t('shared.form.select_status')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brouillon">{t('shared.status.draft')}</SelectItem>
+                  <SelectItem value="en_attente">{t('shared.status.pending')}</SelectItem>
+                  <SelectItem value="payée">{t('shared.status.paid')}</SelectItem>
+                  <SelectItem value="reste_a_payer">{t('shared.status.partial')}</SelectItem>
+                  <SelectItem value="annulée">{t('shared.status.cancelled')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.payment_mode')}</Label>

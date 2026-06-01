@@ -569,23 +569,57 @@ export default function VentesPassagers() {
 
     if (timeFilter !== 'all') {
       const now = new Date();
-      let cutoff: Date;
+      // Inclusive start, exclusive end of the selected period.
+      let start = new Date(0);
+      let end = new Date(8640000000000000); // max date
+      const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      // Monday as the first day of the week.
+      const startOfWeek = (d: Date) => {
+        const s = startOfDay(d);
+        const day = (s.getDay() + 6) % 7; // 0 = Monday
+        s.setDate(s.getDate() - day);
+        return s;
+      };
       switch (timeFilter) {
         case 'today':
-          cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          start = startOfDay(now);
+          end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+          break;
+        case 'yesterday':
+          end = startOfDay(now);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
           break;
         case 'thisWeek':
-          const weekAgo = new Date(now);
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          cutoff = weekAgo;
+          start = startOfWeek(now);
+          end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+          break;
+        case 'lastWeek':
+          end = startOfWeek(now);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 7);
           break;
         case 'thisMonth':
-          cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          break;
+        case 'lastMonth':
+          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'thisYear':
+          start = new Date(now.getFullYear(), 0, 1);
+          end = new Date(now.getFullYear() + 1, 0, 1);
+          break;
+        case 'lastYear':
+          start = new Date(now.getFullYear() - 1, 0, 1);
+          end = new Date(now.getFullYear(), 0, 1);
           break;
         default:
-          cutoff = new Date(0);
+          break;
       }
-      filtered = filtered.filter(v => new Date(v.date) >= cutoff);
+      filtered = filtered.filter(v => {
+        const d = new Date(v.date);
+        return d >= start && d < end;
+      });
     }
 
     return filtered;
@@ -1005,8 +1039,13 @@ export default function VentesPassagers() {
               <SelectContent>
                 <SelectItem value="all">{t('ventes.filter_all')}</SelectItem>
                 <SelectItem value="today">{t('ventes.filter_today')}</SelectItem>
+                <SelectItem value="yesterday">{t('ventes.filter_yesterday')}</SelectItem>
                 <SelectItem value="thisWeek">{t('ventes.filter_week')}</SelectItem>
+                <SelectItem value="lastWeek">{t('ventes.filter_last_week')}</SelectItem>
                 <SelectItem value="thisMonth">{t('ventes.filter_month')}</SelectItem>
+                <SelectItem value="lastMonth">{t('ventes.filter_last_month')}</SelectItem>
+                <SelectItem value="thisYear">{t('ventes.filter_year')}</SelectItem>
+                <SelectItem value="lastYear">{t('ventes.filter_last_year')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

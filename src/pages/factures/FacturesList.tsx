@@ -3,10 +3,18 @@ import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, FileText, Download, CheckCircle,
   Clock, AlertCircle, Ban, Receipt, DollarSign, ArrowLeft,
-  ArrowUpRight, ChevronLeft, ChevronRight, Send, CalendarDays, Filter
+  ArrowUpRight, ChevronLeft, ChevronRight, Send, CalendarDays, Filter, Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label'
 import {
   Table,
   TableBody,
@@ -74,6 +82,16 @@ export function FacturesList() {
   const [editingFacture, setEditingFacture] = useState<Facture | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [factureToDelete, setFactureToDelete] = useState<number | null>(null);
+  // Pending status change awaiting confirmation. `kind` selects which
+  // explanatory popup to show: 'cancel' (→ annulée) or 'status' (→ payée /
+  // reste_a_payer). `statusLabel` is the human label for the target status.
+  const [statusConfirm, setStatusConfirm] = useState<
+    { id: number; newStatut: string; kind: 'status' | 'cancel'; statusLabel: string } | null
+  >(null);
+  // Edit-unpaid-amount dialog for "reste_a_payer" invoices.
+  const [editMontant, setEditMontant] = useState<
+    { id: number; numero: string; montantTtc: number; value: string } | null
+  >(null);
 
   const [printingFacture, setPrintingFacture] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
@@ -292,6 +310,47 @@ export function FacturesList() {
         .eq('user_id', user?.id);
       if (error) throw error;
       toast.success(t('factures.toast_marked_paid'));
+      fetchFactures();
+    } catch (error) {
+      toast.error(t('shared.toast.update_error'));
+    }
+  };
+
+  // Open the dialog that lets the user edit the still-unpaid amount of a
+  // partially-paid (reste_a_payer) invoice.
+  const openEditMontant = (facture: Facture) => {
+    setEditMontant({
+      id: facture.id,
+      numero: facture.numero,
+      montantTtc: Number(facture.montantTtc || 0),
+      value: String(Number(facture.resteAPayer || 0)),
+    });
+  };
+
+  const saveEditMontant = async () => {
+    if (!editMontant) return;
+    const newReste = Number(editMontant.value);
+    if (isNaN(newReste) || newReste < 0) {
+      toast.error(t('factures.toast_remaining_invalid'));
+      return;
+    }
+    if (newReste > editMontant.montantTtc) {
+      toast.error(t('factures.toast_remaining_too_high'));
+      return;
+    }
+    try {
+      // If the remaining amount reaches 0, the invoice is fully paid.
+      const updateData: any = { reste_a_payer: newReste };
+      if (newReste === 0) updateData.statut = 'payée';
+
+      const { error } = await supabase
+        .from('factures')
+        .update(updateData)
+        .eq('id', editMontant.id)
+        .eq('user_id', user?.id);
+      if (error) throw error;
+      toast.success(t('factures.toast_remaining_updated'));
+      setEditMontant(null);
       fetchFactures();
     } catch (error) {
       toast.error(t('shared.toast.update_error'));
@@ -561,6 +620,50 @@ export function FacturesList() {
     }
   };
 
+  // Targets that require an explicit confirmation (irreversible / locking).
+  const lockingStatuses = ['payée', 'reste_a_payer', 'annulée'];
+
+  // The status dropdown is frozen once the facture is "payée" or "annulée".
+  // "reste_a_payer" stays editable so it can still be moved forward to
+  // "payée" (but never back to brouillon / en_attente — see below).
+  const isStatusLocked = (statut?: string | null) =>
+    statut === 'payée' || statut === 'annulée';
+
+  // "annulée" is fully terminal — no transition of any kind is allowed.
+  const isStatusTerminal = (statut?: string | null) => statut === 'annulée';
+
+  const statusLabelOf = (value: string) =>
+    statusOptions.find(o => o.value === value)?.label ?? value;
+
+  /**
+   * Entry point from the status dropdown. Moving a facture to a locking
+   * status (payée / reste_a_payer / annulée) is irreversible, so we ask
+   * for an explicit confirmation that explains the consequence before
+   * applying it. Every other transition is applied directly as before.
+   *
+   * From "reste_a_payer" only forward moves are allowed (→ payée / annulée);
+   * reverting to brouillon / en_attente is blocked.
+   */
+  const requestStatusChange = (id: number, newStatut: string, currentStatut: string) => {
+    if (isStatusTerminal(currentStatut)) return; // annulée — no change allowed
+    if (newStatut === currentStatut) return;
+
+    // Block reverting a partially-paid invoice back to an earlier status.
+    if (currentStatut === 'reste_a_payer' && newStatut !== 'payée' && newStatut !== 'annulée') {
+      return;
+    }
+
+    if (newStatut === 'annulée') {
+      setStatusConfirm({ id, newStatut, kind: 'cancel', statusLabel: statusLabelOf(newStatut) });
+      return;
+    }
+    if (lockingStatuses.includes(newStatut)) {
+      setStatusConfirm({ id, newStatut, kind: 'status', statusLabel: statusLabelOf(newStatut) });
+      return;
+    }
+    handleStatusChange(id, newStatut);
+  };
+
   const openNewForm = () => {
     setEditingFacture(null);
     setShowForm(true);
@@ -588,21 +691,57 @@ export function FacturesList() {
 
     if (timeFilter !== 'all') {
       const now = new Date();
-      let cutoff: Date;
+      // Inclusive start, exclusive end of the selected period.
+      let start = new Date(0);
+      let end = new Date(8640000000000000); // max date
+      const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      // Monday as the first day of the week.
+      const startOfWeek = (d: Date) => {
+        const s = startOfDay(d);
+        const day = (s.getDay() + 6) % 7; // 0 = Monday
+        s.setDate(s.getDate() - day);
+        return s;
+      };
       switch (timeFilter) {
-        case '30days':
-          cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        case 'today':
+          start = startOfDay(now);
+          end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
+          break;
+        case 'yesterday':
+          end = startOfDay(now);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 1);
+          break;
+        case 'thisWeek':
+          start = startOfWeek(now);
+          end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7);
+          break;
+        case 'lastWeek':
+          end = startOfWeek(now);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - 7);
           break;
         case 'thisMonth':
-          cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+          start = new Date(now.getFullYear(), now.getMonth(), 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          break;
+        case 'lastMonth':
+          start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth(), 1);
           break;
         case 'thisYear':
-          cutoff = new Date(now.getFullYear(), 0, 1);
+          start = new Date(now.getFullYear(), 0, 1);
+          end = new Date(now.getFullYear() + 1, 0, 1);
+          break;
+        case 'lastYear':
+          start = new Date(now.getFullYear() - 1, 0, 1);
+          end = new Date(now.getFullYear(), 0, 1);
           break;
         default:
-          cutoff = new Date(0);
+          break;
       }
-      filtered = filtered.filter(f => new Date(f.dateEmission) >= cutoff);
+      filtered = filtered.filter(f => {
+        const d = new Date(f.dateEmission);
+        return d >= start && d < end;
+      });
     }
 
     return filtered;
@@ -620,12 +759,10 @@ export function FacturesList() {
   const totalMontant = filteredFactures.reduce((sum, f) => sum + (f.montantTtc || 0), 0);
   const totalResteAPayer = filteredFactures.reduce((sum, f) => sum + (f.resteAPayer || 0), 0);
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const last30Factures = factures.filter(f => new Date(f.dateEmission) >= thirtyDaysAgo);
-  const drafted30 = last30Factures.filter(f => f.statut === 'brouillon');
-  const sent30 = last30Factures.filter(f => f.statut === 'en_attente');
-  const paid30 = last30Factures.filter(f => f.statut === 'payée');
-  const total30Amount = last30Factures.reduce((sum, f) => sum + (f.montantTtc || 0), 0);
+  // Summary sidebar is linked to the active filters (search / status /
+  // period): it summarises the "payée ou reste à payer" invoices within
+  // the currently filtered list.
+  const paid30 = filteredFactures.filter(f => ['payée', 'reste_a_payer'].includes(f.statut));
 
   useEffect(() => {
     setCurrentPage(1);
@@ -646,6 +783,70 @@ export function FacturesList() {
         title={t('shared.confirm_delete.title_invoice')}
         description={t('shared.confirm_delete.body_invoice')}
       />
+
+      <ConfirmDialog
+        isOpen={statusConfirm !== null}
+        onClose={() => setStatusConfirm(null)}
+        onConfirm={() => {
+          if (statusConfirm) {
+            if (statusConfirm.kind === 'cancel') {
+              // Route cancellation through the dedicated handler so the
+              // avoir is created (and stock restored) exactly once.
+              handleAnnuler({ id: statusConfirm.id } as Facture);
+            } else {
+              handleStatusChange(statusConfirm.id, statusConfirm.newStatut);
+            }
+          }
+          setStatusConfirm(null);
+        }}
+        title={
+          statusConfirm?.kind === 'cancel'
+            ? t('factures.confirm_cancel_title')
+            : t('factures.confirm_status_title')
+        }
+        description={
+          statusConfirm?.kind === 'cancel'
+            ? t('factures.confirm_cancel_body')
+            : t('factures.confirm_status_body', { status: statusConfirm?.statusLabel ?? '' })
+        }
+        confirmText={t('factures.confirm_button')}
+        cancelText={t('factures.cancel_button')}
+      />
+
+      <Dialog open={editMontant !== null} onOpenChange={(open) => { if (!open) setEditMontant(null); }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t('factures.edit_remaining_title')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">
+              {t('factures.edit_remaining_label')}
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={editMontant?.value ?? ''}
+              onChange={(e) =>
+                setEditMontant((prev) => (prev ? { ...prev, value: e.target.value } : prev))
+              }
+            />
+            {editMontant && (
+              <p className="text-xs dark:text-muted-foreground text-slate-500">
+                {t('factures.edit_remaining_max', { amount: formatCurrency(editMontant.montantTtc) })}
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setEditMontant(null)}>
+              {t('factures.cancel_button')}
+            </Button>
+            <Button onClick={saveEditMontant}>
+              {t('factures.confirm_button')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div style={{ display: 'none' }}>
         {printingFacture && (
@@ -734,9 +935,14 @@ export function FacturesList() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t('shared.filters.all_periods')}</SelectItem>
-                    <SelectItem value="30days">{t('shared.filters.last_30_days')}</SelectItem>
+                    <SelectItem value="today">{t('shared.filters.today')}</SelectItem>
+                    <SelectItem value="yesterday">{t('shared.filters.yesterday')}</SelectItem>
+                    <SelectItem value="thisWeek">{t('shared.filters.this_week')}</SelectItem>
+                    <SelectItem value="lastWeek">{t('shared.filters.last_week')}</SelectItem>
                     <SelectItem value="thisMonth">{t('shared.filters.this_month')}</SelectItem>
+                    <SelectItem value="lastMonth">{t('shared.filters.last_month')}</SelectItem>
                     <SelectItem value="thisYear">{t('shared.filters.this_year')}</SelectItem>
+                    <SelectItem value="lastYear">{t('shared.filters.last_year')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -843,9 +1049,10 @@ export function FacturesList() {
                             <TableCell className="px-4 py-4 text-center">
                               <Select
                                 value={facture.statut}
-                                onValueChange={(val) => handleStatusChange(facture.id, val)}
+                                disabled={isStatusLocked(facture.statut)}
+                                onValueChange={(val) => requestStatusChange(facture.id, String(val), String(facture.statut ?? ''))}
                               >
-                                <SelectTrigger className="h-auto w-auto mx-auto bg-transparent border-none shadow-none focus:ring-0 p-0">
+                                <SelectTrigger className="h-auto w-auto mx-auto bg-transparent border-none shadow-none focus:ring-0 p-0 disabled:opacity-100 disabled:cursor-default">
                                   <SelectValue>
                                     <span className={cn(
                                       "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
@@ -857,7 +1064,15 @@ export function FacturesList() {
                                   </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {statusOptions.map(opt => {
+                                  {statusOptions
+                                    // When partially paid, the only allowed
+                                    // moves are → payée or → annulée.
+                                    .filter(opt =>
+                                      facture.statut === 'reste_a_payer'
+                                        ? opt.value === 'payée' || opt.value === 'annulée'
+                                        : true
+                                    )
+                                    .map(opt => {
                                     const OptIcon = opt.icon;
                                     return (
                                       <SelectItem key={opt.value} value={opt.value}>
@@ -873,15 +1088,26 @@ export function FacturesList() {
                             </TableCell>
                             <TableCell className="px-4 py-4 text-start">
                               <div className="flex justify-end gap-0.5">
-                                {!['payée', 'reste_a_payer'].includes(facture.statut) && (
+                                {!['payée', 'annulée'].includes(facture.statut) && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 dark:text-muted-foreground dark:hover:text-emerald-400 dark:hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-sm"
-                                    onClick={() => handleMarkAsPaid(facture.id)}
+                                    onClick={() => requestStatusChange(facture.id, 'payée', String(facture.statut ?? ''))}
                                     title={t('factures.tooltip_mark_paid')}
                                   >
                                     <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                {facture.statut === 'reste_a_payer' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 dark:text-muted-foreground dark:hover:text-amber-400 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-sm"
+                                    onClick={() => openEditMontant(facture)}
+                                    title={t('factures.tooltip_edit_remaining')}
+                                  >
+                                    <Pencil className="h-4 w-4" />
                                   </Button>
                                 )}
                                 <Button
@@ -893,34 +1119,23 @@ export function FacturesList() {
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
-                                  onClick={() => handleEdit(facture)}
-                                  title={t('shared.actions.edit')}
-                                >
-                                  <FileEdit className="h-4 w-4" />
-                                </Button>
-                                {facture.statut === 'brouillon' ? (
+                                {facture.statut === 'brouillon' && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
-                                    onClick={() => {
-                                      setFactureToDelete(facture.id);
-                                      setDeleteConfirmOpen(true);
-                                    }}
-                                    title={t('shared.actions.delete')}
+                                    className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
+                                    onClick={() => handleEdit(facture)}
+                                    title={t('shared.actions.edit')}
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <FileEdit className="h-4 w-4" />
                                   </Button>
-                                ) : facture.statut !== 'annulée' ? (
+                                )}
+                                {!isStatusTerminal(facture.statut) ? (
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
-                                    onClick={() => handleAnnuler(facture)}
+                                    onClick={() => requestStatusChange(facture.id, 'annulée', String(facture.statut ?? ''))}
                                     title={t('factures.tooltip_cancel')}
                                   >
                                     <Ban className="h-4 w-4" />
@@ -989,37 +1204,11 @@ export function FacturesList() {
                 </CardHeader>
                 <CardContent className="px-4 py-4 space-y-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-sky-50 border border-sky-200/50 shrink-0">
-                      <FileText className="h-4 w-4 dark:text-primary text-sky-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_draft')}</p>
-                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{drafted30.length} {drafted30.length !== 1 ? t('factures.sidebar_invoice_other') : t('factures.sidebar_invoice_one')}</p>
-                    </div>
-                    <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
-                      {formatCurrency(drafted30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-rose-50 border border-rose-200/50 shrink-0">
-                      <Send className="h-4 w-4 dark:text-primary text-rose-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_sent')}</p>
-                      <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{sent30.length} {sent30.length !== 1 ? t('factures.sidebar_invoice_other') : t('factures.sidebar_invoice_one')}</p>
-                    </div>
-                    <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
-                      {formatCurrency(sent30.reduce((s, f) => s + (f.montantTtc || 0), 0))}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-9 w-9 rounded-sm dark:bg-primary/10 dark:border-primary/20 bg-emerald-50 border border-emerald-200/50 shrink-0">
                       <CheckCircle className="h-4 w-4 dark:text-primary text-emerald-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_paid')}</p>
+                      <p className="text-xs dark:text-muted-foreground text-slate-500">{t('factures.sidebar_paid_or_partial')}</p>
                       <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{paid30.length} {paid30.length !== 1 ? t('factures.sidebar_invoice_other') : t('factures.sidebar_invoice_one')}</p>
                     </div>
                     <span dir="ltr" className="text-sm font-semibold dark:text-muted-foreground text-slate-600">
@@ -1030,7 +1219,7 @@ export function FacturesList() {
                   <div className="pt-3 border-t dark:border-white/5 border-slate-100">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-bold dark:text-card-foreground text-slate-800">{t('factures.sidebar_total')}</p>
-                      <p dir="ltr" className="text-base font-bold text-rose-500">{formatCurrency(total30Amount)}</p>
+                      <p dir="ltr" className="text-base font-bold text-rose-500">{formatCurrency(paid30.reduce((s, f) => s + (f.montantTtc || 0), 0))}</p>
                     </div>
                   </div>
                 </CardContent>
