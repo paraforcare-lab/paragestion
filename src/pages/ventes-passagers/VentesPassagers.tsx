@@ -153,6 +153,20 @@ export default function VentesPassagers() {
     setPanier(panier.filter((_, i) => i !== index));
   };
 
+  // Allow editing the unit selling price of a cart line (e.g. when
+  // negotiating with the client). Recomputes the line totals on change.
+  const updatePanierPrice = (index: number, rawValue: string) => {
+    const newPu = Number(rawValue);
+    setPanier(panier.map((item, idx) => {
+      if (idx !== index) return item;
+      const pu = isNaN(newPu) || newPu < 0 ? 0 : newPu;
+      const mht = pu * item.quantite;
+      const mtva = mht * (Number(item.tva || 0) / 100);
+      const mttc = mht + mtva;
+      return { ...item, prixUnitaireHt: pu, montantHt: mht, montantTva: mtva, montantTtc: mttc };
+    }));
+  };
+
   const handleSubmit = async () => {
     if (panier.length === 0) {
       toast.error(t('ventes.toast_cart_empty'));
@@ -909,7 +923,16 @@ export default function VentesPassagers() {
                           <TableCell className="px-5 py-4 text-right">
                             <span className="inline-flex items-center justify-center min-w-[32px] h-7 px-2.5 rounded-sm dark:bg-slate-800 bg-slate-100 text-sm font-bold dark:text-card-foreground text-slate-700">{item.quantite}</span>
                           </TableCell>
-                          <TableCell className="px-5 py-4 text-right text-sm dark:text-muted-foreground text-slate-500 font-medium">{formatCurrency(item.prixUnitaireHt)}</TableCell>
+                          <TableCell className="px-5 py-4 text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={item.prixUnitaireHt}
+                              onChange={(e) => updatePanierPrice(index, e.target.value)}
+                              className="h-8 w-24 ms-auto text-right text-sm dark:bg-slate-900/50 dark:border-white/10 bg-white border-slate-300"
+                            />
+                          </TableCell>
                           <TableCell className="px-5 py-4 text-right text-sm dark:text-muted-foreground text-slate-500">{item.tva}%</TableCell>
                           <TableCell className="px-5 py-4 text-right">
                             <span className="text-sm font-bold text-emerald-600">{formatCurrency(item.montantTtc)}</span>
