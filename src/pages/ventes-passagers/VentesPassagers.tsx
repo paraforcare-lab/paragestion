@@ -1176,15 +1176,6 @@ export default function VentesPassagers() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
-                            onClick={() => handlePrint(vente)}
-                            title={t('shared.actions.print_receipt')}
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 dark:text-muted-foreground dark:hover:text-card-foreground dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-sm"
                             onClick={() => handleViewDetail(vente)}
                             title={t('shared.actions.view_detail')}
                           >

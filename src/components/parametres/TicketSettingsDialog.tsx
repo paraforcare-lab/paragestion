@@ -152,9 +152,9 @@ export function TicketSettingsDialog({ open, onOpenChange }: TicketSettingsDialo
             section headings; we don't need a redundant heading bar. */}
         <DialogTitle className="sr-only">{tk('dialog_title')}</DialogTitle>
 
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] max-h-[92vh]">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr] max-h-[calc(92vh-4rem)] overflow-y-auto">
           {/* ── LEFT: form (scrollable) ─────────────────────────────── */}
-          <div className="bg-card overflow-y-auto p-5 sm:p-6 border-b md:border-b-0 md:border-e border-border">
+          <div className="bg-card md:overflow-y-auto md:max-h-[calc(92vh-4rem)] p-5 sm:p-6 border-b md:border-b-0 md:border-e border-border">
             {/* Top heading bar with icon */}
             <div className="flex items-center gap-2 mb-5">
               <div className="h-7 w-7 rounded-md bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
@@ -476,7 +476,7 @@ export function TicketSettingsDialog({ open, onOpenChange }: TicketSettingsDialo
         </div>
 
         {/* Footer with Save action — pinned to the bottom of the dialog */}
-        <div className="border-t border-border bg-card flex items-center justify-end gap-2 p-3">
+        <div className="border-t border-border bg-card flex items-center justify-end gap-2 p-3 shrink-0">
           <Button
             type="button"
             variant="outline"
