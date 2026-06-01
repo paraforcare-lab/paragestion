@@ -251,6 +251,8 @@
   "header": {
     "system_active": "النظام نشط",
     "administrator": "مسؤول",
+    "fullscreen_enter": "ملء الشاشة",
+    "fullscreen_exit": "إنهاء ملء الشاشة",
     "settings": "الإعدادات",
     "logout": "تسجيل الخروج",
     "subtitles": {

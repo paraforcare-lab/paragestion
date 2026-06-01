@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { NotificationBell } from './NotificationDropdown'
 import { LanguageSelector } from './LanguageSelector'
-import { Menu, ChevronDown, Settings, LogOut } from 'lucide-react'
+import { Menu, ChevronDown, Settings, LogOut, Maximize2, Minimize2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -35,7 +35,24 @@ export function DashboardLayout() {
   });
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Keep the fullscreen toggle icon in sync with the actual browser state
+  // (covers the user pressing Esc or F11 directly).
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -135,6 +152,16 @@ export function DashboardLayout() {
               <div className="hidden sm:block">
                 <LanguageSelector />
               </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                onClick={toggleFullscreen}
+                title={isFullscreen ? t('header.fullscreen_exit') : t('header.fullscreen_enter')}
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </Button>
 
               <NotificationBell />
 

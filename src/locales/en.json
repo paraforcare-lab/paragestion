@@ -251,6 +251,8 @@
   "header": {
     "system_active": "System active",
     "administrator": "ADMINISTRATOR",
+    "fullscreen_enter": "Fullscreen",
+    "fullscreen_exit": "Exit fullscreen",
     "settings": "Settings",
     "logout": "Log out",
     "subtitles": {

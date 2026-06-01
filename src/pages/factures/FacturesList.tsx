@@ -96,6 +96,9 @@ export function FacturesList() {
   const [printingFacture, setPrintingFacture] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the app was in fullscreen before a print, so it can be
+  // restored after the native print dialog (which exits fullscreen) closes.
+  const wasFullscreenRef = useRef(false);
 
   const statusOptions: StatutOption[] = [
     { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-sky-700', bgColor: 'dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20 bg-sky-50 text-sky-700 border border-sky-200/50' },
@@ -108,7 +111,17 @@ export function FacturesList() {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: printingFacture ? `Facture_${printingFacture.numero}` : 'Facture',
-    onAfterPrint: () => setPrintingFacture(null),
+    // Opening the native print dialog forces the WebView out of fullscreen.
+    // Remember whether we were in fullscreen and restore it afterwards.
+    onBeforePrint: async () => {
+      wasFullscreenRef.current = Boolean(document.fullscreenElement);
+    },
+    onAfterPrint: () => {
+      setPrintingFacture(null);
+      if (wasFullscreenRef.current && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    },
   });
 
   const mapFacture = (f: any) => ({

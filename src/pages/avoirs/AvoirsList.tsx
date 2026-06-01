@@ -67,6 +67,9 @@ export function AvoirsList() {
   const [printingAvoir, setPrintingAvoir] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the app was in fullscreen before a print, so it can be
+  // restored after the native print dialog (which exits fullscreen) closes.
+  const wasFullscreenRef = useRef(false);
 
   const statusOptions: StatutOption[] = [
     { value: 'Généré', label: t('shared.status.generated'), color: 'text-blue-700', bgColor: 'dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 bg-blue-50 text-blue-700 border border-blue-200/50' },
@@ -80,7 +83,15 @@ export function AvoirsList() {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: printingAvoir ? `Avoir_${printingAvoir.numero}` : 'Avoir',
-    onAfterPrint: () => setPrintingAvoir(null),
+    onBeforePrint: async () => {
+      wasFullscreenRef.current = Boolean(document.fullscreenElement);
+    },
+    onAfterPrint: () => {
+      setPrintingAvoir(null);
+      if (wasFullscreenRef.current && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    },
   });
 
   const mapAvoir = (a: any) => ({

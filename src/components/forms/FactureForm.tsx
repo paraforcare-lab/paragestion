@@ -144,11 +144,8 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     { ht: 0, tva: 0, ttc: 0 }
   );
 
-  const droitTimbre = (watchModePaiement === 'Espèces' && (parametres?.activerDroitTimbre !== false)) ? baseTotals.ttc * 0.0025 : 0;
   const totals = {
     ...baseTotals,
-    ttc: baseTotals.ttc + droitTimbre,
-    droitTimbre,
   };
 
   // Update reste à payer when total changes or status changes
@@ -512,12 +509,6 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
               <span className="dark:text-muted-foreground text-slate-500 font-medium">{t('shared.form.total_vat')}</span>
               <span className="font-bold dark:text-card-foreground text-slate-800" dir="ltr">{formatCurrency(totals.tva)}</span>
             </div>
-            {totals.droitTimbre > 0 && (
-              <div className="flex justify-between items-center text-sm">
-                <span className="dark:text-muted-foreground text-slate-500 font-medium">{t('shared.form.stamp_duty')}</span>
-                <span className="font-bold dark:text-card-foreground text-slate-800" dir="ltr">{formatCurrency(totals.droitTimbre)}</span>
-              </div>
-            )}
             <div className="h-px dark:bg-white/10 bg-slate-200 my-2" />
             <div className="flex justify-between items-center">
               <span className="dark:text-card-foreground text-slate-900 font-bold text-lg">{t('shared.form.total_ttc')}</span>

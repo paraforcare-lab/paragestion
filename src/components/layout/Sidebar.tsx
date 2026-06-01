@@ -150,9 +150,11 @@ export function Sidebar({ isCollapsed, onToggle, isMobileOpen, onMobileClose }: 
         )}>
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-2.5 rounded-xl">
-                <Stethoscope className="h-6 w-6 text-white" />
-              </div>
+              <img
+                src="/favicon.png"
+                alt="ParaGestion"
+                className="h-11 w-11 rounded-xl object-cover"
+              />
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-[4px] border-2 border-[#0F172A] dark:border-[#0B1222]">
                 <div className="absolute inset-0.5 bg-emerald-400 rounded-[4px]" />
               </div>

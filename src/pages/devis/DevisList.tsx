@@ -76,6 +76,9 @@ export function DevisList() {
   const [printingDevis, setPrintingDevis] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const printRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the app was in fullscreen before a print, so it can be
+  // restored after the native print dialog (which exits fullscreen) closes.
+  const wasFullscreenRef = useRef(false);
 
   const statusOptions: StatutOption[] = [
     { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-slate-700', bgColor: 'dark:bg-slate-500/10 dark:text-slate-400 dark:border-slate-500/20 bg-slate-50 text-slate-700 border border-slate-200/50' },
@@ -88,7 +91,15 @@ export function DevisList() {
   const handlePrint = useReactToPrint({
     contentRef: printRef,
     documentTitle: printingDevis ? `Devis_${printingDevis.numero}` : 'Devis',
-    onAfterPrint: () => setPrintingDevis(null),
+    onBeforePrint: async () => {
+      wasFullscreenRef.current = Boolean(document.fullscreenElement);
+    },
+    onAfterPrint: () => {
+      setPrintingDevis(null);
+      if (wasFullscreenRef.current && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    },
   });
 
   const mapDevis = (d: any) => ({

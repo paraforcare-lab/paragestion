@@ -164,7 +164,7 @@ export function Parametres() {
 
   const tabErrors = useMemo(() => ({
     general: ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].some(f => errors[f]),
-    fiscal: ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].some(f => errors[f]),
+    fiscal: ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift'].some(f => errors[f]),
     personalisation: ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText', 'activerFiligrane'].some(f => errors[f]),
   }), [errors]);
 
@@ -194,6 +194,10 @@ export function Parametres() {
         if (cached) {
           try {
             const parsed = JSON.parse(cached);
+            // Coerce boolean fields: older caches may store SQLite 0/1, which
+            // would fail z.boolean() validation on save.
+            if ('activerDroitTimbre' in parsed) parsed.activerDroitTimbre = Boolean(parsed.activerDroitTimbre);
+            if ('activerFiligrane' in parsed) parsed.activerFiligrane = Boolean(parsed.activerFiligrane);
             form.reset(parsed);
           } catch {}
         }
@@ -232,9 +236,9 @@ export function Parametres() {
             couleurPrincipale: data.couleur_principale || '#267E54',
             conditionsPaiementDefaut: data.conditions_paiement_defaut || '',
             piedPageDefaut: data.pied_page_defaut || '',
-            activerDroitTimbre: data.activer_droit_timbre !== undefined ? data.activer_droit_timbre : true,
+            activerDroitTimbre: data.activer_droit_timbre !== undefined ? Boolean(data.activer_droit_timbre) : true,
             watermarkText: data.watermark_text || data.texte_filigrane || 'ParaGestion',
-            activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
+            activerFiligrane: data.activer_filigrane !== undefined ? Boolean(data.activer_filigrane) : true,
           };
           form.reset(mapped);
           localStorage.setItem(CACHED_PARAMS_KEY, JSON.stringify(mapped));
@@ -291,7 +295,7 @@ export function Parametres() {
     const fieldNames = Object.keys(formErrors)
     const tabs: string[] = []
     if (fieldNames.some(f => ['nomSociete', 'adresse', 'ville', 'codePostal', 'telephone', 'email', 'siteWeb', 'formeJuridique', 'capitalSocial'].includes(f))) tabs.push(t('parametres.tab_info'))
-    if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift', 'activerDroitTimbre'].includes(f))) tabs.push(t('parametres.tab_fiscal'))
+    if (fieldNames.some(f => ['ice', 'rc', 'ifNumber', 'tpPatente', 'cnss', 'banque', 'rib', 'swift'].includes(f))) tabs.push(t('parametres.tab_fiscal'))
     if (fieldNames.some(f => ['couleurPrincipale', 'logoUrl', 'conditionsPaiementDefaut', 'piedPageDefaut', 'watermarkText', 'activerFiligrane'].includes(f))) tabs.push(t('parametres.tab_appearance'))
 
     const first = tabs[0]
@@ -828,43 +832,6 @@ export function Parametres() {
                             <Input placeholder={t('parametres.fiscal.rib_ph')} dir="ltr" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
-                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
-                      <CreditCard className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t('parametres.fiscal.billing_title')}</CardTitle>
-                      <CardDescription>{t('parametres.fiscal.billing_sub')}</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-6">
-                  <FormField
-                    control={form.control}
-                    name="activerDroitTimbre"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/30 dark:border-white/5 dark:bg-[#0b1222]">
-                        <div className="space-y-0.5 flex-1">
-                          <FormLabel className="text-base font-semibold cursor-pointer">{t('parametres.fiscal.stamp_duty')}</FormLabel>
-                          <p className="text-sm text-muted-foreground">
-                            {t('parametres.fiscal.stamp_duty_desc')}
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            className="data-[state=checked]:bg-primary"
-                          />
-                        </FormControl>
                       </FormItem>
                     )}
                   />

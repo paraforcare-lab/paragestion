@@ -251,6 +251,8 @@
   "header": {
     "system_active": "Système actif",
     "administrator": "ADMINISTRATEUR",
+    "fullscreen_enter": "Plein écran",
+    "fullscreen_exit": "Quitter le plein écran",
     "settings": "Paramètres",
     "logout": "Déconnexion",
     "subtitles": {

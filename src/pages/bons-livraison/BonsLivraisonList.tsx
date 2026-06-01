@@ -99,10 +99,21 @@ export function BonsLivraisonList() {
   ];
 
   const componentRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the app was in fullscreen before a print, so it can be
+  // restored after the native print dialog (which exits fullscreen) closes.
+  const wasFullscreenRef = useRef(false);
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
     documentTitle: selectedBon ? `Bon_Livraison_${selectedBon.numero}` : 'Bon_Livraison',
+    onBeforePrint: async () => {
+      wasFullscreenRef.current = Boolean(document.fullscreenElement);
+    },
+    onAfterPrint: () => {
+      if (wasFullscreenRef.current && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      }
+    },
   });
 
   const mapBonLivraison = (b: any) => ({
