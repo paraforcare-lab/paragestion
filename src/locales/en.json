@@ -33,7 +33,8 @@
       "all": "All",
       "custom": "Custom",
       "more": "More...",
-      "all_time": "All time"
+      "all_time": "All time",
+      "filter":   "Filter"
     },
     "header": {
       "title": "Dashboard",

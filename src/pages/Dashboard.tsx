@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrencyLocale, cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -171,18 +171,18 @@ export function Dashboard() {
   // Locale-aware currency formatter (memoised to the current language)
   const fmt = (n: number | null | undefined) => formatCurrencyLocale(n, lang)
 
-  useEffect(() => {
+  const fetchDashboardStats = useCallback(() => {
+    setLoading(true)
     if (!user?.id) {
       setStats(null)
       setLoading(false)
       return
     }
 
-    const fetchStats = () => {
-      let factQuery = supabase.from('factures').select('*').eq('user_id', user.id)
-      let vpQuery = supabase.from('ventes_passagers').select('*').eq('user_id', user.id)
-      let depQuery = supabase.from('depenses').select('*').eq('user_id', user.id)
-      let bcQuery = supabase.from('bons_commande').select('*').eq('user_id', user.id)
+    let factQuery = supabase.from('factures').select('*').eq('user_id', user.id)
+    let vpQuery = supabase.from('ventes_passagers').select('*').eq('user_id', user.id)
+    let depQuery = supabase.from('depenses').select('*').eq('user_id', user.id)
+    let bcQuery = supabase.from('bons_commande').select('*').eq('user_id', user.id)
       let recentQuery = supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5)
 
       if (dateRange !== 'all') {
@@ -306,10 +306,11 @@ export function Dashboard() {
       }).finally(() => {
         setLoading(false)
       })
-    }
-    fetchStats()
-  // Re-fetch whenever the language changes so month labels update immediately
   }, [user?.id, lang, dateRange, customStart, customEnd])
+
+  useEffect(() => {
+    fetchDashboardStats()
+  }, [fetchDashboardStats])
 
   // ─── Loading state ───────────────────────────────────────────────────────
   if (loading) {
@@ -457,16 +458,25 @@ export function Dashboard() {
             <input
               type="date"
               value={customStart}
-              onChange={(e) => { setCustomStart(e.target.value); setLoading(true) }}
+              onChange={(e) => setCustomStart(e.target.value)}
               className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
             />
             <span className="text-xs text-muted-foreground">-</span>
             <input
               type="date"
               value={customEnd}
-              onChange={(e) => { setCustomEnd(e.target.value); setLoading(true) }}
+              onChange={(e) => setCustomEnd(e.target.value)}
               className="h-8 rounded-md border border-input bg-background px-2.5 text-xs"
             />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={!customStart || !customEnd || loading}
+              onClick={() => fetchDashboardStats()}
+            >
+              {t('dashboard.date_range.filter')}
+            </Button>
           </div>
         )}
         <div className="ps-6">

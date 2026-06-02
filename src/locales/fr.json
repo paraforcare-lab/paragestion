@@ -33,7 +33,8 @@
       "all": "Tout",
       "custom": "Personnalisé",
       "more": "Plus...",
-      "all_time": "Toute la période"
+      "all_time": "Toute la période",
+      "filter":   "Filtrer"
     },
     "header": {
       "title": "Tableau de Bord",
