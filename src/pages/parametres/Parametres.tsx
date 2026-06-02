@@ -26,6 +26,7 @@ import Cropper from 'react-easy-crop'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { readDocAccent, writeDocAccent, DEFAULT_DOC_ACCENT } from '@/components/documents/docColors'
 import { 
   Building2, 
   CreditCard, 
@@ -97,6 +98,9 @@ export function Parametres() {
       Settings are persisted by the dialog itself in localStorage
       (`pg_ticket_settings`) — no extra wiring needed here. */
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  // Document accent colour (Factures / Devis / BC / BL / Avoirs). Persisted
+  // per-device in localStorage via docColors helpers — applied immediately.
+  const [docAccent, setDocAccent] = useState<string>(() => readDocAccent());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -1044,6 +1048,64 @@ export function Parametres() {
                             }}
                           />
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Document accent colour (Factures / Devis / BC / BL / Avoirs) */}
+                  <div className="space-y-3">
+                    <div>
+                      <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.doc_color')}</FormLabel>
+                      <p className="text-sm text-muted-foreground mt-0.5">{t('parametres.appearance.doc_color_desc')}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      {['#E63946', '#267E54', '#2563EB', '#7C3AED', '#0F766E', '#EA580C', '#0F172A'].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => { writeDocAccent(preset); setDocAccent(preset); }}
+                          className={`h-9 w-9 rounded-lg border-2 transition-all ${
+                            docAccent.toLowerCase() === preset.toLowerCase()
+                              ? 'border-foreground scale-110'
+                              : 'border-transparent hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: preset }}
+                          aria-label={preset}
+                        >
+                          {docAccent.toLowerCase() === preset.toLowerCase() && (
+                            <Check className="h-4 w-4 text-white mx-auto" />
+                          )}
+                        </button>
+                      ))}
+                      <div className="flex items-center gap-2 ms-1">
+                        <input
+                          type="color"
+                          value={docAccent}
+                          onChange={(e) => { writeDocAccent(e.target.value); setDocAccent(e.target.value); }}
+                          className="h-9 w-9 rounded-lg border border-slate-200 dark:border-white/10 bg-transparent cursor-pointer p-0.5"
+                          aria-label={t('parametres.appearance.doc_color_custom')}
+                        />
+                        <Input
+                          value={docAccent}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setDocAccent(v);
+                            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v)) writeDocAccent(v);
+                          }}
+                          className="h-9 w-28 font-mono text-sm dark:bg-[#020617]/50 dark:border-white/10"
+                          dir="ltr"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 text-xs text-muted-foreground"
+                          onClick={() => { writeDocAccent(DEFAULT_DOC_ACCENT); setDocAccent(DEFAULT_DOC_ACCENT); }}
+                        >
+                          {t('parametres.appearance.doc_color_reset')}
+                        </Button>
                       </div>
                     </div>
                   </div>

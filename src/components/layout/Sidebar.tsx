@@ -36,7 +36,6 @@ const navigationGroups = [
     titleKey: 'nav.achats',
     items: [
       { nameKey: 'navigation.purchase_orders', href: '/bons-commande', icon: ClipboardList },
-      { nameKey: 'navigation.delivery_notes', href: '/bons-livraison', icon: Truck },
       { nameKey: 'navigation.expenses', href: '/depenses', icon: DollarSign },
     ]
   },

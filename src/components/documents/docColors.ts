@@ -18,26 +18,68 @@
  *   • the bottom border of the meta/info row
  *   • the highlight of the "Total TTC" line in the totals stack
  *
- * The accent is deep teal (#0F766E) which is the printable cousin of
- * the ParaGestion emerald primary — desaturated enough to look formal
- * in B&W previews, saturated enough to be visible on screen.
+ * The accent colour is now USER-CUSTOMISABLE. It is persisted per-device
+ * in localStorage under `pg_doc_accent` (see `readDocAccent` /
+ * `writeDocAccent`). `DOC_COLORS.accent` / `.accentStrong` are exposed as
+ * getters so every document that reads `C.accent` at render time always
+ * picks up the latest chosen colour without any prop-drilling.
  *
- * KEEP THIS PALETTE STABLE — every document file imports from here, so
- * any tweak propagates atomically. If you need a different visual for
- * one specific document, override locally at the call-site instead of
- * forking the palette.
+ * KEEP THE NON-ACCENT VALUES STABLE — every document file imports from
+ * here, so any tweak propagates atomically.
  */
+
+/** localStorage key for the user-chosen document accent colour. */
+export const DOC_ACCENT_KEY = 'pg_doc_accent'
+
+/** Factory default accent (bold invoice red) used when nothing is saved. */
+export const DEFAULT_DOC_ACCENT = '#E63946'
+
+// Module-level cache of the current accent. Initialised from localStorage
+// at module load and refreshed by `writeDocAccent`. Reading from a cached
+// variable (rather than localStorage on every getter access) keeps the
+// hot render path cheap.
+let currentAccent: string = readDocAccentFromStorage()
+
+function readDocAccentFromStorage(): string {
+  try {
+    const v = typeof localStorage !== 'undefined' ? localStorage.getItem(DOC_ACCENT_KEY) : null
+    return v && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v) ? v : DEFAULT_DOC_ACCENT
+  } catch {
+    return DEFAULT_DOC_ACCENT
+  }
+}
+
+/** Read the current document accent colour (cached). */
+export function readDocAccent(): string {
+  return currentAccent
+}
+
+/** Persist a new document accent colour and refresh the in-memory cache. */
+export function writeDocAccent(hex: string): void {
+  const safe = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(hex) ? hex : DEFAULT_DOC_ACCENT
+  currentAccent = safe
+  try {
+    localStorage.setItem(DOC_ACCENT_KEY, safe)
+  } catch {
+    /* ignore quota / unavailable storage */
+  }
+}
+
 export const DOC_COLORS = {
-  /** Primary brand accent — bold invoice red used by the title pill,
+  /** Primary brand accent — user-customisable. Used by the title pill,
    *  the items table header bar, the TOTAL TTC highlight row, and the
    *  thin separator rule above the FACTURÉ À box. */
-  accent:        '#E63946',
-  /** Faint pink wash for soft accents (currently unused — reserved for
+  get accent(): string {
+    return currentAccent
+  },
+  /** Faint wash for soft accents (currently unused — reserved for
    *  any subtle "callout" cells that need a tinted background). */
   accentSoft:    '#FEE2E2',
-  /** Darker red used for hover-equivalent strong borders or when the
-   *  primary accent needs to be intensified for contrast. */
-  accentStrong:  '#B91C1C',
+  /** Strong accent — mirrors the chosen accent (used where the primary
+   *  accent needs to be intensified for contrast). */
+  get accentStrong(): string {
+    return currentAccent
+  },
 
   /** Document headings (FACTURE, DEVIS, etc.). Softer than pure black. */
   title:         '#0F172A',
