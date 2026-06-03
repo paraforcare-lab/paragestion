@@ -390,13 +390,6 @@ const updateProductStock = async (
   const currentStock = Number(produit.stock_actuel || 0);
   const newStock = currentStock + delta;
   
-  // Prevent negative stock â€” only block outbound movements (sales/deliveries).
-  // For inbound reversals (undoing a purchase receipt) the caller should use
-  // updateProductStockSafe() which clamps to 0 instead of throwing.
-  if (newStock < 0) {
-    throw new Error(`Stock insuffisant pour le produit ${produitId}. Stock actuel: ${currentStock}, Tentative de rÃ©duction: ${Math.abs(delta)}`);
-  }
-  
   const { error: updateError } = await supabaseAdmin
     .from('produits')
     .update({ stock_actuel: newStock })

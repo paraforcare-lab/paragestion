@@ -30,9 +30,12 @@ interface Stats {
   produitsCount: number
   fournisseursCount: number
   totalRevenue: number
+  totalRevenueHT: number
   unpaidRevenue: number
   totalDepenses: number
+  totalDepensesHT: number
   profit: number
+  profitHT: number
   totalTvaCollectee: number
   totalTvaDeductible: number
   tvaNet: number
@@ -40,6 +43,7 @@ interface Stats {
   totalCOGS: number
   stockValueHT: number
   monthlyData: Array<{ name: string; revenue: number; expenses: number }>
+  monthlyDataHT: Array<{ name: string; revenue: number; expenses: number }>
   lowStockProduits: any[]
   recentFactures: any[]
   bonsCommandeCount: number
@@ -162,6 +166,7 @@ export function Dashboard() {
 
   const [stats, setStats]     = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isTtcMode, setIsTtcMode] = useState(true)
   const [dateRange, setDateRange] = useState<DateRangeKey>('this_month')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
@@ -230,10 +235,17 @@ export function Dashboard() {
         const caFactures = facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
         const totalRevenue = caVP + caFactures
 
+        const caVP_HT = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.montant_ht || 0), 0)
+        const caFactures_HT = facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0)
+        const totalRevenueHT = caVP_HT + caFactures_HT
+
         const totalDepenses = depenses.reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0)
           + bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_ttc || 0), 0)
+        const totalDepensesHT = depenses.reduce((s: number, d: any) => s + Number(d.montant_ht || 0), 0)
+          + bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_ht || 0), 0)
         const unpaidRevenue = resteAPayerFact.reduce((s: number, f: any) => s + Number(f.reste_a_payer || 0), 0)
         const profit = totalRevenue - totalDepenses
+        const profitHT = totalRevenueHT - totalDepensesHT
 
         const tvaVP = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.montant_tva || 0), 0)
         const tvaFactures = facturesValides.reduce((s: number, f: any) => s + Number(f.montant_tva || 0), 0)
@@ -248,6 +260,7 @@ export function Dashboard() {
           + facturesValides.reduce((s: number, f: any) => s + Number(f.cogs || 0), 0)
 
         const monthlyData: Stats['monthlyData'] = []
+        const monthlyDataHT: Stats['monthlyData'] = []
         const chartStart = filterStart || new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1)
         const chartEnd = filterEnd || new Date()
         const daysDiff = Math.ceil((chartEnd.getTime() - chartStart.getTime()) / (1000 * 60 * 60 * 24))
@@ -262,10 +275,17 @@ export function Dashboard() {
             const dayRev = [...facturesValides, ...ventesPassagers]
               .filter((f: any) => new Date(f.date || f.date_emission).toISOString().split('T')[0] === dateStr)
               .reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
+            const dayRevHT = [...facturesValides, ...ventesPassagers]
+              .filter((f: any) => new Date(f.date || f.date_emission).toISOString().split('T')[0] === dateStr)
+              .reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0)
             const dayExp = [...depenses, ...bonsCommandeValides]
               .filter((entry: any) => new Date(entry.date_depense || entry.date_commande).toISOString().split('T')[0] === dateStr)
               .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0)
+            const dayExpHT = [...depenses, ...bonsCommandeValides]
+              .filter((entry: any) => new Date(entry.date_depense || entry.date_commande).toISOString().split('T')[0] === dateStr)
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ht || 0), 0)
             monthlyData.push({ name: d.getDate().toString(), revenue: dayRev, expenses: dayExp })
+            monthlyDataHT.push({ name: d.getDate().toString(), revenue: dayRevHT, expenses: dayExpHT })
           }
         } else {
           const startMonth = chartStart.getMonth() + chartStart.getFullYear() * 12
@@ -278,11 +298,18 @@ export function Dashboard() {
             const monthRev = [...facturesValides, ...ventesPassagers]
               .filter((f: any) => { const fd = new Date(f.date || f.date_emission); return fd.getMonth() === month && fd.getFullYear() === year })
               .reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
+            const monthRevHT = [...facturesValides, ...ventesPassagers]
+              .filter((f: any) => { const fd = new Date(f.date || f.date_emission); return fd.getMonth() === month && fd.getFullYear() === year })
+              .reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0)
             const monthExp = [...depenses, ...bonsCommandeValides]
               .filter((entry: any) => { const ed = new Date(entry.date_depense || entry.date_commande); return ed.getMonth() === month && ed.getFullYear() === year })
               .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0)
+            const monthExpHT = [...depenses, ...bonsCommandeValides]
+              .filter((entry: any) => { const ed = new Date(entry.date_depense || entry.date_commande); return ed.getMonth() === month && ed.getFullYear() === year })
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ht || 0), 0)
             const nameKey = MONTH_KEYS[month]
             monthlyData.push({ name: t(`dashboard.chart.months.${nameKey}`), revenue: monthRev, expenses: monthExp })
+            monthlyDataHT.push({ name: t(`dashboard.chart.months.${nameKey}`), revenue: monthRevHT, expenses: monthExpHT })
           }
         }
 
@@ -293,9 +320,11 @@ export function Dashboard() {
           facturesCount: payeesFact.length + resteAPayerFact.length + brouillonFact.length,
           produitsCount: produits.length,
           fournisseursCount: fournisseurs.length,
-          totalRevenue, unpaidRevenue, totalDepenses, profit,
+          totalRevenue, totalRevenueHT, unpaidRevenue,
+          totalDepenses, totalDepensesHT,
+          profit, profitHT,
           totalTvaCollectee, totalTvaDeductible, tvaNet,
-          ventesHT, totalCOGS, stockValueHT, monthlyData,
+          ventesHT, totalCOGS, stockValueHT, monthlyData, monthlyDataHT,
           bonsCommandeCount: bonsCommande.filter((b: any) => ['livré', 'livrée'].includes(b.statut)).length,
           lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
           recentFactures: recentFacturesRaw,
@@ -489,10 +518,38 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* ── HT / TTC Toggle ────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 p-0.5 rounded-lg border border-input bg-background w-fit">
+        <button
+          type="button"
+          onClick={() => setIsTtcMode(false)}
+          className={cn(
+            'px-3 py-1 text-xs font-medium rounded-md transition-all',
+            !isTtcMode
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          HT
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsTtcMode(true)}
+          className={cn(
+            'px-3 py-1 text-xs font-medium rounded-md transition-all',
+            isTtcMode
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          TTC
+        </button>
+      </div>
+
       {/* ── KPI Row 1: Financial KPIs ─────────────────────────────────────── */}
       {/* Mobile: 2 columns (full-width single-col makes huge cards waste
           vertical space). Tablet/desktop: 2-4 cols. */}
-      <div className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 xl:grid-cols-5">
         {/*
          * Each KPICard's `iconContainerClass` now declares BOTH light- and
          * dark-mode tints on the same line. Light mode uses the *-50 tint
@@ -501,8 +558,8 @@ export function Dashboard() {
          * saturation of the dark-mode *-400 icons at parity contrast.
          */}
         <KPICard
-          title={td('kpi.revenue.title')}
-          value={fmt(stats?.totalRevenue ?? 0)}
+          title={isTtcMode ? td('kpi.revenue.title_ttc') : td('kpi.revenue.title_ht')}
+          value={fmt(isTtcMode ? (stats?.totalRevenue ?? 0) : (stats?.totalRevenueHT ?? 0))}
           subtitle={td('kpi.revenue.subtitle')}
           icon={DollarSign}
           iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
@@ -515,18 +572,29 @@ export function Dashboard() {
           iconContainerClass="bg-blue-50 border border-blue-200/60 text-blue-600 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-400"
         />
         <KPICard
-          title={td('kpi.expenses.title')}
-          value={fmt(stats?.totalDepenses ?? 0)}
+          title={isTtcMode ? td('kpi.expenses.title_ttc') : td('kpi.expenses.title_ht')}
+          value={fmt(isTtcMode ? (stats?.totalDepenses ?? 0) : (stats?.totalDepensesHT ?? 0))}
           subtitle={td('kpi.expenses.subtitle')}
           icon={Activity}
           iconContainerClass="bg-rose-50 border border-rose-200/60 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"
         />
         <KPICard
-          title={td('kpi.profit.title')}
-          value={fmt(stats?.profit ?? 0)}
+          title={isTtcMode ? td('kpi.profit.title_ttc') : td('kpi.profit.title_ht')}
+          value={fmt(isTtcMode ? (stats?.profit ?? 0) : (stats?.profitHT ?? 0))}
           subtitle={td('kpi.profit.subtitle')}
           icon={ShieldCheck}
           iconContainerClass="bg-rose-50 border border-rose-200/60 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"
+        />
+        <KPICard
+          title={isTtcMode ? td('kpi.marge_commerciale.title_ttc') : td('kpi.marge_commerciale.title_ht')}
+          value={fmt(
+            isTtcMode
+              ? (stats?.totalRevenue ?? 0) - (stats?.totalCOGS ?? 0)
+              : (stats?.totalRevenueHT ?? 0) - (stats?.totalCOGS ?? 0)
+          )}
+          subtitle={td('kpi.marge_commerciale.subtitle')}
+          icon={TrendingUp}
+          iconContainerClass="bg-violet-50 border border-violet-200/60 text-violet-600 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-400"
         />
       </div>
 
@@ -587,7 +655,7 @@ export function Dashboard() {
                 <TrendingUp className="h-5 w-5 text-primary shrink-0" />
                 {td('chart.title')}
               </CardTitle>
-              <CardDescription>{td('chart.subtitle')}</CardDescription>
+              <CardDescription>{td('chart.subtitle')} ({isTtcMode ? 'TTC' : 'HT'})</CardDescription>
             </div>
 
             {/* Legend — ms-auto pushes it to the logical end */}
@@ -621,7 +689,7 @@ export function Dashboard() {
             <div className="h-[240px] sm:h-[280px] lg:h-[320px] w-full" dir="ltr">
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart
-                  data={stats?.monthlyData ?? []}
+                  data={isTtcMode ? (stats?.monthlyData ?? []) : (stats?.monthlyDataHT ?? [])}
                   margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
                 >
                   <defs>

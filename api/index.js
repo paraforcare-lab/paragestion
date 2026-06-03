@@ -1167,9 +1167,6 @@ var updateProductStock = async (produitId, delta, type = "ajustement", reference
   }
   const currentStock = Number(produit.stock_actuel || 0);
   const newStock = currentStock + delta;
-  if (newStock < 0) {
-    throw new Error(`Stock insuffisant pour le produit ${produitId}. Stock actuel: ${currentStock}, Tentative de r\xC3\xA9duction: ${Math.abs(delta)}`);
-  }
   const { error: updateError } = await supabaseAdmin.from("produits").update({ stock_actuel: newStock }).eq("id", produitId);
   if (updateError) {
     console.error(`Error updating stock for product ${produitId}:`, updateError);

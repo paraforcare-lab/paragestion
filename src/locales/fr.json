@@ -47,11 +47,12 @@
       "subtitle": "Préparation de votre tableau de bord"
     },
     "kpi": {
-      "revenue":         { "title": "CHIFFRE D'AFFAIRES", "subtitle": "Revenus totaux TTC" },
+      "revenue":         { "title": "CHIFFRE D'AFFAIRES", "title_ttc": "CHIFFRE D'AFFAIRES (TTC)", "title_ht": "CHIFFRE D'AFFAIRES (HT)", "subtitle": "Revenus totaux" },
       "receivables":     { "title": "CRÉANCES CLIENTS",   "subtitle": "Factures en attente" },
-      "expenses":        { "title": "DÉPENSES TOTALES",   "subtitle": "Sorties mensuelles" },
-      "profit":          { "title": "BÉNÉFICE NET",       "subtitle": "Marge bénéficiaire" },
-      "purchase_orders": { "title": "BONS DE COMMANDE",   "subtitle": "Confirmés / Livrés" },
+      "expenses":        { "title": "DÉPENSES TOTALES",   "title_ttc": "DÉPENSES TOTALES (TTC)", "title_ht": "DÉPENSES TOTALES (HT)", "subtitle": "Sorties mensuelles" },
+      "profit":          { "title": "BÉNÉFICE NET",          "title_ttc": "BÉNÉFICE NET (TTC)", "title_ht": "BÉNÉFICE NET (HT)", "subtitle": "Marge bénéficiaire" },
+      "marge_commerciale": { "title": "MARGE COMMERCIALE (TTC)", "title_ttc": "MARGE COMMERCIALE (TTC)", "title_ht": "MARGE COMMERCIALE (HT)", "subtitle": "CA - Coût des ventes" },
+      "purchase_orders": { "title": "BONS DE COMMANDE",      "subtitle": "Confirmés / Livrés" },
       "clients":         { "title": "CLIENTS",            "subtitle": "Total clients" },
       "suppliers":       { "title": "FOURNISSEURS",       "subtitle": "Total fournisseurs" },
       "products":        { "title": "PRODUITS",           "subtitle": "Articles en stock" },

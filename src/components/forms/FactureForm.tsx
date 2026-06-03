@@ -269,7 +269,7 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
       form.setValue(`lignes.${index}.reference`, produit.reference || '');
       form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
       form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt || produit.prix_vente_ht || 0));
-      form.setValue(`lignes.${index}.tva`, Number(produit.tauxTva || produit.tva || 20));
+      form.setValue(`lignes.${index}.tva`, Number(produit.taux_tva ?? produit.tauxTva ?? produit.tva ?? 20));
     }
   };
 

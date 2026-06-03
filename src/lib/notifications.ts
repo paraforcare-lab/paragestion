@@ -84,11 +84,6 @@ export async function updateStockAndNotify(
     const currentStock = Number(produit.stock_actuel || 0)
     const newStock = currentStock + delta
 
-    if (newStock < 0) {
-      console.error(`Stock insuffisant pour le produit ${produitId}. Stock actuel: ${currentStock}`)
-      return
-    }
-
     await supabase
       .from('produits')
       .update({ stock_actuel: newStock })
