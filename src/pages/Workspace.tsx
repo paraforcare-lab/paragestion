@@ -318,54 +318,6 @@ export function Workspace() {
     }
   };
 
-  // ─── Derived metrics (i18n labels resolved here) ──────────────────────────
-  const metrics = [
-    {
-      label: t('workspace.kpi.invoiced'),
-      value: formatCurrency(stats.invoiced),
-      icon: DollarSign,
-      iconBg: 'bg-blue-500/10 text-blue-400',
-      change: {
-        value: `${changeStats.invoicedChange >= 0 ? '+' : ''}${changeStats.invoicedChange.toFixed(1)}%`,
-        positive: changeStats.invoicedPositive,
-        label: t('workspace.kpi.invoiced_vs'),
-      },
-    },
-    {
-      label: t('workspace.kpi.clients'),
-      value: String(stats.clients),
-      icon: Users,
-      iconBg: 'bg-emerald-500/10 text-emerald-400',
-      change: {
-        value: `+${newClients}`,
-        positive: true,
-        label: t('workspace.kpi.clients_new'),
-      },
-    },
-    {
-      label: t('workspace.kpi.products'),
-      value: String(stats.products),
-      icon: Package,
-      iconBg: 'bg-amber-500/10 text-amber-400',
-      change: {
-        value: `${inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length} ${t('workspace.kpi.products_alert')}`,
-        positive: inventoryItems.filter(i => i.status === 'critique' || i.status === 'rupture').length === 0,
-        label: t('workspace.kpi.products_critical'),
-      },
-    },
-    {
-      label: t('workspace.kpi.growth'),
-      value: `${stats.monthlyGrowth >= 0 ? '+' : ''}${stats.monthlyGrowth.toFixed(1)}%`,
-      icon: Target,
-      iconBg: stats.monthlyGrowth >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400',
-      change: {
-        value: `${stats.monthlyGrowth >= 0 ? '+' : ''}${stats.monthlyGrowth.toFixed(1)}%`,
-        positive: stats.monthlyGrowth >= 0,
-        label: t('workspace.kpi.growth_vs'),
-      },
-    },
-  ];
-
   // ─── Resolved quick actions ───────────────────────────────────────────────
   const quickActions = quickActionDefs.map(({ key, icon, href, iconBg, iconColor }) => ({
     icon,
@@ -425,51 +377,6 @@ export function Workspace() {
        */
       dir={isRTL ? 'rtl' : 'ltr'}
     >
-      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-      {/* Mobile uses 2 columns instead of 1 so the dashboard feels dense on
-          phones without each card taking up a full screen-height. */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {metrics.map((metric, i) => (
-          <motion.div
-            key={metric.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 }}
-            className="rounded-[8px] bg-card p-3 sm:p-4 lg:p-5 border border-border"
-          >
-            <div className="flex items-start justify-between mb-2 sm:mb-3">
-              <div className={cn("h-8 w-8 sm:h-10 sm:w-10 rounded-[8px] flex items-center justify-center shrink-0", metric.iconBg)}>
-                <metric.icon className="h-4 w-4 sm:h-5 sm:w-5" />
-              </div>
-            </div>
-            <p className="text-[10px] sm:text-xs font-medium text-muted-foreground tracking-wide uppercase line-clamp-2">
-              {metric.label}
-            </p>
-            {/*
-             * RTL Note: numeric values should always render LTR so digits read
-             * left-to-right regardless of page direction.
-             */}
-            <p className="text-lg sm:text-xl lg:text-2xl font-bold text-card-foreground mt-0.5 tracking-tight truncate" dir="ltr">
-              {metric.value}
-            </p>
-            {metric.change && (
-              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className={cn(
-                  "inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-[4px]",
-                  metric.change.positive ? "text-emerald-400 bg-emerald-500/10" : "text-red-400 bg-red-500/10"
-                )} dir="ltr">
-                  {metric.change.positive
-                    ? <TrendingUp className="h-3 w-3" />
-                    : <TrendingDown className="h-3 w-3" />}
-                  {metric.change.value}
-                </span>
-                <span className="text-xs text-muted-foreground">{metric.change.label}</span>
-              </div>
-            )}
-          </motion.div>
-        ))}
-      </div>
-
       {/* ── Main 12-col Grid ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
 
