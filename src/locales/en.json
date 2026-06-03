@@ -51,7 +51,7 @@
       "receivables":    { "title": "Receivables",       "subtitle": "Pending invoices" },
       "expenses":       { "title": "Total Expenses",    "title_ttc": "Total Expenses (TTC)", "title_ht": "Total Expenses (HT)", "subtitle": "Monthly outflows" },
       "profit":         { "title": "Net Profit",         "title_ttc": "Net Profit (TTC)",    "title_ht": "Net Profit (HT)",    "subtitle": "Profit margin" },
-      "marge_commerciale": { "title": "Gross Margin (TTC)", "title_ttc": "Gross Margin (TTC)", "title_ht": "Gross Margin (HT)", "subtitle": "Revenue - COGS" },
+      "marge_commerciale": { "title": "Gross Margin (TTC)", "title_ttc": "Gross Margin (TTC)", "title_ht": "Gross Margin (HT)", "subtitle": "Revenue - COGS", "view_calc": "View calculation", "calc_subtitle": "Margin calculation breakdown", "calc_revenue": "Revenue", "calc_cogs_sold": "Cost of goods sold", "calc_cogs_returned": "Customer credit notes (cost)", "calc_net_cogs": "Net cost of goods sold", "calc_result": "Gross margin" },
       "purchase_orders":{ "title": "Purchase Orders",     "subtitle": "Confirmed / Delivered" },
       "clients":        { "title": "Customers",      "subtitle": "Total customers" },
       "suppliers":      { "title": "Suppliers",      "subtitle": "Total suppliers" },

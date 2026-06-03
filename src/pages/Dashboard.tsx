@@ -10,13 +10,16 @@ import {
   DollarSign, CreditCard, Activity, FileText, Users, Package,
   TrendingUp, ShieldCheck, ChevronRight, Receipt, Building2,
   HeartPulse, ClipboardList, Plus, ShoppingCart, AlertTriangle,
-  Pill, PieChart, CalendarDays, Filter,
+  Pill, PieChart, CalendarDays, Filter, Calculator,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { KPICard } from '@/components/ui/kpi-card'
@@ -41,6 +44,12 @@ interface Stats {
   tvaNet: number
   ventesHT: number
   totalCOGS: number
+  totalCOGSTTC: number
+  // ── Marge Commerciale breakdown components (for the "view calculation" popup)
+  cogsHTSold: number
+  cogsTTCSold: number
+  cogsHTReturned: number
+  cogsTTCReturned: number
   stockValueHT: number
   monthlyData: Array<{ name: string; revenue: number; expenses: number }>
   monthlyDataHT: Array<{ name: string; revenue: number; expenses: number }>
@@ -167,6 +176,7 @@ export function Dashboard() {
   const [stats, setStats]     = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [isTtcMode, setIsTtcMode] = useState(true)
+  const [margeDetailsOpen, setMargeDetailsOpen] = useState(false)
   const [dateRange, setDateRange] = useState<DateRangeKey>('this_month')
   const [customStart, setCustomStart] = useState('')
   const [customEnd, setCustomEnd] = useState('')
@@ -219,7 +229,7 @@ export function Dashboard() {
         bcQuery,
         avoirQuery,
         avoirFournQuery,
-      ]).then(([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes, avoirRes, avoirFournRes]) => {
+      ]).then(async ([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes, avoirRes, avoirFournRes]) => {
         const factures         = factRes.data  ?? []
         const ventesPassagers  = vpRes.data    ?? []
         const depenses         = depRes.data   ?? []
@@ -284,8 +294,70 @@ export function Dashboard() {
         const tvaNet = totalTvaCollectee - totalTvaDeductible
 
         const ventesHT = caVP + facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0)
-        const totalCOGS = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.cogs || 0), 0)
-          + facturesValides.reduce((s: number, f: any) => s + Number(f.cogs || 0), 0)
+
+        // ── Cost of Goods Sold (COGS) — both HT and TTC ──────────────────
+        // The stored `cogs` column is an aggregate HT cost with no per-product
+        // VAT breakdown, so it cannot produce an accurate TTC cost. To keep the
+        // Marge Commerciale "apples-to-apples" in both toggle states we recompute
+        // COGS from the underlying line items: each line's cost is the product's
+        // `prix_achat_ht`, and the TTC cost applies that line's own VAT rate
+        // (which mirrors the product category, e.g. 20% or 7%).
+        //
+        //   cogsHT  = Σ (prix_achat_ht × quantité)
+        //   cogsTTC = Σ (prix_achat_ht × (1 + tva/100) × quantité)
+        //
+        // Manual customer credit notes (Avoir Client) reduce the sold quantity,
+        // so their lines' cost is subtracted symmetrically:
+        //   totalCOGS    = coût ventes HT  − avoirs client coût ventes HT
+        //   totalCOGSTTC = coût ventes TTC − avoirs client coût ventes TTC
+        // Supplier credit notes affect purchases/expenses, not goods-sold cost,
+        // so they are not applied here.
+        const prodCostMap = new Map<string, number>()
+        for (const p of produits as any[]) {
+          prodCostMap.set(String(p.id), Number(p.prix_achat_ht || 0))
+        }
+
+        const factIds = facturesValides.map((f: any) => f.id)
+        const vpIds = (ventesPassagers as any[]).map((vp: any) => vp.id)
+        const avoirIds = (avoirsManuels as any[]).map((a: any) => a.id)
+
+        const [factLignesRes, vpLignesRes, avoirLignesRes] = await Promise.all([
+          factIds.length
+            ? supabase.from('facture_lignes').select('*').in('facture_id', factIds)
+            : Promise.resolve({ data: [] as any[] }),
+          vpIds.length
+            ? supabase.from('ventes_passagers_lignes').select('*')
+            : Promise.resolve({ data: [] as any[] }),
+          avoirIds.length
+            ? supabase.from('avoir_lignes').select('*').in('avoir_id', avoirIds)
+            : Promise.resolve({ data: [] as any[] }),
+        ])
+
+        const factLignes = factLignesRes.data ?? []
+        // VP lines: the schema carries both `vp_id` (written by the sales UI) and
+        // `vente_passager_id` (used by the relation map). Match on whichever is set.
+        const vpIdSet = new Set(vpIds.map((id: any) => String(id)))
+        const vpLignes = (vpLignesRes.data ?? []).filter((l: any) => {
+          const key = l.vp_id ?? l.vente_passager_id
+          return key != null && vpIdSet.has(String(key))
+        })
+        const avoirLignes = avoirLignesRes.data ?? []
+
+        const lineCostHT = (l: any) =>
+          (prodCostMap.get(String(l.produit_id)) ?? 0) * Number(l.quantite || 0)
+        const lineCostTTC = (l: any) =>
+          (prodCostMap.get(String(l.produit_id)) ?? 0) * (1 + Number(l.tva || 0) / 100) * Number(l.quantite || 0)
+
+        const cogsHTSold = [...factLignes, ...vpLignes].reduce((s: number, l: any) => s + lineCostHT(l), 0)
+        const cogsTTCSold = [...factLignes, ...vpLignes].reduce((s: number, l: any) => s + lineCostTTC(l), 0)
+        // Avoir Client lines reduce sold quantity → reduce COGS symmetrically.
+        // Always taken as a positive magnitude so the subtraction below reads
+        // exactly: coût ventes − (positive avoir coût).
+        const cogsHTReturned = Math.abs(avoirLignes.reduce((s: number, l: any) => s + lineCostHT(l), 0))
+        const cogsTTCReturned = Math.abs(avoirLignes.reduce((s: number, l: any) => s + lineCostTTC(l), 0))
+
+        const totalCOGS = cogsHTSold - cogsHTReturned
+        const totalCOGSTTC = cogsTTCSold - cogsTTCReturned
 
         const monthlyData: Stats['monthlyData'] = []
         const monthlyDataHT: Stats['monthlyData'] = []
@@ -376,7 +448,9 @@ export function Dashboard() {
           totalDepenses, totalDepensesHT,
           profit, profitHT,
           totalTvaCollectee, totalTvaDeductible, tvaNet,
-          ventesHT, totalCOGS, stockValueHT, monthlyData, monthlyDataHT,
+          ventesHT, totalCOGS, totalCOGSTTC,
+          cogsHTSold, cogsTTCSold, cogsHTReturned, cogsTTCReturned,
+          stockValueHT, monthlyData, monthlyDataHT,
           bonsCommandeCount: bonsCommande.filter((b: any) => ['livré', 'livrée'].includes(b.statut)).length,
           lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
           recentFactures: recentFacturesRaw,
@@ -637,17 +711,30 @@ export function Dashboard() {
           icon={ShieldCheck}
           iconContainerClass="bg-rose-50 border border-rose-200/60 text-rose-600 dark:bg-rose-500/10 dark:border-rose-500/20 dark:text-rose-400"
         />
-        <KPICard
-          title={isTtcMode ? td('kpi.marge_commerciale.title_ttc') : td('kpi.marge_commerciale.title_ht')}
-          value={fmt(
-            isTtcMode
-              ? (stats?.totalRevenue ?? 0) - (stats?.totalCOGS ?? 0)
-              : (stats?.totalRevenueHT ?? 0) - (stats?.totalCOGS ?? 0)
-          )}
-          subtitle={td('kpi.marge_commerciale.subtitle')}
-          icon={TrendingUp}
-          iconContainerClass="bg-violet-50 border border-violet-200/60 text-violet-600 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-400"
-        />
+        <div className="relative">
+          <KPICard
+            title={isTtcMode ? td('kpi.marge_commerciale.title_ttc') : td('kpi.marge_commerciale.title_ht')}
+            value={fmt(
+              isTtcMode
+                ? (stats?.totalRevenue ?? 0) - (stats?.totalCOGSTTC ?? 0)
+                : (stats?.totalRevenueHT ?? 0) - (stats?.totalCOGS ?? 0)
+            )}
+            subtitle={td('kpi.marge_commerciale.subtitle')}
+            icon={TrendingUp}
+            iconContainerClass="bg-violet-50 border border-violet-200/60 text-violet-600 dark:bg-violet-500/10 dark:border-violet-500/20 dark:text-violet-400"
+          />
+          {/* Overlay button — opens the calculation breakdown. Positioned at the
+              logical start-bottom corner so it never overlaps the value/icon. */}
+          <button
+            type="button"
+            onClick={() => setMargeDetailsOpen(true)}
+            title={td('kpi.marge_commerciale.view_calc')}
+            className="absolute bottom-2 end-2 inline-flex items-center gap-1 rounded-[4px] border border-violet-200/60 bg-violet-50 px-1.5 py-1 text-[10px] font-medium text-violet-600 hover:bg-violet-100 dark:border-violet-500/20 dark:bg-violet-500/10 dark:text-violet-400 dark:hover:bg-violet-500/20 transition-colors"
+          >
+            <Calculator className="h-3 w-3" />
+            <span className="hidden sm:inline">{td('kpi.marge_commerciale.view_calc')}</span>
+          </button>
+        </div>
       </div>
 
       {/* ── KPI Row 2: Counter cards ──────────────────────────────────────── */}
@@ -1085,6 +1172,53 @@ export function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Marge Commerciale — calculation breakdown ───────────────────── */}
+      <Dialog open={margeDetailsOpen} onOpenChange={setMargeDetailsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+              {isTtcMode ? td('kpi.marge_commerciale.title_ttc') : td('kpi.marge_commerciale.title_ht')}
+            </DialogTitle>
+            <DialogDescription>
+              {td('kpi.marge_commerciale.calc_subtitle')} ({isTtcMode ? 'TTC' : 'HT'})
+            </DialogDescription>
+          </DialogHeader>
+
+          {(() => {
+            const revenue = isTtcMode ? (stats?.totalRevenue ?? 0) : (stats?.totalRevenueHT ?? 0)
+            const cogsSold = isTtcMode ? (stats?.cogsTTCSold ?? 0) : (stats?.cogsHTSold ?? 0)
+            const cogsReturned = isTtcMode ? (stats?.cogsTTCReturned ?? 0) : (stats?.cogsHTReturned ?? 0)
+            const netCogs = cogsSold - cogsReturned
+            const marge = revenue - netCogs
+            const Row = ({ label, value, op }: { label: string; value: string; op?: string }) => (
+              <div className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-b-0">
+                <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  {op && <span className="font-mono font-bold text-foreground w-3 text-center">{op}</span>}
+                  {label}
+                </span>
+                <span className="text-sm font-semibold text-card-foreground" dir="ltr">{value}</span>
+              </div>
+            )
+            return (
+              <div className="mt-1">
+                <Row label={td('kpi.marge_commerciale.calc_revenue')} value={fmt(revenue)} />
+                <Row label={td('kpi.marge_commerciale.calc_cogs_sold')} value={fmt(cogsSold)} op="−" />
+                <Row label={td('kpi.marge_commerciale.calc_cogs_returned')} value={fmt(cogsReturned)} op="+" />
+                <Row label={td('kpi.marge_commerciale.calc_net_cogs')} value={fmt(netCogs)} />
+                <div className="flex items-center justify-between gap-3 pt-3 mt-1">
+                  <span className="text-sm font-bold text-foreground">{td('kpi.marge_commerciale.calc_result')}</span>
+                  <span className="text-lg font-bold text-violet-600 dark:text-violet-400" dir="ltr">{fmt(marge)}</span>
+                </div>
+                <p className="mt-3 text-xs text-muted-foreground leading-relaxed bg-muted/50 rounded-[4px] p-2.5" dir="ltr">
+                  {fmt(revenue)} − ({fmt(cogsSold)} − {fmt(cogsReturned)}) = {fmt(marge)}
+                </p>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

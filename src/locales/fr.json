@@ -51,7 +51,7 @@
       "receivables":     { "title": "CRÉANCES CLIENTS",   "subtitle": "Factures en attente" },
       "expenses":        { "title": "DÉPENSES TOTALES",   "title_ttc": "DÉPENSES TOTALES (TTC)", "title_ht": "DÉPENSES TOTALES (HT)", "subtitle": "Sorties mensuelles" },
       "profit":          { "title": "BÉNÉFICE NET",          "title_ttc": "BÉNÉFICE NET (TTC)", "title_ht": "BÉNÉFICE NET (HT)", "subtitle": "Marge bénéficiaire" },
-      "marge_commerciale": { "title": "MARGE COMMERCIALE (TTC)", "title_ttc": "MARGE COMMERCIALE (TTC)", "title_ht": "MARGE COMMERCIALE (HT)", "subtitle": "CA - Coût des ventes" },
+      "marge_commerciale": { "title": "MARGE COMMERCIALE (TTC)", "title_ttc": "MARGE COMMERCIALE (TTC)", "title_ht": "MARGE COMMERCIALE (HT)", "subtitle": "CA - Coût des ventes", "view_calc": "Voir le calcul", "calc_subtitle": "Détail du calcul de la marge", "calc_revenue": "Chiffre d'affaires", "calc_cogs_sold": "Coût des ventes", "calc_cogs_returned": "Avoirs client (coût)", "calc_net_cogs": "Coût net des ventes", "calc_result": "Marge commerciale" },
       "purchase_orders": { "title": "BONS DE COMMANDE",      "subtitle": "Confirmés / Livrés" },
       "clients":         { "title": "CLIENTS",            "subtitle": "Total clients" },
       "suppliers":       { "title": "FOURNISSEURS",       "subtitle": "Total fournisseurs" },
