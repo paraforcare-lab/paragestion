@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight } from 'lucide-react'
+import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight, Plus, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -25,6 +25,7 @@ import {
 import { toast } from 'sonner'
 import { useReactToPrint } from 'react-to-print'
 import { FactureDocument } from '@/components/documents/FactureDocument'
+import { AvoirForm } from '@/components/forms/AvoirForm'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
@@ -33,8 +34,8 @@ import { useAuth } from '@/contexts/AuthContext'
 interface Avoir {
   id: number;
   numero: string;
-  factureId: number;
-  facture: { numero: string; statut: string };
+  factureId: number | null;
+  facture: { numero: string; statut: string } | null;
   clientId: number;
   client: { nom: string; nomSociete?: string; email?: string };
   dateEmission: string;
@@ -63,6 +64,7 @@ export function AvoirsList() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [avoirToDelete, setAvoirToDelete] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const [printingAvoir, setPrintingAvoir] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
@@ -315,17 +317,48 @@ export function AvoirsList() {
         )}
       </div>
 
+      {showForm ? (
+        <div className="space-y-4 sm:space-y-6">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => setShowForm(false)}>
+              <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
+            </Button>
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('avoirs.dialog_create')}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{t('avoirs.dialog_subtitle_create')}</p>
+            </div>
+          </div>
+          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-4 sm:p-6">
+            <AvoirForm
+              onSuccess={() => {
+                setShowForm(false);
+                fetchAvoirs();
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Header — text scales down on phones, subtitle wraps */}
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-orange-500/10 dark:border-orange-500/20 bg-orange-50 border border-orange-200/50 shrink-0">
-          <RotateCcw className="h-5 w-5 text-orange-500" />
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center justify-center h-10 w-10 rounded-sm dark:bg-orange-500/10 dark:border-orange-500/20 bg-orange-50 border border-orange-200/50 shrink-0">
+            <RotateCcw className="h-5 w-5 text-orange-500" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('avoirs.page_title')}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+              {t('avoirs.page_subtitle')}
+            </p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('avoirs.page_title')}</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-            {t('avoirs.page_subtitle')}
-          </p>
-        </div>
+        <Button
+          onClick={() => setShowForm(true)}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-sm shadow-none shrink-0"
+        >
+          <Plus className="h-4 w-4 me-2" />
+          {t('avoirs.add_button')}
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -434,10 +467,16 @@ export function AvoirsList() {
                           <span dir="ltr" className="text-sm font-mono font-medium dark:text-card-foreground text-slate-700">{avoir.numero || '-'}</span>
                         </TableCell>
                         <TableCell className="px-4 py-5">
-                          <span dir="ltr" className="text-sm font-mono font-medium dark:text-emerald-400 dark:bg-emerald-500/10 text-emerald-600 bg-emerald-50/50 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
-                            <FileText className="h-3 w-3" />
-                            {avoir.facture?.numero || '-'}
-                          </span>
+                          {avoir.facture?.numero ? (
+                            <span dir="ltr" className="text-sm font-mono font-medium dark:text-emerald-400 dark:bg-emerald-500/10 text-emerald-600 bg-emerald-50/50 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              {avoir.facture.numero}
+                            </span>
+                          ) : (
+                            <span className="text-xs font-medium dark:text-orange-400 dark:bg-orange-500/10 text-orange-600 bg-orange-50 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
+                              {t('avoirs.manual_badge')}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="px-4 py-5">
                           <span
@@ -589,6 +628,8 @@ export function AvoirsList() {
           </Card>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }
