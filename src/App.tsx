@@ -15,6 +15,7 @@ import { FournisseursList } from './pages/fournisseurs/FournisseursList'
 import { ProduitsList } from './pages/produits/ProduitsList'
 import { FacturesList } from './pages/factures/FacturesList'
 import { AvoirsList } from './pages/avoirs/AvoirsList'
+import { AvoirsFournisseurList } from './pages/avoirs-fournisseur/AvoirsFournisseurList'
 import { DevisList } from './pages/devis/DevisList'
 import { BonsCommandeList } from './pages/bons-commande/BonsCommandeList'
 import { BonsLivraisonList } from './pages/bons-livraison/BonsLivraisonList'
@@ -88,6 +89,7 @@ export default function App() {
               <Route path="bons-livraison" element={<BonsLivraisonList />} />
               <Route path="bons-livraison-client" element={<BonsLivraisonClientList />} />
               <Route path="depenses" element={<DepensesList />} />
+              <Route path="avoirs-fournisseur" element={<AvoirsFournisseurList />} />
               <Route path="parametres" element={<Parametres />} />
               <Route path="database" element={<DatabaseManager />} />
               <Route path="sql-editor" element={<SqlEditor />} />

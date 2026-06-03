@@ -193,6 +193,10 @@ export function Dashboard() {
       // excluded here because the linked invoice's amount already reflects the
       // deduction — counting them again would double-reduce revenue.
       let avoirQuery = supabase.from('avoirs').select('*').eq('user_id', user.id).is('facture_id', null).neq('statut', 'annulé')
+      // Manual supplier credit notes only (bon_commande_id IS NULL). BC-linked
+      // ones are excluded because cancelling a counted BC already removes it
+      // from expenses — counting the linked avoir too would double-reduce.
+      let avoirFournQuery = supabase.from('avoirs_fournisseur').select('*').eq('user_id', user.id).is('bon_commande_id', null).neq('statut', 'annulé')
 
       if (dateRange !== 'all') {
         factQuery = applyDateFilter(factQuery, 'date_emission', filterStart, filterEnd)
@@ -201,6 +205,7 @@ export function Dashboard() {
         bcQuery = applyDateFilter(bcQuery, 'date_commande', filterStart, filterEnd)
         recentQuery = applyDateFilter(recentQuery, 'date_emission', filterStart, filterEnd)
         avoirQuery = applyDateFilter(avoirQuery, 'date_emission', filterStart, filterEnd)
+        avoirFournQuery = applyDateFilter(avoirFournQuery, 'date_emission', filterStart, filterEnd)
       }
 
       Promise.all([
@@ -213,7 +218,8 @@ export function Dashboard() {
         recentQuery,
         bcQuery,
         avoirQuery,
-      ]).then(([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes, avoirRes]) => {
+        avoirFournQuery,
+      ]).then(([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes, avoirRes, avoirFournRes]) => {
         const factures         = factRes.data  ?? []
         const ventesPassagers  = vpRes.data    ?? []
         const depenses         = depRes.data   ?? []
@@ -224,6 +230,8 @@ export function Dashboard() {
         const bonsCommande     = bcRes.data    ?? []
         // Manual credit notes that reduce revenue.
         const avoirsManuels    = avoirRes.data ?? []
+        // Manual supplier credit notes that reduce expenses.
+        const avoirsFournManuels = avoirFournRes.data ?? []
 
         const facturesValides = factures.filter((f: any) =>
           ['payée', 'reste_a_payer'].includes(f.statut)
@@ -244,6 +252,11 @@ export function Dashboard() {
         const avoirsHt  = avoirsManuels.reduce((s: number, a: any) => s + Number(a.montant_ht || 0), 0)
         const avoirsTva = avoirsManuels.reduce((s: number, a: any) => s + Number(a.montant_tva || 0), 0)
 
+        // Manual supplier credit note totals — subtracted from expenses & deductible VAT.
+        const avoirsFournTtc = avoirsFournManuels.reduce((s: number, a: any) => s + Number(a.montant_ttc || 0), 0)
+        const avoirsFournHt  = avoirsFournManuels.reduce((s: number, a: any) => s + Number(a.montant_ht || 0), 0)
+        const avoirsFournTva = avoirsFournManuels.reduce((s: number, a: any) => s + Number(a.montant_tva || 0), 0)
+
         const caVP = ventesPassagers.reduce((s: number, vp: any) => s + Number(vp.montant_ttc || 0), 0)
         const caFactures = facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ttc || 0), 0)
         const totalRevenue = caVP + caFactures - avoirsTtc
@@ -254,8 +267,10 @@ export function Dashboard() {
 
         const totalDepenses = depenses.reduce((s: number, d: any) => s + Number(d.montant_ttc || 0), 0)
           + bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_ttc || 0), 0)
+          - avoirsFournTtc
         const totalDepensesHT = depenses.reduce((s: number, d: any) => s + Number(d.montant_ht || 0), 0)
           + bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_ht || 0), 0)
+          - avoirsFournHt
         const unpaidRevenue = resteAPayerFact.reduce((s: number, f: any) => s + Number(f.reste_a_payer || 0), 0)
         const profit = totalRevenue - totalDepenses
         const profitHT = totalRevenueHT - totalDepensesHT
@@ -265,7 +280,7 @@ export function Dashboard() {
         const totalTvaCollectee = tvaVP + tvaFactures - avoirsTva
         const tvaDepenses = depenses.reduce((s: number, d: any) => s + Number(d.montant_tva || 0), 0)
         const tvaBC = bonsCommandeValides.reduce((s: number, b: any) => s + Number(b.montant_tva || 0), 0)
-        const totalTvaDeductible = tvaDepenses + tvaBC
+        const totalTvaDeductible = tvaDepenses + tvaBC - avoirsFournTva
         const tvaNet = totalTvaCollectee - totalTvaDeductible
 
         const ventesHT = caVP + facturesValides.reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0)
@@ -297,12 +312,18 @@ export function Dashboard() {
             const dayRevHT = [...facturesValides, ...ventesPassagers]
               .filter((f: any) => new Date(f.date || f.date_emission).toISOString().split('T')[0] === dateStr)
               .reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0) - dayAvoirHT
+            const dayAvoirFourn = avoirsFournManuels
+              .filter((a: any) => new Date(a.date_emission).toISOString().split('T')[0] === dateStr)
+              .reduce((s: number, a: any) => s + Number(a.montant_ttc || 0), 0)
+            const dayAvoirFournHT = avoirsFournManuels
+              .filter((a: any) => new Date(a.date_emission).toISOString().split('T')[0] === dateStr)
+              .reduce((s: number, a: any) => s + Number(a.montant_ht || 0), 0)
             const dayExp = [...depenses, ...bonsCommandeValides]
               .filter((entry: any) => new Date(entry.date_depense || entry.date_commande).toISOString().split('T')[0] === dateStr)
-              .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0)
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0) - dayAvoirFourn
             const dayExpHT = [...depenses, ...bonsCommandeValides]
               .filter((entry: any) => new Date(entry.date_depense || entry.date_commande).toISOString().split('T')[0] === dateStr)
-              .reduce((s: number, entry: any) => s + Number(entry.montant_ht || 0), 0)
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ht || 0), 0) - dayAvoirFournHT
             monthlyData.push({ name: d.getDate().toString(), revenue: dayRev, expenses: dayExp })
             monthlyDataHT.push({ name: d.getDate().toString(), revenue: dayRevHT, expenses: dayExpHT })
           }
@@ -326,12 +347,18 @@ export function Dashboard() {
             const monthRevHT = [...facturesValides, ...ventesPassagers]
               .filter((f: any) => { const fd = new Date(f.date || f.date_emission); return fd.getMonth() === month && fd.getFullYear() === year })
               .reduce((s: number, f: any) => s + Number(f.montant_ht || 0), 0) - monthAvoirHT
+            const monthAvoirFourn = avoirsFournManuels
+              .filter((a: any) => { const ad = new Date(a.date_emission); return ad.getMonth() === month && ad.getFullYear() === year })
+              .reduce((s: number, a: any) => s + Number(a.montant_ttc || 0), 0)
+            const monthAvoirFournHT = avoirsFournManuels
+              .filter((a: any) => { const ad = new Date(a.date_emission); return ad.getMonth() === month && ad.getFullYear() === year })
+              .reduce((s: number, a: any) => s + Number(a.montant_ht || 0), 0)
             const monthExp = [...depenses, ...bonsCommandeValides]
               .filter((entry: any) => { const ed = new Date(entry.date_depense || entry.date_commande); return ed.getMonth() === month && ed.getFullYear() === year })
-              .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0)
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ttc || 0), 0) - monthAvoirFourn
             const monthExpHT = [...depenses, ...bonsCommandeValides]
               .filter((entry: any) => { const ed = new Date(entry.date_depense || entry.date_commande); return ed.getMonth() === month && ed.getFullYear() === year })
-              .reduce((s: number, entry: any) => s + Number(entry.montant_ht || 0), 0)
+              .reduce((s: number, entry: any) => s + Number(entry.montant_ht || 0), 0) - monthAvoirFournHT
             const nameKey = MONTH_KEYS[month]
             monthlyData.push({ name: t(`dashboard.chart.months.${nameKey}`), revenue: monthRev, expenses: monthExp })
             monthlyDataHT.push({ name: t(`dashboard.chart.months.${nameKey}`), revenue: monthRevHT, expenses: monthExpHT })

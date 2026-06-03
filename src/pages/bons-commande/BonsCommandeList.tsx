@@ -544,6 +544,85 @@ export function BonsCommandeList() {
         .update({ stock_updated: needStockAdd ? 1 : 0 })
         .eq('id', id)
     }
+
+    // --- 6. cancelled BC -> auto-create a linked supplier credit note ----
+    // When a Bon de Commande is cancelled, we record a supplier avoir for
+    // traceability. It is LINKED (bon_commande_id set), so it does NOT impact
+    // stock here and is EXCLUDED from dashboard totals. Stock reversal (if the
+    // BC was delivered) is already handled by the needStockRevert branch above.
+    if (newStatus === 'annulé') {
+      try {
+        const { data: existingAvf } = await supabase
+          .from('avoirs_fournisseur')
+          .select('id')
+          .eq('bon_commande_id', id)
+          .maybeSingle()
+
+        if (!existingAvf) {
+          const { data: bcFull } = await supabase
+            .from('bons_commande')
+            .select('*')
+            .eq('id', id)
+            .single()
+          const { data: bcLignes } = await supabase
+            .from('bon_commande_lignes')
+            .select('*')
+            .eq('bon_commande_id', id)
+
+          if (bcFull) {
+            const year = new Date().getFullYear()
+            const { data: avfExisting } = await supabase
+              .from('avoirs_fournisseur')
+              .select('numero')
+              .like('numero', `AVF-${year}-%`)
+              .eq('user_id', bcFull.user_id)
+            let avfMax = 0
+            for (const a of avfExisting || []) {
+              const m = a.numero?.match(new RegExp(`^AVF-${year}-(\\d+)$`))
+              if (m) {
+                const n = parseInt(m[1], 10)
+                if (n > avfMax) avfMax = n
+              }
+            }
+            const avfNumero = `AVF-${year}-${String(avfMax + 1).padStart(4, '0')}`
+            const { data: newAvf, error: avfError } = await supabase
+              .from('avoirs_fournisseur')
+              .insert([{
+                user_id: bcFull.user_id,
+                numero: avfNumero,
+                bon_commande_id: id,
+                fournisseur_id: bcFull.fournisseur_id,
+                date_emission: new Date().toISOString(),
+                montant_ht: bcFull.montant_ht || 0,
+                montant_tva: bcFull.montant_tva || 0,
+                montant_ttc: bcFull.montant_ttc || 0,
+                statut: 'annulé',
+                notes: `Avoir généré automatiquement depuis l'annulation du Bon de Commande ${bcFull.numero}`,
+              }])
+              .select()
+              .single()
+
+            if (!avfError && newAvf && bcLignes && bcLignes.length > 0) {
+              const avfLignes = (bcLignes as any[]).map((l: any, index: number) => ({
+                avoir_fournisseur_id: newAvf.id,
+                produit_id: l.produit_id,
+                designation: l.designation,
+                quantite: l.quantite,
+                prix_unitaire_ht: l.prix_unitaire_ht,
+                tva: l.tva,
+                montant_ht: l.montant_ht || Number(l.quantite || 0) * Number(l.prix_unitaire_ht || 0),
+                montant_ttc: l.montant_ttc || Number(l.quantite || 0) * Number(l.prix_unitaire_ht || 0) * (1 + Number(l.tva || 0) / 100),
+                ordre: l.ordre !== undefined ? l.ordre : index,
+              }))
+              await supabase.from('avoir_fournisseur_lignes').insert(avfLignes)
+            }
+          }
+        }
+      } catch (avfErr) {
+        // Non-fatal — the BC status change already succeeded.
+        console.error('[changeBonCommandeStatus] supplier avoir sync error (non-fatal):', avfErr)
+      }
+    }
   }
 
   const handleStatusChange = async (id: number, newStatus: string) => {

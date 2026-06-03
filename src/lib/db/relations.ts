@@ -80,6 +80,7 @@ export const RELATIONS: RelationMap = {
     fournisseurs:        { kind: 'belongsTo', fkColumn: 'fournisseur_id' },
     bon_commande_lignes: { kind: 'hasMany',   fkColumn: 'bon_commande_id' },
     bons_livraison:      { kind: 'hasMany',   fkColumn: 'bon_commande_id' },
+    avoirs_fournisseur:  { kind: 'hasMany',   fkColumn: 'bon_commande_id' },
   },
   bon_commande_lignes: {
     bons_commande: { kind: 'belongsTo', fkColumn: 'bon_commande_id' },
@@ -93,6 +94,17 @@ export const RELATIONS: RelationMap = {
   bon_livraison_lignes: {
     bons_livraison: { kind: 'belongsTo', fkColumn: 'bon_livraison_id' },
     produits:       { kind: 'belongsTo', fkColumn: 'produit_id' },
+  },
+
+  // -------------------- supplier credit notes (avoir fournisseur) ------
+  avoirs_fournisseur: {
+    fournisseurs:             { kind: 'belongsTo', fkColumn: 'fournisseur_id' },
+    bons_commande:            { kind: 'belongsTo', fkColumn: 'bon_commande_id' },
+    avoir_fournisseur_lignes: { kind: 'hasMany',   fkColumn: 'avoir_fournisseur_id' },
+  },
+  avoir_fournisseur_lignes: {
+    avoirs_fournisseur: { kind: 'belongsTo', fkColumn: 'avoir_fournisseur_id' },
+    produits:           { kind: 'belongsTo', fkColumn: 'produit_id' },
   },
 
   // -------------------- sales-side delivery notes (client) -------------
@@ -134,14 +146,16 @@ export const RELATIONS: RelationMap = {
     bons_livraison_client: { kind: 'hasMany', fkColumn: 'client_id' },
   },
   fournisseurs: {
-    bons_commande:  { kind: 'hasMany', fkColumn: 'fournisseur_id' },
-    bons_livraison: { kind: 'hasMany', fkColumn: 'fournisseur_id' },
-    depenses:       { kind: 'hasMany', fkColumn: 'fournisseur_id' },
+    bons_commande:      { kind: 'hasMany', fkColumn: 'fournisseur_id' },
+    bons_livraison:     { kind: 'hasMany', fkColumn: 'fournisseur_id' },
+    depenses:           { kind: 'hasMany', fkColumn: 'fournisseur_id' },
+    avoirs_fournisseur: { kind: 'hasMany', fkColumn: 'fournisseur_id' },
   },
   produits: {
     facture_lignes:          { kind: 'hasMany', fkColumn: 'produit_id' },
     devis_lignes:            { kind: 'hasMany', fkColumn: 'produit_id' },
     avoir_lignes:            { kind: 'hasMany', fkColumn: 'produit_id' },
+    avoir_fournisseur_lignes:{ kind: 'hasMany', fkColumn: 'produit_id' },
     bon_commande_lignes:     { kind: 'hasMany', fkColumn: 'produit_id' },
     bon_livraison_lignes:    { kind: 'hasMany', fkColumn: 'produit_id' },
     bon_livraison_client_lignes: { kind: 'hasMany', fkColumn: 'produit_id' },

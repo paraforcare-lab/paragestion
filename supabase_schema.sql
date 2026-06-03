@@ -327,6 +327,41 @@ CREATE TABLE IF NOT EXISTS avoir_lignes (
     ordre INTEGER DEFAULT 0
 );
 
+-- Table: Avoirs Fournisseur (supplier credit notes — the purchase-side mirror
+-- of avoirs). A manual one (bon_commande_id IS NULL) reduces expenses & stock;
+-- one auto-created from a cancelled Bon de Commande is just a traceability
+-- record (statut 'annulé') that does NOT impact stock or dashboard totals.
+CREATE TABLE IF NOT EXISTS avoirs_fournisseur (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    numero TEXT NOT NULL,
+    UNIQUE(user_id, numero),
+    bon_commande_id BIGINT REFERENCES bons_commande(id),
+    fournisseur_id BIGINT REFERENCES fournisseurs(id),
+    date_emission DATE DEFAULT CURRENT_DATE,
+    montant_ht DECIMAL(15, 2) DEFAULT 0,
+    montant_tva DECIMAL(15, 2) DEFAULT 0,
+    montant_ttc DECIMAL(15, 2) DEFAULT 0,
+    statut TEXT DEFAULT 'émis',
+    notes TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Table: Avoir Fournisseur Lignes
+CREATE TABLE IF NOT EXISTS avoir_fournisseur_lignes (
+    id BIGSERIAL PRIMARY KEY,
+    avoir_fournisseur_id BIGINT REFERENCES avoirs_fournisseur(id) ON DELETE CASCADE,
+    produit_id BIGINT REFERENCES produits(id),
+    designation TEXT NOT NULL,
+    quantite DECIMAL(15, 2) NOT NULL,
+    prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
+    tva DECIMAL(5, 2) DEFAULT 20,
+    montant_ht DECIMAL(15, 2),
+    montant_ttc DECIMAL(15, 2),
+    ordre INTEGER DEFAULT 0
+);
+
 -- Table: Mouvements de Stock
 CREATE TABLE IF NOT EXISTS mouvements_stock (
     id BIGSERIAL PRIMARY KEY,
@@ -389,7 +424,7 @@ BEGIN
     FOR t IN 
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'bons_livraison_client', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
+        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'bons_livraison_client', 'ventes_passagers', 'depenses', 'avoirs', 'avoirs_fournisseur', 'parametres')
     LOOP
         EXECUTE format('CREATE INDEX IF NOT EXISTS %I_user_id_idx ON %I (user_id)', t, t);
     END LOOP;
@@ -403,7 +438,7 @@ BEGIN
     FOR t IN 
         SELECT table_name FROM information_schema.tables 
         WHERE table_schema = 'public' 
-        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'bons_livraison_client', 'ventes_passagers', 'depenses', 'avoirs', 'parametres')
+        AND table_name IN ('produits', 'clients', 'fournisseurs', 'devis', 'factures', 'bons_commande', 'bons_livraison', 'bons_livraison_client', 'ventes_passagers', 'depenses', 'avoirs', 'avoirs_fournisseur', 'parametres')
     LOOP
         EXECUTE format('DROP TRIGGER IF EXISTS update_%I_updated_at ON %I', t, t);
         EXECUTE format('CREATE TRIGGER update_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()', t, t);

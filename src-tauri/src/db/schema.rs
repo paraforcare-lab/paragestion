@@ -270,6 +270,45 @@ pub const MIGRATIONS: &[&str] = &[
     );
     "#,
 
+    // Supplier credit notes (purchase-side mirror of avoirs).
+    r#"
+    CREATE TABLE IF NOT EXISTS avoirs_fournisseur (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        numero          TEXT    NOT NULL,
+        bon_commande_id INTEGER,
+        fournisseur_id  INTEGER,
+        date_emission   TEXT    DEFAULT CURRENT_DATE,
+        montant_ht      REAL    DEFAULT 0,
+        montant_tva     REAL    DEFAULT 0,
+        montant_ttc     REAL    DEFAULT 0,
+        statut          TEXT    DEFAULT 'émis',
+        notes           TEXT,
+        created_at      TEXT    DEFAULT CURRENT_TIMESTAMP,
+        updated_at      TEXT    DEFAULT CURRENT_TIMESTAMP,
+        user_id         TEXT,
+        FOREIGN KEY (fournisseur_id)  REFERENCES fournisseurs(id),
+        FOREIGN KEY (bon_commande_id) REFERENCES bons_commande(id)
+    );
+    "#,
+
+    r#"
+    CREATE TABLE IF NOT EXISTS avoir_fournisseur_lignes (
+        id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+        avoir_fournisseur_id INTEGER,
+        produit_id           INTEGER,
+        reference            TEXT,
+        designation          TEXT    NOT NULL,
+        quantite             REAL    NOT NULL,
+        prix_unitaire_ht     REAL    NOT NULL,
+        tva                  REAL    DEFAULT 20,
+        montant_ht           REAL,
+        montant_ttc          REAL,
+        ordre                INTEGER DEFAULT 0,
+        FOREIGN KEY (avoir_fournisseur_id) REFERENCES avoirs_fournisseur(id),
+        FOREIGN KEY (produit_id)           REFERENCES produits(id)
+    );
+    "#,
+
     r#"
     CREATE TABLE IF NOT EXISTS bons_livraison (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
