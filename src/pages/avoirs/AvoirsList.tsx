@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight, Plus, ArrowLeft } from 'lucide-react'
+import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight, Plus, ArrowLeft, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -30,6 +30,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { updateStockAndNotify } from '@/lib/notifications'
 
 interface Avoir {
   id: number;
@@ -64,6 +65,8 @@ export function AvoirsList() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [avoirToDelete, setAvoirToDelete] = useState<number | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [avoirToCancel, setAvoirToCancel] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   const [printingAvoir, setPrintingAvoir] = useState<any>(null);
@@ -255,6 +258,36 @@ export function AvoirsList() {
     }
   };
 
+  const handleCancel = async () => {
+    if (!avoirToCancel) return;
+    try {
+      // Reverse the stock that was returned when the manual avoir was created:
+      // subtract each line's product quantity back out of stock.
+      const { data: lignes } = await supabase
+        .from('avoir_lignes')
+        .select('produit_id, quantite')
+        .eq('avoir_id', avoirToCancel);
+
+      for (const ligne of lignes || []) {
+        if (ligne.produit_id) {
+          await updateStockAndNotify(user?.id, ligne.produit_id, -Number(ligne.quantite || 0));
+        }
+      }
+
+      // Mark as cancelled. Cancelled avoirs are excluded from dashboard totals.
+      const { error } = await supabase.from('avoirs').update({ statut: 'annulé' }).eq('id', avoirToCancel);
+      if (error) throw error;
+      toast.success(t('avoirs.toast_cancelled'));
+      fetchAvoirs();
+    } catch (error) {
+      console.error('Cancel error:', error);
+      toast.error(t('shared.toast.save_error'));
+    } finally {
+      setCancelConfirmOpen(false);
+      setAvoirToCancel(null);
+    }
+  };
+
   const getStatusConfig = (statut: string) => {
     return statusOptions.find(s => s.value === statut) || statusOptions[0];
   };
@@ -310,6 +343,13 @@ export function AvoirsList() {
         onConfirm={handleDelete}
         title={t('shared.confirm_delete.title_credit_note')}
         description={t('shared.confirm_delete.body_credit_note')}
+      />
+      <ConfirmDialog
+        isOpen={cancelConfirmOpen}
+        onClose={() => setCancelConfirmOpen(false)}
+        onConfirm={handleCancel}
+        title={t('avoirs.cancel_confirm_title')}
+        description={t('avoirs.cancel_confirm_body')}
       />
       <div style={{ display: 'none' }}>
         {printingAvoir && (
@@ -513,18 +553,20 @@ export function AvoirsList() {
                             >
                               <Download className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-sm"
-                              onClick={() => {
-                                setAvoirToDelete(avoir.id);
-                                setDeleteConfirmOpen(true);
-                              }}
-                              title={t('shared.actions.delete')}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {!avoir.facture?.numero && avoir.statut !== 'annulé' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 dark:text-muted-foreground dark:hover:text-amber-400 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-sm"
+                                onClick={() => {
+                                  setAvoirToCancel(avoir.id);
+                                  setCancelConfirmOpen(true);
+                                }}
+                                title={t('avoirs.cancel_action')}
+                              >
+                                 <XCircle className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

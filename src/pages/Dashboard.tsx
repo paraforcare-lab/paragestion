@@ -192,7 +192,7 @@ export function Dashboard() {
       // Manual credit notes only (facture_id IS NULL). Facture-linked avoirs are
       // excluded here because the linked invoice's amount already reflects the
       // deduction — counting them again would double-reduce revenue.
-      let avoirQuery = supabase.from('avoirs').select('*').eq('user_id', user.id).is('facture_id', null)
+      let avoirQuery = supabase.from('avoirs').select('*').eq('user_id', user.id).is('facture_id', null).neq('statut', 'annulé')
 
       if (dateRange !== 'all') {
         factQuery = applyDateFilter(factQuery, 'date_emission', filterStart, filterEnd)
