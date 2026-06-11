@@ -142,11 +142,11 @@ export function NotificationDropdown({ open, onClose, enabled }: NotificationDro
                 {enabled && unreadCount > 0 && (
                   <span className={cn(
                     // RTL Note: -end-1.5 anchors the badge to the logical end of the bell.
-                    'absolute -top-1.5 -end-1.5 h-3.5 w-3.5 rounded-full border-2 border-popover',
-                    'flex items-center justify-center text-[8px] font-bold text-white',
+                    'absolute -top-1.5 -end-1.5 min-w-[18px] h-[18px] px-1 rounded-full ring-2 ring-popover',
+                    'flex items-center justify-center text-[10px] leading-none font-bold tabular-nums text-white',
                     hasHighPriority ? 'bg-red-500' : 'bg-emerald-500',
                   )} dir="ltr">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </div>
@@ -350,15 +350,16 @@ export function NotificationBell() {
         {notificationsEnabled && unreadCount > 0 && (
           <>
             {hasHighPriority && (
-              // RTL Note: -end-0.5 = logical end (right in LTR, left in RTL)
-              <span className="absolute -top-0.5 -end-0.5 h-3.5 w-3.5 animate-ping rounded-full bg-red-400 opacity-60" />
+              // RTL Note: -end-1 = logical end (right in LTR, left in RTL)
+              <span className="absolute -top-1 -end-1 h-5 w-5 animate-ping rounded-full bg-red-400 opacity-50" />
             )}
             <span className={cn(
-              'absolute -top-0.5 -end-0.5 h-3.5 w-3.5 rounded-full border-2 border-white',
-              'flex items-center justify-center text-[8px] font-bold text-white',
+              'absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 rounded-full',
+              'ring-2 ring-white shadow-sm shadow-black/20',
+              'flex items-center justify-center text-[10px] leading-none font-bold tabular-nums text-white',
               hasHighPriority ? 'bg-red-500' : 'bg-emerald-500',
             )} dir="ltr">
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           </>
         )}

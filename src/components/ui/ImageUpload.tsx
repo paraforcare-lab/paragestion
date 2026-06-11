@@ -834,33 +834,33 @@ export function ImageUpload({
       )}
 
       {!isCameraActive && (
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           {!preview && (
             <>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="flex-1"
+                className="flex-1 min-w-0"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
               >
-                <Upload className="h-4 w-4 mr-2" />
-                {ti('import_button')}
+                <Upload className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">{ti('import_button')}</span>
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className={cn(
-                  "flex-1",
+                  "flex-1 min-w-0",
                   !isCameraSupported && "opacity-50"
                 )}
                 onClick={startCamera}
                 disabled={isUploading}
               >
-                <Camera className="h-4 w-4 mr-2" />
-                {ti('take_photo_button')}
+                <Camera className="h-4 w-4 mr-2 shrink-0" />
+                <span className="truncate">{ti('take_photo_button')}</span>
               </Button>
             </>
           )}

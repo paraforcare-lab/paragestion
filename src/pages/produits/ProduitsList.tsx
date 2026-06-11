@@ -69,7 +69,7 @@ export function ProduitsList() {
     prixAchatHt: Number(p.prix_achat_ht || 0),
     prixVenteTtc: Number(p.prix_vente_ttc || 0),
     prixAchatTtc: Number(p.prix_achat_ttc || 0),
-    tauxTva: Number(p.taux_tva || 20),
+    tauxTva: p.taux_tva == null ? 20 : Number(p.taux_tva),
     stockActuel: Number(p.stock_actuel || 0),
     stockMin: Number(p.stock_min || 0),
     unite: p.unite || '',

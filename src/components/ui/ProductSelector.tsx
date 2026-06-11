@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, Minus, Package, ShoppingCart, X } from 'lucide-react'
+import { Search, Plus, Minus, Package, ShoppingCart, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -168,10 +168,12 @@ export function ProductSelector({
   disabled,
 }: ProductSelectorProps) {
   const { t } = useTranslation()
+  const PAGE_SIZE = 5;
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
   const [quantite, setQuantite] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -189,6 +191,22 @@ export function ProductSelector({
       (p.marque || '').toLowerCase().includes(searchLower)
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredProduits.length / PAGE_SIZE));
+  const paginatedProduits = filteredProduits.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Reset to the first page whenever the result set changes (search/open).
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, isOpen]);
+
+  // Keep the current page within bounds if the list shrinks.
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const selectedProduit = produits.find(p => p.id === selectedId);
   const stock = selectedProduit ? Number(selectedProduit.stockActuel ?? 0) : 0;
@@ -312,7 +330,7 @@ export function ProductSelector({
             </div>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-white/10">
-              {filteredProduits.map((produit) => (
+              {paginatedProduits.map((produit) => (
                 <ProductCard
                   key={produit.id}
                   produit={produit}
@@ -323,6 +341,38 @@ export function ProductSelector({
             </div>
           )}
         </div>
+
+        {/* Pagination — caps the list at 5 products per page. */}
+        {filteredProduits.length > PAGE_SIZE && (
+          <div className="flex-shrink-0 flex items-center justify-between gap-3 border-t border-slate-200 dark:border-white/10 px-6 py-3">
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, filteredProduits.length)} / {filteredProduits.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                aria-label="Previous"
+                className="h-8 w-8 flex items-center justify-center rounded-[8px] border border-slate-200 bg-white text-slate-500 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-500 disabled:hover:bg-white dark:disabled:hover:bg-slate-900/50 rtl:rotate-180"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums min-w-[44px] text-center">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                aria-label="Next"
+                className="h-8 w-8 flex items-center justify-center rounded-[8px] border border-slate-200 bg-white text-slate-500 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-400 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-500 disabled:hover:bg-white dark:disabled:hover:bg-slate-900/50 rtl:rotate-180"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Floating Dock Action Bar */}
         {selectedProduit && (

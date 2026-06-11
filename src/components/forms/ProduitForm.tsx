@@ -94,7 +94,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
     try {
       const prixVenteHT = Number(data.prixVenteHt) || 0;
       const prixAchatHT = Number(data.prixAchatHt) || 0;
-      const tauxTVA = Number(data.tauxTva) || 20;
+      const tauxTVA = Number.isFinite(Number(data.tauxTva)) ? Number(data.tauxTva) : 20;
       const prixVenteTTC = prixVenteHT * (1 + tauxTVA / 100);
       const prixAchatTTC = prixAchatHT * (1 + tauxTVA / 100);
       const stockActuel = Number(data.stockActuel) || 0;

@@ -87,7 +87,7 @@ export default function VentesPassagers() {
     prixVenteHt: Number(p.prix_vente_ht || p.prixVenteHt || 0),
     prixVenteTtc: Number(p.prix_vente_ttc || 0),
     prixAchatHt: Number(p.prix_achat_ht || p.prixAchatHt || 0),
-    tauxTva: Number(p.taux_tva || p.tva || 20),
+    tauxTva: p.taux_tva != null ? Number(p.taux_tva) : (p.tva != null ? Number(p.tva) : 20),
     stockActuel: Number(p.stock_actuel || p.stockActuel || 0),
     imageUrl: p.image_url || p.imageUrl || undefined,
   });
