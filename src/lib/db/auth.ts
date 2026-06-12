@@ -44,11 +44,11 @@ const CACHE_KEY = 'pg_local_session';
 
 /**
  * Maximum age of a locally-cached session before it must be renewed by
- * a live cloud verification. Spec value: 14 days.
+ * a live cloud verification. Spec value: 60 days.
  *
- *   14 * 24 * 60 * 60 * 1000  =  1 209 600 000 ms
+ *   60 * 24 * 60 * 60 * 1000  =  5 184 000 000 ms
  */
-const OFFLINE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+const OFFLINE_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
 
 /**
  * Maximum time (ms) we wait for a Supabase auth call before deciding the
@@ -454,6 +454,47 @@ export const DEFAULT_ROLES = {
   bootstrap: 'admin',
   signUp: 'user',
 } as const;
+
+// ---------------------------------------------------------------------------
+// Offline-window introspection (for UI countdown)
+// ---------------------------------------------------------------------------
+
+/** Total length of the offline window, in days (spec: 60). */
+export const OFFLINE_WINDOW_DAYS = OFFLINE_WINDOW_MS / (24 * 60 * 60 * 1000);
+
+export interface OfflineWindowStatus {
+  /** Whether a local session cache is present. */
+  hasSession: boolean;
+  /** Milliseconds left before the strict auto sign-out. 0 when expired. */
+  msRemaining: number;
+  /** Whole days left (rounded up). 0 when expired or no session. */
+  daysRemaining: number;
+  /** Hours left (rounded up). 0 when expired or no session. */
+  hoursRemaining: number;
+  /** Epoch-ms at which the session will expire (null when no session). */
+  expiresAt: number | null;
+}
+
+/**
+ * Compute how long is left in the rolling 14-day offline window before the
+ * strict auto sign-out kicks in. Reads the same local cache used by
+ * `getSession()`, so the value reflects the last successful login.
+ */
+export function getOfflineWindowStatus(): OfflineWindowStatus {
+  const cached = readCache();
+  if (!cached) {
+    return { hasSession: false, msRemaining: 0, daysRemaining: 0, hoursRemaining: 0, expiresAt: null };
+  }
+  const expiresAt = cached.local_logged_at + OFFLINE_WINDOW_MS;
+  const msRemaining = Math.max(0, expiresAt - Date.now());
+  return {
+    hasSession: true,
+    msRemaining,
+    daysRemaining: Math.ceil(msRemaining / (24 * 60 * 60 * 1000)),
+    hoursRemaining: Math.ceil(msRemaining / (60 * 60 * 1000)),
+    expiresAt,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Public API — `localAuth.*`

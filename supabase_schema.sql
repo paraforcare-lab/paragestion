@@ -175,10 +175,16 @@ CREATE TABLE IF NOT EXISTS bon_commande_lignes (
     quantite DECIMAL(15, 2) NOT NULL,
     prix_unitaire_ht DECIMAL(15, 2) NOT NULL,
     tva DECIMAL(5, 2) DEFAULT 20,
+    remise DECIMAL(5, 2) DEFAULT 0,
+    prix_vente_ttc DECIMAL(15, 2) DEFAULT 0,
     montant_ht DECIMAL(15, 2),
     montant_ttc DECIMAL(15, 2),
     ordre INTEGER DEFAULT 0
 );
+
+-- Migration pour les bases existantes
+ALTER TABLE bon_commande_lignes ADD COLUMN IF NOT EXISTS remise DECIMAL(5, 2) DEFAULT 0;
+ALTER TABLE bon_commande_lignes ADD COLUMN IF NOT EXISTS prix_vente_ttc DECIMAL(15, 2) DEFAULT 0;
 
 -- Table: Bons de Livraison
 CREATE TABLE IF NOT EXISTS bons_livraison (

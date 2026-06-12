@@ -120,6 +120,18 @@ fn apply_migrations(conn: &Connection) -> DbResult<()> {
             conn.execute_batch(stmt)?;
         }
 
+        // Additive ALTER TABLE ... ADD COLUMN statements. SQLite has no
+        // "ADD COLUMN IF NOT EXISTS", so we tolerate the "duplicate column
+        // name" error raised when the column already exists.
+        for stmt in schema::ADDITIVE_COLUMNS {
+            if let Err(e) = conn.execute_batch(stmt) {
+                let msg = e.to_string();
+                if !msg.contains("duplicate column name") {
+                    return Err(e.into());
+                }
+            }
+        }
+
         // Record the version (idempotent thanks to INSERT OR IGNORE).
         conn.execute(
             "INSERT OR IGNORE INTO schema_migrations (version) VALUES (?1);",

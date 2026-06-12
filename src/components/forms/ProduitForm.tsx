@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -12,6 +12,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { PriceCalculatorDialog, type PriceCalculatorResult } from '@/components/ui/PriceCalculatorDialog'
+import { Calculator } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -26,6 +28,26 @@ interface ProduitFormProps {
 export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
+
+  // ── Calculateur de prix (Popup réutilisable) ─────────────────────────
+  const [calcOpen, setCalcOpen] = useState(false);
+  // Valeurs du calculateur propres à CE produit (chargées depuis initialData
+  // si elles ont déjà été enregistrées, puis persistées avec le produit).
+  const [calcValues, setCalcValues] = useState<{ ttc?: string; tva?: string; remise?: string }>({
+    ttc: initialData?.calcVenteTtc ? `${initialData.calcVenteTtc}` : undefined,
+    tva: (initialData?.tauxTva ?? initialData?.tva) != null ? `${initialData?.tauxTva ?? initialData?.tva}` : undefined,
+    remise: initialData?.calcRemise != null ? `${initialData.calcRemise}` : undefined,
+  });
+
+  function handleCalcConfirm(res: PriceCalculatorResult) {
+    // Prix Vendre TTC = Prix Vente HT × (1 + TVA/100)
+    const venteTtc = Number((res.prixVenteHT * (1 + res.tva / 100)).toFixed(2));
+    form.setValue('prixVenteHt', res.prixVenteHT, { shouldValidate: true, shouldDirty: true });
+    form.setValue('prixAchatHt', res.prixAchatHT, { shouldValidate: true, shouldDirty: true });
+    form.setValue('tauxTva', res.tva, { shouldValidate: true, shouldDirty: true });
+    // Lier ces valeurs au produit pour les ré-utiliser (Produit + Bon de Commande)
+    setCalcValues({ ttc: `${venteTtc}`, tva: `${res.tva}`, remise: `${res.remise}` });
+  }
 
   const produitSchema = z.object({
     reference: z.string().optional(),
@@ -54,7 +76,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
       description: initialData?.description || '',
       prixVenteHt: initialData?.prixVenteHt || 0,
       prixAchatHt: initialData?.prixAchatHt || 0,
-      tauxTva: initialData?.tauxTva || initialData?.tva || 20,
+      tauxTva: initialData?.tauxTva ?? initialData?.tva ?? 20,
       stockActuel: initialData?.stockActuel || 0,
       stockMin: initialData?.stockMin || 5,
       unite: initialData?.unite || 'unité',
@@ -94,7 +116,7 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
     try {
       const prixVenteHT = Number(data.prixVenteHt) || 0;
       const prixAchatHT = Number(data.prixAchatHt) || 0;
-      const tauxTVA = Number(data.tauxTva) || 20;
+      const tauxTVA = data.tauxTva == null || isNaN(Number(data.tauxTva)) ? 20 : Number(data.tauxTva);
       const prixVenteTTC = prixVenteHT * (1 + tauxTVA / 100);
       const prixAchatTTC = prixAchatHT * (1 + tauxTVA / 100);
       const stockActuel = Number(data.stockActuel) || 0;
@@ -127,6 +149,8 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
          prix_achat_ht: prixAchatHT,
          prix_achat_ttc: prixAchatTTC,
          taux_tva: tauxTVA,
+         calc_vente_ttc: Number(calcValues.ttc) || 0,
+         calc_remise: Number(calcValues.remise) || 0,
          stock_actuel: stockActuel,
          stock_min: stockMin,
          unite: data.unite?.trim() || 'unité',
@@ -257,6 +281,20 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
           )}
         />
 
+        {/* Bouton ouvrant le calculateur de prix (Popup) */}
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setCalcOpen(true)}
+            className="gap-2"
+          >
+            <Calculator className="h-4 w-4" />
+            {t('shared.form.price_calculator', 'Calculateur de prix')}
+          </Button>
+        </div>
+
         {/* Prices + VAT — 1 col on phones, 3 on tablets+ to keep numeric
             inputs comfortable to tap. */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -356,6 +394,14 @@ export function ProduitForm({ initialData, onSuccess }: ProduitFormProps) {
            </Button>
          </div>
        </form>
+
+       {/* ── Popup : Calculateur de prix (composant réutilisable) ──────── */}
+       <PriceCalculatorDialog
+         open={calcOpen}
+         onOpenChange={setCalcOpen}
+         onConfirm={handleCalcConfirm}
+         initialValues={calcValues}
+       />
      </Form>
    );
  }

@@ -90,7 +90,18 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
 
     const getPu = (l: any) => pickNum(l, 'prixUnitaireHt', 'prix_unitaire_ht')
     const getQt = (l: any) => safeNum(l.quantite, 1)
-    const getMt = (l: any) => { const m = pickNum(l, 'montantHt', 'montant_ht'); return m > 0 ? m : getPu(l) * getQt(l) }
+    const getTva = (l: any) => safeNum(l.tva, 20)
+    const getRemise = (l: any) => pickNum(l, 'remise', 'remise_pct')
+    // Prix d'Achat TTC unitaire = Prix unitaire HT × (1 + TVA/100)
+    const getPrixAchatTtc = (l: any) => getPu(l) * (1 + getTva(l) / 100)
+    // Prix de Vente TTC : valeur enregistrée, sinon dérivée du Prix Achat TTC et de la remise
+    const getPrixVenteTtc = (l: any) => {
+      const stored = pickNum(l, 'prixVenteTtc', 'prix_vente_ttc')
+      if (stored > 0) return stored
+      const remise = getRemise(l)
+      const achatTtc = getPrixAchatTtc(l)
+      return remise < 100 ? achatTtc / (1 - remise / 100) : achatTtc
+    }
 
     const amountWords = numberToFrenchWords(Math.abs(Number(totalTtc)))
 
@@ -246,19 +257,23 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <colgroup>
+                  <col style={{ width: '6%' }} />
+                  <col style={{ width: '38%' }} />
                   <col style={{ width: '8%' }} />
-                  <col style={{ width: '40%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '15%' }} />
+                  <col style={{ width: '9%' }} />
                   <col style={{ width: '17%' }} />
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '22%' }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: C.accent, color: '#fff' }}>
                     <th style={{ padding: '10px 8px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>N°</th>
                     <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'left',   textTransform: 'uppercase', letterSpacing: 0.5 }}>Désignation</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>P.U. HT</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>Qté</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Montant HT</th>
+                    <th style={{ padding: '10px 8px',  fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>U.G.</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>Quantité</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Prix U.</th>
+                    <th style={{ padding: '10px 8px',  fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>%Rem</th>
+                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -270,20 +285,24 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {ligne.designation || '-'}
                       </td>
-                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
-                        {fmt3(getPu(ligne))} DH
-                      </td>
+                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}></td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {getQt(ligne)}
                       </td>
+                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                        {fmt3(getPrixVenteTtc(ligne))}
+                      </td>
+                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                        {fmt3(getRemise(ligne))}
+                      </td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text, fontWeight: 700 }}>
-                        {fmt3(getMt(ligne))} DH
+                        {fmt3(getPrixAchatTtc(ligne))}
                       </td>
                     </tr>
                   ))}
                   {lignes.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>
+                      <td colSpan={7} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>
                         Aucun article
                       </td>
                     </tr>

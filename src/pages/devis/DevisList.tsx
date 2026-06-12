@@ -339,6 +339,8 @@ export function DevisList() {
           prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
           quantite: Number(l.quantite || 1),
           tva: Number(l.tva || 20),
+          remise: Number(l.remise || 0),
+          prixVenteTtc: Number(l.prix_vente_ttc || 0),
           montantHt: Number(l.montant_ht || 0),
           montantTtc: Number(l.montant_ttc || 0),
         })),

@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Calculator } from 'lucide-react'
 import { formatCurrencyLocale } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { PriceCalculatorDialog, type PriceCalculatorResult } from '@/components/ui/PriceCalculatorDialog'
 import {
   Select,
   SelectContent,
@@ -36,6 +37,10 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
   const [produits, setProduits] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Calculateur de prix : index de la ligne en cours d'édition (null = fermé)
+  const [calcRowIndex, setCalcRowIndex] = useState<number | null>(null);
+  // Valeurs du calculateur par ligne (pré-remplies depuis le produit)
+  const [calcMemo, setCalcMemo] = useState<Record<number, { ttc?: string; tva?: string; remise?: string }>>({});
 
   // Localized Zod schema — rebuilt when language changes so error messages
   // appear in the active locale.
@@ -56,6 +61,8 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
               quantite: z.number().min(0.01, t('shared.validation.qty_min')),
               prixUnitaireHt: z.number().min(0, t('shared.validation.price_positive')).optional(),
               tva: z.number().min(0, t('shared.validation.vat_positive')).optional(),
+              remise: z.number().optional(),
+              prixVenteTtc: z.number().optional(),
             }),
           )
           .min(1, t('shared.validation.lines_min')),
@@ -252,6 +259,8 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
           quantite: Number(ligne.quantite || 0),
           prix_unitaire_ht: Number(ligne.prixUnitaireHt || 0),
           tva: Number(ligne.tva || 20),
+          remise: Number(ligne.remise || 0),
+          prix_vente_ttc: Number(ligne.prixVenteTtc || 0),
           montant_ht: mht,
           montant_ttc: mttc,
           ordre: index,
@@ -281,15 +290,42 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
     }
   };
 
+  // Document de vente : le prix unitaire de la ligne = prix HT APRÈS remise
+  // (= prixAchatHT du calculateur = (TTC × (1-remise/100)) / (1+TVA/100)).
+  const handleCalcConfirm = (res: PriceCalculatorResult) => {
+    if (calcRowIndex === null) return;
+    const index = calcRowIndex;
+    const prixVenteTtc = Number((res.prixVenteHT * (1 + res.tva / 100)).toFixed(2));
+    form.setValue(`lignes.${index}.prixUnitaireHt`, res.prixAchatHT, { shouldValidate: true, shouldDirty: true });
+    form.setValue(`lignes.${index}.tva`, res.tva, { shouldValidate: true, shouldDirty: true });
+    form.setValue(`lignes.${index}.remise`, res.remise, { shouldDirty: true });
+    form.setValue(`lignes.${index}.prixVenteTtc`, prixVenteTtc, { shouldDirty: true });
+    setCalcMemo((prev) => ({ ...prev, [index]: { ttc: `${prixVenteTtc}`, tva: `${res.tva}`, remise: `${res.remise}` } }));
+  };
+
   const handleProduitSelect = (index: number, produitId: string) => {
     const produit = produits.find((p) => p.id.toString() === produitId);
     if (produit) {
+      const tva = Number(produit.taux_tva ?? produit.tva ?? 20);
+      const calcTtc = Number(produit.calc_vente_ttc || 0);
+      const calcRemise = Number(produit.calc_remise || 0);
       form.setValue(`lignes.${index}.produitId`, produit.id.toString());
       form.setValue(`lignes.${index}.reference`, produit.reference || '');
       form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
       form.setValue(`lignes.${index}.quantite`, 1);
       form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prix_vente_ht || produit.prixVenteHt || produit.prix_achat_ht || produit.prixAchatHt || 0));
-      form.setValue(`lignes.${index}.tva`, Number(produit.taux_tva || produit.tva || 20));
+      form.setValue(`lignes.${index}.tva`, tva);
+      form.setValue(`lignes.${index}.remise`, calcRemise, { shouldDirty: true });
+      form.setValue(`lignes.${index}.prixVenteTtc`, calcTtc, { shouldDirty: true });
+      // Récupérer les valeurs du calculateur enregistrées sur le produit
+      setCalcMemo((prev) => ({
+        ...prev,
+        [index]: {
+          ttc: calcTtc ? `${calcTtc}` : undefined,
+          tva: `${tva}`,
+          remise: `${calcRemise}`,
+        },
+      }));
     }
   };
 
@@ -376,7 +412,7 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
                 <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-32">{t('shared.form.price_ht_label')}</th>
                 <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-24">{t('shared.form.vat_pct_label')}</th>
                 <th className="p-3 text-end font-semibold text-slate-600 dark:text-slate-400 w-32">{t('shared.form.subtotal_ht')}</th>
-                <th className="p-3 w-12"></th>
+                <th className="p-3 w-24"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -440,16 +476,28 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
                       {formatCurrencyLocale(totalHt, i18n.language)}
                     </td>
                     <td className="p-2 text-center align-middle">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50 dark:text-rose-500/70 dark:hover:text-rose-500 dark:hover:bg-white/5"
-                        onClick={() => remove(index)}
-                        disabled={fields.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-white/5"
+                          onClick={() => setCalcRowIndex(index)}
+                          title={t('shared.form.price_calculator', 'Calculateur de prix')}
+                        >
+                          <Calculator className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-400 hover:text-red-600 hover:bg-red-50 dark:text-rose-500/70 dark:hover:text-rose-500 dark:hover:bg-white/5"
+                          onClick={() => remove(index)}
+                          disabled={fields.length === 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -514,6 +562,14 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
           {isLoading ? t('shared.actions.saving') : t('bons_livraison.form_save_button')}
         </Button>
       </div>
+
+      {/* ── Popup : Calculateur de prix (par ligne) ───────────────────── */}
+      <PriceCalculatorDialog
+        open={calcRowIndex !== null}
+        onOpenChange={(open) => { if (!open) setCalcRowIndex(null); }}
+        onConfirm={handleCalcConfirm}
+        initialValues={calcRowIndex !== null ? calcMemo[calcRowIndex] : undefined}
+      />
     </form>
   );
 }

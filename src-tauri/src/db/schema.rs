@@ -98,6 +98,8 @@ pub const MIGRATIONS: &[&str] = &[
         created_at      TEXT    DEFAULT CURRENT_TIMESTAMP,
         updated_at      TEXT    DEFAULT CURRENT_TIMESTAMP,
         taux_tva        REAL    DEFAULT 20,
+        calc_vente_ttc  REAL    DEFAULT 0,
+        calc_remise     REAL    DEFAULT 0,
         user_id         TEXT
     );
     "#,
@@ -137,6 +139,8 @@ pub const MIGRATIONS: &[&str] = &[
         quantite         REAL    NOT NULL,
         prix_unitaire_ht REAL    NOT NULL,
         tva              REAL    DEFAULT 20,
+        remise           REAL    DEFAULT 0,
+        prix_vente_ttc   REAL    DEFAULT 0,
         montant_ht       REAL,
         montant_ttc      REAL,
         ordre            INTEGER DEFAULT 0,
@@ -182,6 +186,8 @@ pub const MIGRATIONS: &[&str] = &[
         quantite         REAL    NOT NULL,
         prix_unitaire_ht REAL    NOT NULL,
         tva              REAL    DEFAULT 20,
+        remise           REAL    DEFAULT 0,
+        prix_vente_ttc   REAL    DEFAULT 0,
         montant_ht       REAL,
         montant_ttc      REAL,
         ordre            INTEGER DEFAULT 0,
@@ -262,6 +268,8 @@ pub const MIGRATIONS: &[&str] = &[
         quantite         REAL    NOT NULL,
         prix_unitaire_ht REAL    NOT NULL,
         tva              REAL    DEFAULT 20,
+        remise           REAL    DEFAULT 0,
+        prix_vente_ttc   REAL    DEFAULT 0,
         ordre            INTEGER DEFAULT 0,
         montant_ht       REAL    DEFAULT 0,
         montant_ttc      REAL    DEFAULT 0,
@@ -383,6 +391,8 @@ pub const MIGRATIONS: &[&str] = &[
         quantite                 REAL    NOT NULL,
         prix_unitaire_ht         REAL    NOT NULL,
         tva                      REAL    DEFAULT 20,
+        remise                   REAL    DEFAULT 0,
+        prix_vente_ttc           REAL    DEFAULT 0,
         ordre                    INTEGER DEFAULT 0,
         montant_ht               REAL    DEFAULT 0,
         montant_ttc              REAL    DEFAULT 0,
@@ -623,6 +633,24 @@ pub const MIGRATIONS: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_notifications_user_id       ON notifications(user_id);",
     "CREATE INDEX IF NOT EXISTS idx_produits_reference          ON produits(reference);",
     "CREATE INDEX IF NOT EXISTS idx_produits_barcode            ON produits(barcode);",
+];
+
+/// Additive `ALTER TABLE ... ADD COLUMN` statements applied on every startup.
+///
+/// SQLite has no `ADD COLUMN IF NOT EXISTS`, so these are executed with the
+/// "duplicate column name" error tolerated (see `apply_migrations`). This lets
+/// pre-existing databases gain new columns without a full schema-version bump.
+pub const ADDITIVE_COLUMNS: &[&str] = &[
+    "ALTER TABLE bon_commande_lignes ADD COLUMN remise REAL DEFAULT 0;",
+    "ALTER TABLE bon_commande_lignes ADD COLUMN prix_vente_ttc REAL DEFAULT 0;",
+    "ALTER TABLE produits ADD COLUMN calc_vente_ttc REAL DEFAULT 0;",
+    "ALTER TABLE produits ADD COLUMN calc_remise REAL DEFAULT 0;",
+    "ALTER TABLE facture_lignes ADD COLUMN remise REAL DEFAULT 0;",
+    "ALTER TABLE facture_lignes ADD COLUMN prix_vente_ttc REAL DEFAULT 0;",
+    "ALTER TABLE devis_lignes ADD COLUMN remise REAL DEFAULT 0;",
+    "ALTER TABLE devis_lignes ADD COLUMN prix_vente_ttc REAL DEFAULT 0;",
+    "ALTER TABLE bon_livraison_client_lignes ADD COLUMN remise REAL DEFAULT 0;",
+    "ALTER TABLE bon_livraison_client_lignes ADD COLUMN prix_vente_ttc REAL DEFAULT 0;",
 ];
 
 /// Current schema version (bump when adding migrations).

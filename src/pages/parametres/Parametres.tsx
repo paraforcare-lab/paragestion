@@ -48,9 +48,12 @@ import {
   Check,
   ChevronRight,
   Crop,
-  Receipt
+  Receipt,
+  Clock,
+  ShieldAlert
 } from 'lucide-react';
 import { TicketSettingsDialog } from '@/components/parametres/TicketSettingsDialog';
+import { getOfflineWindowStatus, OFFLINE_WINDOW_DAYS, type OfflineWindowStatus } from '@/lib/db/auth';
 
 interface ParametresFormValues {
   nomSociete: string;
@@ -88,6 +91,14 @@ export function Parametres() {
   const [parametresId, setParametresId] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  // Compte à rebours avant la déconnexion automatique (fenêtre 14 jours)
+  const [sessionWindow, setSessionWindow] = useState<OfflineWindowStatus>(() => getOfflineWindowStatus());
+  useEffect(() => {
+    setSessionWindow(getOfflineWindowStatus());
+    // Rafraîchir chaque minute tant que la page est ouverte
+    const id = setInterval(() => setSessionWindow(getOfflineWindowStatus()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
   const CACHED_PARAMS_KEY = 'pg_cached_params';
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
     return (localStorage.getItem('pg_theme') as 'light' | 'dark' | 'system') || 'system';
@@ -687,6 +698,63 @@ export function Parametres() {
                       )}
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Session — compte à rebours avant déconnexion automatique */}
+              <Card className="mt-6 border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+                <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
+                      <Clock className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold text-foreground dark:text-white">
+                        {t('parametres.session.title', 'Session')}
+                      </CardTitle>
+                      <CardDescription className="text-xs text-muted-foreground dark:text-slate-400">
+                        {t('parametres.session.subtitle', 'Déconnexion automatique après {{days}} jours', { days: OFFLINE_WINDOW_DAYS })}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 py-5">
+                  {sessionWindow.hasSession ? (
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-4 dark:border-white/5 dark:bg-slate-800/30">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground dark:text-slate-200">
+                          {t('parametres.session.remaining_label', 'Temps restant avant déconnexion')}
+                        </p>
+                        {sessionWindow.expiresAt && (
+                          <p className="text-xs text-muted-foreground dark:text-slate-400 mt-0.5">
+                            {t('parametres.session.expires_on', 'Expire le')} {new Date(sessionWindow.expiresAt).toLocaleDateString()} {new Date(sessionWindow.expiresAt).toLocaleTimeString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {sessionWindow.daysRemaining >= 1 ? (
+                          <span className="text-3xl font-black text-amber-500 dark:text-amber-400">
+                            {sessionWindow.daysRemaining}
+                            <span className="text-sm font-medium text-muted-foreground ms-1">
+                              {sessionWindow.daysRemaining > 1 ? t('parametres.session.days', 'jours') : t('parametres.session.day', 'jour')}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-2xl font-black text-rose-500">
+                            {sessionWindow.hoursRemaining}
+                            <span className="text-sm font-medium text-muted-foreground ms-1">{t('parametres.session.hours', 'h')}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
+                      <ShieldAlert className="h-5 w-5 shrink-0" />
+                      <p className="text-sm font-medium">
+                        {t('parametres.session.no_session', 'Aucune session locale active.')}
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
