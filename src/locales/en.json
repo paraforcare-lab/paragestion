@@ -614,7 +614,10 @@
       "badge_in_stock":       "{{count}} in stock",
       "price_ht":             "excl. VAT",
       "price_ttc":            "incl. VAT",
-      "vat_short":            "VAT"
+      "vat_short":            "VAT",
+      "pagination_info":      "Page {{current}} of {{total}}",
+      "pagination_prev":      "Previous",
+      "pagination_next":      "Next"
     },
     "confirm_delete": {
       "title_invoice":        "Delete invoice",

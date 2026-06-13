@@ -105,6 +105,15 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
 
     const amountWords = numberToFrenchWords(Math.abs(Number(totalTtc)))
 
+    // When there are exactly 10 products the full block (header + table +
+    // totals + signatures) is just slightly too tall for a single A4 page,
+    // which pushes the whole items table onto page 2 and leaves a large
+    // blank gap on page 1. Tighten the row vertical padding ONLY in that
+    // case so everything fits back onto one page. All other cases are left
+    // untouched.
+    const isTenProducts = lignes.length === 10
+    const rowPadY = isTenProducts ? '4px' : '8px'
+
     return (
       <>
         <style>{`
@@ -267,35 +276,35 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 </colgroup>
                 <thead>
                   <tr style={{ background: C.accent, color: '#fff' }}>
-                    <th style={{ padding: '10px 8px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>N°</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'left',   textTransform: 'uppercase', letterSpacing: 0.5 }}>Désignation</th>
-                    <th style={{ padding: '10px 8px',  fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>U.G.</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>Quantité</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Prix U.</th>
-                    <th style={{ padding: '10px 8px',  fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>%Rem</th>
-                    <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Total</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 8px`, fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>N°</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 12px`, fontSize: '9.5pt', fontWeight: 700, textAlign: 'left',   textTransform: 'uppercase', letterSpacing: 0.5 }}>Désignation</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 8px`,  fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>U.G.</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 12px`, fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>Quantité</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 12px`, fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Prix U.</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 8px`,  fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>%Rem</th>
+                    <th style={{ padding: `${isTenProducts ? '6px' : '10px'} 12px`, fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {lignes.map((ligne: any, i: number) => (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : C.rowAlt }}>
-                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.accent, fontWeight: 700 }}>
+                      <td style={{ padding: `${rowPadY} 8px`, fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.accent, fontWeight: 700 }}>
                         {i + 1}
                       </td>
-                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                      <td style={{ padding: `${rowPadY} 12px`, fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {ligne.designation || '-'}
                       </td>
-                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}></td>
-                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                      <td style={{ padding: `${rowPadY} 8px`, fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}></td>
+                      <td style={{ padding: `${rowPadY} 12px`, fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {getQt(ligne)}
                       </td>
-                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                      <td style={{ padding: `${rowPadY} 12px`, fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {fmt3(getPrixVenteTtc(ligne))}
                       </td>
-                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
+                      <td style={{ padding: `${rowPadY} 8px`, fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {fmt3(getRemise(ligne))}
                       </td>
-                      <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text, fontWeight: 700 }}>
+                      <td style={{ padding: `${rowPadY} 12px`, fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text, fontWeight: 700 }}>
                         {fmt3(getPrixAchatTtc(ligne))}
                       </td>
                     </tr>

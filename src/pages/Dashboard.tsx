@@ -198,7 +198,7 @@ export function Dashboard() {
     let vpQuery = supabase.from('ventes_passagers').select('*').eq('user_id', user.id)
     let depQuery = supabase.from('depenses').select('*').eq('user_id', user.id)
     let bcQuery = supabase.from('bons_commande').select('*').eq('user_id', user.id)
-      let recentQuery = supabase.from('factures').select('*, clients(nom)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5)
+      let recentQuery = supabase.from('factures').select('*, client:clients(*)').eq('user_id', user.id).order('date_emission', { ascending: false }).limit(5)
       // Manual credit notes only (facture_id IS NULL). Facture-linked avoirs are
       // excluded here because the linked invoice's amount already reflects the
       // deduction — counting them again would double-reduce revenue.
@@ -930,7 +930,7 @@ export function Dashboard() {
                     {/* Client name + meta */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate text-foreground text-start">
-                        {facture.client?.nom ?? td('recent_invoices.walk_in_client')}
+                        {facture.client?.nom ?? facture.client?.nomSociete ?? td('recent_invoices.walk_in_client')}
                       </p>
                       {/*
                        * RTL: invoice number and date are LTR artefacts

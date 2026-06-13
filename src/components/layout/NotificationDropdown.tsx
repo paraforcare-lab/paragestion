@@ -350,12 +350,13 @@ export function NotificationBell() {
         {notificationsEnabled && unreadCount > 0 && (
           <>
             {hasHighPriority && (
-              // RTL Note: -end-0.5 = logical end (right in LTR, left in RTL)
-              <span className="absolute -top-0.5 -end-0.5 h-3.5 w-3.5 animate-ping rounded-full bg-red-400 opacity-60" />
+              // RTL Note: -end-1 = logical end (right in LTR, left in RTL)
+              <span className="absolute -top-1 -end-1 h-[18px] min-w-[18px] animate-ping rounded-full bg-red-400 opacity-60" />
             )}
             <span className={cn(
-              'absolute -top-0.5 -end-0.5 h-3.5 w-3.5 rounded-full border-2 border-white',
-              'flex items-center justify-center text-[8px] font-bold text-white',
+              'absolute -top-1 -end-1 h-[18px] min-w-[18px] px-1 rounded-full border-[1.5px] border-white dark:border-[#0F172A]',
+              'flex items-center justify-center text-[10px] font-bold leading-none text-white tabular-nums',
+              'shadow-sm ring-1 ring-black/5',
               hasHighPriority ? 'bg-red-500' : 'bg-emerald-500',
             )} dir="ltr">
               {unreadCount > 9 ? '9+' : unreadCount}

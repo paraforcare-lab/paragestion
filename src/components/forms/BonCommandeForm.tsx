@@ -546,6 +546,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
                           size="icon"
                           className="h-8 w-8 text-orange-500 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-white/5"
                           onClick={() => setCalcRowIndex(index)}
+                          disabled={!form.watch(`lignes.${index}.produitId`)}
                           title={t('shared.form.price_calculator', 'Calculateur de prix')}
                         >
                           <Calculator className="h-4 w-4" />

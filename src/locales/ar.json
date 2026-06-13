@@ -614,7 +614,10 @@
       "badge_in_stock":       "{{count}} في المخزون",
       "price_ht":             "خ.ض",
       "price_ttc":            "ش.ض",
-      "vat_short":            "ض.ق.م"
+      "vat_short":            "ض.ق.م",
+      "pagination_info":      "صفحة {{current}} من {{total}}",
+      "pagination_prev":      "السابق",
+      "pagination_next":      "التالي"
     },
     "confirm_delete": {
       "title_invoice":        "حذف الفاتورة",

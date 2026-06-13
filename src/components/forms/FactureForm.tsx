@@ -499,6 +499,7 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
                           size="icon"
                           className="h-8 w-8 text-[#267E54] hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:text-emerald-300 dark:hover:bg-white/5"
                           onClick={() => setCalcRowIndex(index)}
+                          disabled={!selectedProductId}
                           title={t('shared.form.price_calculator', 'Calculateur de prix')}
                         >
                           <Calculator className="h-4 w-4" />

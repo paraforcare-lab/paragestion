@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Search, Plus, Minus, Package, ShoppingCart, X } from 'lucide-react'
+import { Search, Plus, Minus, Package, ShoppingCart, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -34,6 +34,8 @@ interface ProductSelectorProps {
   trigger?: React.ReactNode;
   disabled?: boolean;
 }
+
+const ITEMS_PER_PAGE = 5;
 
 interface ProductCardProps {
   produit: Produit;
@@ -172,7 +174,9 @@ export function ProductSelector({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
   const [quantite, setQuantite] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
@@ -189,6 +193,27 @@ export function ProductSelector({
       (p.marque || '').toLowerCase().includes(searchLower)
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filteredProduits.length / ITEMS_PER_PAGE));
+  const paginatedProduits = filteredProduits.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset to first page whenever the search term changes or the modal opens.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, isOpen]);
+
+  // Keep the current page within bounds when the result count shrinks.
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [totalPages, currentPage]);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(totalPages, page)));
+    if (listRef.current) listRef.current.scrollTop = 0;
+  };
 
   const selectedProduit = produits.find(p => p.id === selectedId);
   const stock = selectedProduit ? Number(selectedProduit.stockActuel ?? 0) : 0;
@@ -275,7 +300,7 @@ export function ProductSelector({
         </DialogHeader>
 
         {/* Product List */}
-        <div className="flex-1 overflow-y-auto py-2">
+        <div ref={listRef} className="flex-1 overflow-y-auto py-2">
           {filteredProduits.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center px-6">
               <div className="mb-5">
@@ -312,7 +337,7 @@ export function ProductSelector({
             </div>
           ) : (
             <div className="divide-y divide-slate-100 dark:divide-white/10">
-              {filteredProduits.map((produit) => (
+              {paginatedProduits.map((produit) => (
                 <ProductCard
                   key={produit.id}
                   produit={produit}
@@ -323,6 +348,35 @@ export function ProductSelector({
             </div>
           )}
         </div>
+
+        {/* Pagination */}
+        {filteredProduits.length > 0 && totalPages > 1 && (
+          <div className="flex-shrink-0 flex items-center justify-between gap-3 border-t border-slate-100 bg-white/60 dark:border-white/10 dark:bg-transparent px-6 py-3 rounded-b-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-600 disabled:hover:border-slate-200 disabled:hover:bg-white dark:disabled:hover:text-slate-300 dark:disabled:hover:border-white/10 dark:disabled:hover:bg-slate-900/50"
+            >
+              <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+              <span className="hidden sm:inline">{t('shared.product_selector.pagination_prev')}</span>
+            </button>
+
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">
+              {t('shared.product_selector.pagination_info', { current: currentPage, total: totalPages })}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-[10px] border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-300 dark:hover:text-emerald-400 dark:hover:border-emerald-500/30 dark:hover:bg-emerald-500/10 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-600 disabled:hover:border-slate-200 disabled:hover:bg-white dark:disabled:hover:text-slate-300 dark:disabled:hover:border-white/10 dark:disabled:hover:bg-slate-900/50"
+            >
+              <span className="hidden sm:inline">{t('shared.product_selector.pagination_next')}</span>
+              <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+            </button>
+          </div>
+        )}
 
         {/* Floating Dock Action Bar */}
         {selectedProduit && (

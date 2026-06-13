@@ -614,7 +614,10 @@
       "badge_in_stock":       "{{count}} en stock",
       "price_ht":             "HT",
       "price_ttc":            "TTC",
-      "vat_short":            "TVA"
+      "vat_short":            "TVA",
+      "pagination_info":      "Page {{current}} sur {{total}}",
+      "pagination_prev":      "Précédent",
+      "pagination_next":      "Suivant"
     },
     "confirm_delete": {
       "title_invoice":        "Supprimer la facture",

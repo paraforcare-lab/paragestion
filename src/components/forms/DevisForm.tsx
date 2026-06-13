@@ -462,6 +462,7 @@ export function DevisForm({ initialData, onSuccess }: DevisFormProps) {
                           size="icon"
                           className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-white/5"
                           onClick={() => setCalcRowIndex(index)}
+                          disabled={!form.watch(`lignes.${index}.produitId`)}
                           title={t('shared.form.price_calculator', 'Calculateur de prix')}
                         >
                           <Calculator className="h-4 w-4" />
