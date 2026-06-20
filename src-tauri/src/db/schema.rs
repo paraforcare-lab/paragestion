@@ -122,6 +122,8 @@ pub const MIGRATIONS: &[&str] = &[
         updated_at          TEXT    DEFAULT CURRENT_TIMESTAMP,
         mode_paiement       TEXT,
         date_echeance       TEXT,
+        voiture             TEXT,
+        matricule           TEXT,
         user_id             TEXT,
         FOREIGN KEY (client_id) REFERENCES clients(id)
     );
@@ -156,6 +158,8 @@ pub const MIGRATIONS: &[&str] = &[
         date_echeance       TEXT,
         statut              TEXT    DEFAULT 'brouillon',
         mode_paiement       TEXT,
+        voiture             TEXT,
+        matricule           TEXT,
         montant_ht          REAL    DEFAULT 0,
         montant_tva         REAL    DEFAULT 0,
         montant_ttc         REAL    DEFAULT 0,
@@ -203,6 +207,8 @@ pub const MIGRATIONS: &[&str] = &[
         montant_ttc   REAL    DEFAULT 0,
         statut        TEXT    DEFAULT 'brouillon',
         notes         TEXT,
+        voiture       TEXT,
+        matricule     TEXT,
         created_at    TEXT    DEFAULT CURRENT_TIMESTAMP,
         updated_at    TEXT    DEFAULT CURRENT_TIMESTAMP,
         user_id       TEXT,
@@ -361,6 +367,8 @@ pub const MIGRATIONS: &[&str] = &[
         facture_id      INTEGER,
         date_livraison  TEXT    DEFAULT CURRENT_DATE,
         statut          TEXT    DEFAULT 'en_attente',
+        voiture         TEXT,
+        matricule       TEXT,
         montant_ht      REAL    DEFAULT 0,
         montant_tva     REAL    DEFAULT 0,
         montant_ttc     REAL    DEFAULT 0,
@@ -551,8 +559,8 @@ pub const MIGRATIONS: &[&str] = &[
         forme_juridique             TEXT    DEFAULT '',
         user_id                     TEXT    UNIQUE,
         activer_filigrane           INTEGER DEFAULT 1,
-        texte_filigrane             TEXT    DEFAULT 'ParaGestion',
-        watermark_text              TEXT    DEFAULT 'ParaGestion'
+        texte_filigrane             TEXT    DEFAULT 'SmartGestion',
+        watermark_text              TEXT    DEFAULT 'SmartGestion'
     );
     "#,
 

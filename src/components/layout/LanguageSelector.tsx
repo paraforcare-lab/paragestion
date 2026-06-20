@@ -144,7 +144,7 @@ export function LanguageSelector() {
           'group relative flex items-center gap-2.5 ps-2 pe-2.5 py-1.5 cursor-pointer',
           'rounded-[10px] border transition-all duration-200',
           // base state
-          'bg-white dark:bg-[#0b1222]',
+          'bg-white dark:bg-[#0F172A]',
           'border-slate-200 dark:border-white/8',
           'shadow-[0_1px_2px_rgba(15,23,42,0.04)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.3)]',
           // hover state
@@ -185,7 +185,7 @@ export function LanguageSelector() {
               // RTL-aware positioning: end-0 anchors to the logical end (right in LTR, left in RTL)
               'absolute end-0 top-full mt-2 z-50 min-w-[200px]',
               'rounded-xl border overflow-hidden',
-              'bg-white/95 dark:bg-[#0b1222]/95 backdrop-blur-xl',
+              'bg-white/95 dark:bg-[#0F172A]/95 backdrop-blur-xl',
               'border-slate-200 dark:border-white/10',
               'shadow-[0_8px_32px_rgba(15,23,42,0.12)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
               // subtle ring for crispness on light bg

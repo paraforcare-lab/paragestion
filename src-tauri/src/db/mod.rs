@@ -110,6 +110,31 @@ fn open_and_migrate(path: &Path) -> DbResult<Connection> {
     Ok(conn)
 }
 
+/// Add `column` to `table` only when it isn't already present.
+///
+/// Uses `PRAGMA table_info` to check existence so it is safe to run on every
+/// startup (SQLite has no `ADD COLUMN IF NOT EXISTS`).
+fn add_column_if_missing(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    decl: &str,
+) -> DbResult<()> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({});", table))?;
+    let exists = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .filter_map(|r| r.ok())
+        .any(|name| name == column);
+
+    if !exists {
+        conn.execute_batch(&format!(
+            "ALTER TABLE {} ADD COLUMN {} {};",
+            table, column, decl
+        ))?;
+    }
+    Ok(())
+}
+
 /// Apply migrations idempotently inside a single transaction.
 fn apply_migrations(conn: &Connection) -> DbResult<()> {
     let tx_sql = "BEGIN IMMEDIATE;";
@@ -119,6 +144,18 @@ fn apply_migrations(conn: &Connection) -> DbResult<()> {
         for stmt in schema::MIGRATIONS {
             conn.execute_batch(stmt)?;
         }
+
+        // Idempotently add columns introduced after the initial schema to
+        // databases that already exist (CREATE TABLE IF NOT EXISTS won't add
+        // them). SQLite errors if the column already exists, so guard each one.
+        add_column_if_missing(conn, "factures", "voiture", "TEXT")?;
+        add_column_if_missing(conn, "factures", "matricule", "TEXT")?;
+        add_column_if_missing(conn, "devis", "voiture", "TEXT")?;
+        add_column_if_missing(conn, "devis", "matricule", "TEXT")?;
+        add_column_if_missing(conn, "avoirs", "voiture", "TEXT")?;
+        add_column_if_missing(conn, "avoirs", "matricule", "TEXT")?;
+        add_column_if_missing(conn, "bons_livraison_client", "voiture", "TEXT")?;
+        add_column_if_missing(conn, "bons_livraison_client", "matricule", "TEXT")?;
 
         // Record the version (idempotent thanks to INSERT OR IGNORE).
         conn.execute(

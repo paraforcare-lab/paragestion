@@ -55,6 +55,8 @@ interface BonLivraisonClient {
   montantTva: number;
   montantTtc: number;
   statut: string;
+  voiture?: string;
+  matricule?: string;
   lignes?: any[];
 }
 
@@ -87,6 +89,8 @@ export function BonsLivraisonClientList() {
   const [selectedBon, setSelectedBon] = useState<any>(null);
   const [detailBon, setDetailBon] = useState<BonLivraisonClient | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailPage, setDetailPage] = useState(1);
+  const DETAIL_ITEMS_PER_PAGE = 6;
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bonToDelete, setBonToDelete] = useState<number | null>(null);
 
@@ -127,6 +131,8 @@ export function BonsLivraisonClientList() {
     montantTva: Number(b.montant_tva || 0),
     montantTtc: Number(b.montant_ttc || 0),
     statut: b.statut || 'en_attente',
+    voiture: b.voiture,
+    matricule: b.matricule,
   });
 
   const fetchBons = async () => {
@@ -182,7 +188,7 @@ export function BonsLivraisonClientList() {
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54',
-          watermarkText: data.watermark_text || 'ParaGestion',
+          watermarkText: data.watermark_text || 'SmartGestion',
           activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       }
@@ -329,6 +335,7 @@ export function BonsLivraisonClientList() {
         .eq('bon_livraison_client_id', bon.id)
         .order('ordre');
       setDetailBon({ ...bon, lignes: lignesData || [] });
+      setDetailPage(1);
       setIsDetailOpen(true);
     } catch {
       toast.error(t('shared.toast.loading_error'));
@@ -448,7 +455,7 @@ export function BonsLivraisonClientList() {
             </div>
             <Button
               onClick={openNewForm}
-              className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
               <Plus className="me-2 h-4 w-4" />
               {t('bons_livraison_client.new_button')}
@@ -816,94 +823,152 @@ export function BonsLivraisonClientList() {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="max-w-xl dark:bg-slate-900 dark:border-white/10">
-          <DialogHeader>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden dark:bg-slate-900 dark:border-white/10">
+          <DialogHeader className="shrink-0 px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100 dark:border-white/10">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20">
+              <div className="flex items-center justify-center h-10 w-10 shrink-0 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:rounded-sm dark:bg-emerald-500/10 dark:border-emerald-500/20">
                 <Truck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <div>
-                <DialogTitle className="text-lg font-bold dark:text-white">{t('bons_livraison_client.detail_title')}</DialogTitle>
-                <p className="text-sm text-muted-foreground">{detailBon?.numero}</p>
+              <div className="min-w-0">
+                <DialogTitle className="text-base sm:text-lg font-bold truncate dark:text-white">{t('bons_livraison_client.detail_title')}</DialogTitle>
+                <p className="text-sm text-muted-foreground truncate">{detailBon?.numero}</p>
               </div>
             </div>
           </DialogHeader>
           {detailBon && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-                <CalendarDays className="h-4 w-4" />
-                <span dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}>
-                  {(() => {
-                    try {
-                      const dateStr = detailBon.dateLivraison || detailBon.date;
-                      if (!dateStr) return '-';
-                      const date = new Date(dateStr);
-                      if (isNaN(date.getTime())) return '-';
-                      return format(date, 'dd MMMM yyyy', { locale: dateFnsLocale });
-                    } catch { return '-'; }
-                  })()}
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="h-4 w-4 shrink-0" />
+                  <span dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}>
+                    {(() => {
+                      try {
+                        const dateStr = detailBon.dateLivraison || detailBon.date;
+                        if (!dateStr) return '-';
+                        const date = new Date(dateStr);
+                        if (isNaN(date.getTime())) return '-';
+                        return format(date, 'dd MMMM yyyy', { locale: dateFnsLocale });
+                      } catch { return '-'; }
+                    })()}
+                  </span>
                 </span>
-                <span className="mx-2 text-slate-300 dark:text-slate-600">·</span>
-                <span className="font-medium text-slate-700 dark:text-white">
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <span className="font-medium text-slate-700 dark:text-white truncate">
                   {detailBon.client?.nom || detailBon.client?.nomSociete || '-'}
                 </span>
               </div>
 
-              {detailBon.lignes && detailBon.lignes.length > 0 && (
-                <div className="rounded-[6px] border border-slate-200 overflow-hidden dark:border-white/10 dark:rounded-sm">
-                  {/* Inner detail table scrolls horizontally on narrow modals. */}
-                  <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="border-b border-slate-100 dark:border-white/5">
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase">{t('bons_livraison.detail_col_product')}</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start">{t('bons_livraison.detail_col_qty')}</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start">{t('bons_livraison.detail_col_unit_price')}</TableHead>
-                        <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start">{t('bons_livraison.detail_col_total')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {detailBon.lignes.map((l: any, i: number) => (
-                        <TableRow key={i} className="border-b border-slate-100 last:border-0 dark:border-white/5">
-                          <TableCell className="py-3 text-sm dark:text-white">{l.designation || 'Produit'}</TableCell>
-                          <TableCell className="py-3 text-start text-sm font-medium dark:text-white" dir="ltr">{l.quantite}</TableCell>
-                          <TableCell className="py-3 text-start text-sm text-slate-500 dark:text-slate-400" dir="ltr">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
-                          <TableCell className="py-3 text-start text-sm font-bold dark:text-white" dir="ltr">{formatCurrency(l.montant_ttc || 0)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              {detailBon.lignes && detailBon.lignes.length > 0 && (() => {
+                const totalLignes = detailBon.lignes.length;
+                const totalPages = Math.ceil(totalLignes / DETAIL_ITEMS_PER_PAGE);
+                const safePage = Math.min(detailPage, totalPages);
+                const startIdx = (safePage - 1) * DETAIL_ITEMS_PER_PAGE;
+                const pageLignes = detailBon.lignes.slice(startIdx, startIdx + DETAIL_ITEMS_PER_PAGE);
+
+                return (
+                <>
+                  {/* Desktop / tablet: tabular layout */}
+                  <div className="hidden sm:block rounded-[6px] border border-slate-200 overflow-hidden dark:border-white/10 dark:rounded-sm">
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-b border-slate-100 bg-slate-50/60 dark:bg-slate-900/40 dark:border-white/5">
+                            <TableHead className="text-xs font-semibold text-slate-500 uppercase">{t('bons_livraison.detail_col_product')}</TableHead>
+                            <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start whitespace-nowrap">{t('bons_livraison.detail_col_qty')}</TableHead>
+                            <TableHead className="text-xs font-semibold text-slate-500 uppercase text-start whitespace-nowrap">{t('bons_livraison.detail_col_unit_price')}</TableHead>
+                            <TableHead className="text-xs font-semibold text-slate-500 uppercase text-end whitespace-nowrap">{t('bons_livraison.detail_col_total')}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {pageLignes.map((l: any, i: number) => (
+                            <TableRow key={startIdx + i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 transition-colors dark:border-white/5 dark:hover:bg-white/5">
+                              <TableCell className="py-3 text-sm dark:text-white">{l.designation || 'Produit'}</TableCell>
+                              <TableCell className="py-3 text-start text-sm font-medium dark:text-white" dir="ltr">{l.quantite}</TableCell>
+                              <TableCell className="py-3 text-start text-sm text-slate-500 whitespace-nowrap dark:text-slate-400" dir="ltr">{formatCurrency(l.prix_unitaire_ht || 0)}</TableCell>
+                              <TableCell className="py-3 text-end text-sm font-bold whitespace-nowrap dark:text-white" dir="ltr">{formatCurrency(l.montant_ttc || 0)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              )}
+
+                  {/* Mobile: stacked cards (no horizontal scroll needed) */}
+                  <div className="sm:hidden space-y-2">
+                    {pageLignes.map((l: any, i: number) => (
+                      <div key={startIdx + i} className="rounded-[6px] border border-slate-200 p-3 dark:border-white/10 dark:rounded-sm">
+                        <p className="text-sm font-medium text-slate-800 dark:text-white">{l.designation || 'Produit'}</p>
+                        <div className="mt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                          <span dir="ltr">{t('bons_livraison.detail_col_qty')}: <span className="font-medium text-slate-700 dark:text-slate-200">{l.quantite}</span></span>
+                          <span dir="ltr">{formatCurrency(l.prix_unitaire_ht || 0)}</span>
+                          <span dir="ltr" className="text-sm font-bold text-slate-800 dark:text-white">{formatCurrency(l.montant_ttc || 0)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination controls (max 6 products per page) */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500 dark:text-slate-400" dir="ltr">
+                        {startIdx + 1}–{startIdx + pageLignes.length} / {totalLignes}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-[4px]"
+                          disabled={safePage <= 1}
+                          onClick={() => setDetailPage((p) => Math.max(1, p - 1))}
+                        >
+                          <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
+                        </Button>
+                        <span className="px-2 text-xs font-medium text-slate-600 dark:text-slate-300" dir="ltr">
+                          {safePage} / {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 rounded-[4px]"
+                          disabled={safePage >= totalPages}
+                          onClick={() => setDetailPage((p) => Math.min(totalPages, p + 1))}
+                        >
+                          <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+                );
+              })()}
 
               <div className="rounded-[6px] border border-slate-100 bg-slate-50/50 p-4 space-y-1.5 dark:border-white/10 dark:bg-slate-900/60 dark:rounded-sm">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between gap-3 text-sm">
                   <span className="text-slate-500 dark:text-slate-400">{t('bons_livraison.detail_total_ht')}</span>
                   <span dir="ltr" className="font-medium text-slate-800 dark:text-white">{formatCurrency(detailBon.montantHt)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500 dark:text-slate-400">{t('bons_livraison.detail_tva')}</span>
+                <div className="flex justify-between gap-3 text-sm">
+                  <span className="text-slate-500 dark:text-slate-400">{t('bons_livraison.detail_total_vat')}</span>
                   <span dir="ltr" className="font-medium text-slate-800 dark:text-white">{formatCurrency(detailBon.montantTva)}</span>
                 </div>
-                <div className="flex justify-between text-base font-bold pt-1.5 border-t border-slate-200 dark:border-white/10">
+                <div className="flex justify-between gap-3 text-base font-bold pt-1.5 border-t border-slate-200 dark:border-white/10">
                   <span className="text-slate-800 dark:text-white">{t('bons_livraison.detail_total_ttc')}</span>
                   <span dir="ltr" className="text-emerald-600 dark:text-emerald-400">{formatCurrency(detailBon.montantTtc)}</span>
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="shrink-0 px-4 sm:px-6 py-4 border-t border-slate-100 dark:border-white/10">
             <Button
               variant="outline"
               onClick={() => setIsDetailOpen(false)}
-              className="rounded-[4px] h-10"
+              className="rounded-[4px] h-10 w-full sm:w-auto"
             >
               {t('shared.actions.close')}
             </Button>
             {detailBon && (
               <Button
-                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-[4px] h-10 shadow-none"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-[4px] h-10 w-full sm:w-auto shadow-none"
                 onClick={() => { handleEdit(detailBon); setIsDetailOpen(false); }}
               >
                 <FileEdit className="me-2 h-4 w-4" />

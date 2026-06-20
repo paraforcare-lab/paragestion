@@ -1,9 +1,10 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download,   ArrowLeft, ShoppingCart, Package,
   FileText, Clock, CheckCircle, Ban, Truck, Send, ChevronLeft,
-  ChevronRight, CalendarDays, Filter, Building2, ArrowUpRight, XCircle
+  ChevronRight, CalendarDays, Filter, Building2, ArrowUpRight, XCircle,
+  Wallet, CircleDollarSign, CircleDot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +31,15 @@ import { BonCommandeForm } from '@/components/forms/BonCommandeForm'
 import { useReactToPrint } from 'react-to-print'
 import { BonCommandeDocument } from '@/components/documents/BonCommandeDocument'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -79,6 +89,25 @@ export function BonsCommandeList() {
   const [statusConfirm, setStatusConfirm] = useState<
     { id: number; newStatus: string; kind: 'deliver' | 'cancel' } | null
   >(null);
+
+  // --- Payment status (visualization only, local UI state) ---------------
+  // Mirrors the "Statut" column but is purely for display: no DB / logic.
+  const [paymentStatuses, setPaymentStatuses] = useState<Record<number, string>>({});
+  const getPaymentStatus = (id: number) => paymentStatuses[id] ?? 'non_paye';
+  const setPaymentStatus = (id: number, value: string) =>
+    setPaymentStatuses((prev) => ({ ...prev, [id]: value }));
+  // Amounts (visualization only) for the "edit unpaid" popup on partial payments.
+  const [unpaidAmounts, setUnpaidAmounts] = useState<Record<number, string>>({});
+  const [editPaymentBon, setEditPaymentBon] = useState<BonCommande | null>(null);
+  const [editPaymentValue, setEditPaymentValue] = useState('');
+
+  const paymentOptions: StatutOption[] = [
+    { value: 'non_paye', label: 'Non payé', icon: CircleDot, color: 'text-rose-700', bgColor: 'bg-rose-50 text-rose-700 border border-rose-200/50' },
+    { value: 'partiel', label: 'Partiellement payé', icon: Wallet, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
+    { value: 'paye', label: 'Payé', icon: CircleDollarSign, color: 'text-emerald-700', bgColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/50' },
+  ];
+  const getPaymentConfig = (value: string) =>
+    paymentOptions.find((p) => p.value === value) || paymentOptions[0];
 
   const statusOptions: StatutOption[] = [
     { value: 'brouillon', label: t('shared.status.draft'), icon: FileText, color: 'text-amber-700', bgColor: 'bg-amber-50 text-amber-700 border border-amber-200/50' },
@@ -174,7 +203,7 @@ export function BonsCommandeList() {
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54',
-          watermarkText: data.watermark_text || 'ParaGestion',
+          watermarkText: data.watermark_text || 'SmartGestion',
           activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       }
@@ -818,6 +847,47 @@ export function BonsCommandeList() {
         cancelText={t('bons_commande.cancel_button')}
       />
 
+      {/* Edit unpaid amount (visualization only) for partially-paid orders */}
+      <Dialog open={editPaymentBon !== null} onOpenChange={(open) => { if (!open) setEditPaymentBon(null); }}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Modifier le montant impayé</DialogTitle>
+            <DialogDescription>
+              {editPaymentBon
+                ? `Bon ${editPaymentBon.numero} — Total ${formatCurrencyLocale(editPaymentBon.montantTtc, i18n.language)}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="unpaid-amount">Montant impayé</Label>
+            <Input
+              id="unpaid-amount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={editPaymentValue}
+              onChange={(e) => setEditPaymentValue(e.target.value)}
+              placeholder="0.00"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPaymentBon(null)}>
+              {t('bons_commande.cancel_button')}
+            </Button>
+            <Button
+              onClick={() => {
+                if (editPaymentBon) {
+                  setUnpaidAmounts((prev) => ({ ...prev, [editPaymentBon.id]: editPaymentValue }));
+                }
+                setEditPaymentBon(null);
+              }}
+            >
+              {t('bons_commande.confirm_button')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="hidden">
         <BonCommandeDocument ref={componentRef} bon={selectedBon} entreprise={entreprise} lang={i18n.language} />
       </div>
@@ -864,7 +934,7 @@ export function BonsCommandeList() {
             </div>
             <Button
               onClick={openNewForm}
-              className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
               <Plus className="me-2 h-4 w-4" />
               {t('bons_commande.new_button')}
@@ -929,6 +999,7 @@ export function BonsCommandeList() {
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">{t('shared.table.delivery')}</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.amount')}</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">{t('shared.table.status')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-center">Paiement</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-start">{t('shared.table.actions')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -971,6 +1042,9 @@ export function BonsCommandeList() {
                   paginatedBons.map((bon) => {
                     const status = getStatusConfig(bon.statut);
                     const StatusIcon = status.icon;
+                    const paymentStatus = getPaymentStatus(bon.id);
+                    const payment = getPaymentConfig(paymentStatus);
+                    const PaymentIcon = payment.icon;
                     const fournisseurInitial = (bon.fournisseur?.nom || '?').charAt(0).toUpperCase();
 
                     return (
@@ -1058,8 +1132,53 @@ export function BonsCommandeList() {
                             </SelectContent>
                           </Select>
                         </TableCell>
+                        <TableCell className="px-4 py-5 text-center">
+                          <Select
+                            value={paymentStatus}
+                            onValueChange={(val) => setPaymentStatus(bon.id, String(val))}
+                          >
+                            <SelectTrigger className="h-auto w-auto mx-auto bg-transparent border-none shadow-none focus:ring-0 p-0">
+                              <SelectValue>
+                                <span className={cn(
+                                  "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium",
+                                  payment.bgColor
+                                )}>
+                                  <PaymentIcon className={cn("h-3 w-3", payment.color)} />
+                                  {payment.label}
+                                </span>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {paymentOptions.map(opt => {
+                                const OptIcon = opt.icon;
+                                return (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    <div className="flex items-center gap-2">
+                                      <OptIcon className={cn("h-4 w-4", opt.color)} />
+                                      <span>{opt.label}</span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
                         <TableCell className="px-4 py-5 text-start">
                           <div className="flex justify-end gap-0.5">
+                            {paymentStatus === 'partiel' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-[4px] dark:hover:text-amber-400 dark:hover:bg-white/5 dark:rounded-sm"
+                                onClick={() => {
+                                  setEditPaymentBon(bon);
+                                  setEditPaymentValue(unpaidAmounts[bon.id] ?? '');
+                                }}
+                                title="Modifier le montant impayé"
+                              >
+                                <Wallet className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"

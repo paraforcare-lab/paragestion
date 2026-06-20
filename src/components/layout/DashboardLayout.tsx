@@ -65,7 +65,7 @@ export function DashboardLayout() {
   const subtitle = currentRoute.subtitleKey ? t(currentRoute.subtitleKey) : '';
 
   const userInitial = user?.email?.charAt(0)?.toUpperCase() || 'P';
-  const displayName = user?.email?.split('@')[0] || 'ParaGestion';
+  const displayName = user?.email?.split('@')[0] || 'SmartGestion';
   const { unreadCount, notifications } = useNotifications();
 
   const currentLang = i18n.language?.startsWith('ar') ? 'ar' : i18n.language?.startsWith('en') ? 'en' : 'fr';
@@ -96,11 +96,11 @@ export function DashboardLayout() {
 
   useEffect(() => {
     if (hasHighPriority && unreadCount > 0) {
-      document.title = `Action requise - ParaGestion`;
+      document.title = `Action requise - SmartGestion`;
     } else if (unreadCount > 0) {
-      document.title = `(${unreadCount}) ParaGestion`;
+      document.title = `(${unreadCount}) SmartGestion`;
     } else {
-      document.title = 'ParaGestion';
+      document.title = 'SmartGestion';
     }
   }, [hasHighPriority, unreadCount]);
 
@@ -142,7 +142,7 @@ export function DashboardLayout() {
                 </h1>
                 <p className="text-[11px] sm:text-xs lg:text-sm text-muted-foreground mt-0.5 truncate">
                   {subtitle && <span className="hidden sm:inline">{subtitle} - </span>}
-                  <span className="text-emerald-600 font-medium">{t('header.system_active')}</span>
+                  <span className="text-[#0EA5E9] font-medium">{t('header.system_active')}</span>
                 </p>
               </div>
             </div>
@@ -182,11 +182,11 @@ export function DashboardLayout() {
                       {t('header.administrator')}
                     </p>
                   </div>
-                  <Avatar className="h-9 w-9 border-2 border-emerald-500/30 group-hover:border-emerald-400 transition-colors">
+                  <Avatar className="h-9 w-9 border-2 border-primary/30 group-hover:border-primary/60 transition-colors">
                     <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
                     <AvatarFallback className={cn(
-                      "bg-emerald-500/10 text-emerald-600 font-bold text-sm dark:text-emerald-300",
-                      "group-hover:bg-emerald-500/20 dark:group-hover:bg-emerald-500/30 transition-colors"
+                      "bg-primary/10 text-primary font-bold text-sm dark:text-primary",
+                      "group-hover:bg-primary/20 dark:group-hover:bg-primary/30 transition-colors"
                     )}>
                       {userInitial}
                     </AvatarFallback>

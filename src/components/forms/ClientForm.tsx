@@ -340,7 +340,7 @@ export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
                       <Input
                         placeholder={t('shared.form.ice_digits_ph')}
                         dir="ltr"
-                        className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                         {...field}
                       />
                     </FormControl>
@@ -357,7 +357,7 @@ export function ClientForm({ initialData, onSuccess }: ClientFormProps) {
           <Button 
             type="submit"
             disabled={form.formState.isSubmitting}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 h-10 rounded-[4px] shadow-none"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 h-10 rounded-[4px] shadow-none"
           >
             {form.formState.isSubmitting ? (
               <>

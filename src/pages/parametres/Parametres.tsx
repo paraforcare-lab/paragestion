@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -27,6 +27,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { readDocAccent, writeDocAccent, DEFAULT_DOC_ACCENT } from '@/components/documents/docColors'
+import { COMPANY_PARAMS_UPDATED_EVENT } from '@/hooks/useCompanyName'
 import { 
   Building2, 
   CreditCard, 
@@ -90,7 +91,7 @@ export function Parametres() {
   const [activeTab, setActiveTab] = useState('general');
   const CACHED_PARAMS_KEY = 'pg_cached_params';
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>(() => {
-    return (localStorage.getItem('pg_theme') as 'light' | 'dark' | 'system') || 'system';
+    return (localStorage.getItem('pg_theme') as 'light' | 'dark' | 'system') || 'light';
   });
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
@@ -155,11 +156,11 @@ export function Parametres() {
       rib: '',
       swift: '',
       logoUrl: '',
-      couleurPrincipale: '#267E54',
+      couleurPrincipale: '#C63C4E',
       conditionsPaiementDefaut: '',
       piedPageDefaut: '',
       activerDroitTimbre: true,
-      watermarkText: 'ParaGestion',
+      watermarkText: 'SmartGestion',
       activerFiligrane: true,
     },
   });
@@ -237,11 +238,11 @@ export function Parametres() {
             rib: data.rib || '',
             swift: data.swift || '',
             logoUrl: data.logo_url || '',
-            couleurPrincipale: data.couleur_principale || '#267E54',
+            couleurPrincipale: data.couleur_principale || '#C63C4E',
             conditionsPaiementDefaut: data.conditions_paiement_defaut || '',
             piedPageDefaut: data.pied_page_defaut || '',
             activerDroitTimbre: data.activer_droit_timbre !== undefined ? Boolean(data.activer_droit_timbre) : true,
-            watermarkText: data.watermark_text || data.texte_filigrane || 'ParaGestion',
+            watermarkText: data.watermark_text || data.texte_filigrane || 'SmartGestion',
             activerFiligrane: data.activer_filigrane !== undefined ? Boolean(data.activer_filigrane) : true,
           };
           form.reset(mapped);
@@ -386,6 +387,9 @@ export function Parametres() {
       setIsModified(false);
       form.reset(data);
       localStorage.setItem(CACHED_PARAMS_KEY, JSON.stringify(data));
+      // Notify same-tab listeners (e.g. sidebar BrandLogo) that the company
+      // name / settings changed so the styled logo updates immediately.
+      window.dispatchEvent(new Event(COMPANY_PARAMS_UPDATED_EVENT));
       toast.success(t('parametres.toast_saved'));
     } catch (err: any) {
       console.error('Error saving parametres:', err);
@@ -475,13 +479,13 @@ export function Parametres() {
             <button
               type="button"
               onClick={() => setActiveTab('general')}
-                            className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
+                            className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0F172A] dark:border-white/5 ${
                 activeTab === 'general' ? 'ring-2 ring-primary/20 border-primary bg-slate-50 dark:border-primary/50 dark:bg-slate-800/50' : ''
               }`}
             >
               <div className="relative flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
                 <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500 dark:text-blue-400" />
-                {tabErrors.general && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
+                {tabErrors.general && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0F172A]" />}
               </div>
               {/* On tablets we hide the description block to keep the row
                   compact; mobile and desktop both show full text. */}
@@ -495,13 +499,13 @@ export function Parametres() {
             <button
               type="button"
               onClick={() => setActiveTab('fiscal')}
-              className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
+              className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0F172A] dark:border-white/5 ${
                 activeTab === 'fiscal' ? 'ring-2 ring-primary/20 border-primary bg-slate-50 dark:border-primary/50 dark:bg-slate-800/50' : ''
               }`}
             >
               <div className="relative flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
                 <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500 dark:text-emerald-400" />
-                {tabErrors.fiscal && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
+                {tabErrors.fiscal && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0F172A]" />}
               </div>
               <div className="flex-1 min-w-0 sm:hidden md:block">
                 <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{t('parametres.nav_fiscal')}</p>
@@ -513,13 +517,13 @@ export function Parametres() {
             <button
               type="button"
               onClick={() => setActiveTab('personalisation')}
-              className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0b1222] dark:border-white/5 ${
+              className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-2xl border text-start w-full bg-white border-slate-200 dark:bg-[#0F172A] dark:border-white/5 ${
                 activeTab === 'personalisation' ? 'ring-2 ring-primary/20 border-primary bg-slate-50 dark:border-primary/50 dark:bg-slate-800/50' : ''
               }`}
             >
               <div className="relative flex items-center justify-center h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-slate-100 dark:bg-slate-800/50 shrink-0">
                 <Palette className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500 dark:text-purple-400" />
-                {tabErrors.personalisation && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0b1222]" />}
+                {tabErrors.personalisation && <span className="absolute top-0 end-0 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white dark:ring-[#0F172A]" />}
               </div>
               <div className="flex-1 min-w-0 sm:hidden md:block">
                 <p className="font-semibold text-slate-900 dark:text-white text-sm sm:text-base">{t('parametres.nav_appearance')}</p>
@@ -530,10 +534,10 @@ export function Parametres() {
           </div>
 
           {/* Content Area */}
-          <div className="p-3 sm:p-4 lg:p-6 rounded-2xl border border-slate-200 bg-white dark:bg-[#0b1222] dark:border-white/5">
+          <div className="p-3 sm:p-4 lg:p-6 rounded-2xl border border-slate-200 bg-white dark:bg-[#0F172A] dark:border-white/5">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsContent value="general" className="mt-0">
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0F172A] dark:border-white/5">
                 <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -554,7 +558,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.company_name')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -567,7 +571,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.legal_form')}</FormLabel>
                           <FormControl>
-                            <Input placeholder={t('parametres.general.legal_form_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input placeholder={t('parametres.general.legal_form_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -583,7 +587,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.share_capital')}</FormLabel>
                           <FormControl>
-                            <Input placeholder={t('parametres.general.capital_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input placeholder={t('parametres.general.capital_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -598,7 +602,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input type="email" className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                              <Input type="email" className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -617,7 +621,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                              <Input className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -633,7 +637,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input placeholder={t('parametres.general.website_ph')} className="ps-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                              <Input placeholder={t('parametres.general.website_ph')} className="ps-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -651,7 +655,7 @@ export function Parametres() {
                         <FormControl>
                           <div className="relative">
                             <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                            <Input className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </div>
                         </FormControl>
                         <FormMessage />
@@ -667,7 +671,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.postal_code')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -680,7 +684,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.general.city')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -692,7 +696,7 @@ export function Parametres() {
             </TabsContent>
 
             <TabsContent value="fiscal" className="mt-0 space-y-6">
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0F172A] dark:border-white/5">
                 <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -715,7 +719,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
+                              <Input className="pl-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -729,7 +733,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.rc')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -745,7 +749,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.if')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -758,7 +762,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.tp')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -771,7 +775,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.cnss')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -781,7 +785,7 @@ export function Parametres() {
                 </CardContent>
               </Card>
 
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0F172A] dark:border-white/5">
                 <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -804,7 +808,7 @@ export function Parametres() {
                           <FormControl>
                             <div className="relative">
                               <Landmark className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
-                              <Input placeholder={t('parametres.fiscal.bank_name_ph')} className="ps-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                              <Input placeholder={t('parametres.fiscal.bank_name_ph')} className="ps-10 h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -818,7 +822,7 @@ export function Parametres() {
                         <FormItem>
                           <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.swift')}</FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono uppercase" {...field} />
+                            <Input className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono uppercase" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -833,7 +837,7 @@ export function Parametres() {
                       <FormItem>
                         <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.fiscal.rib')}</FormLabel>
                         <FormControl>
-                            <Input placeholder={t('parametres.fiscal.rib_ph')} dir="ltr" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
+                            <Input placeholder={t('parametres.fiscal.rib_ph')} dir="ltr" className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 font-mono" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -844,7 +848,7 @@ export function Parametres() {
             </TabsContent>
 
             <TabsContent value="personalisation" className="mt-0 space-y-6">
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0F172A] dark:border-white/5">
                 <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -867,7 +871,7 @@ export function Parametres() {
                         className={`relative cursor-pointer rounded-xl border-2 p-4 ${
                           themeMode === 'light'
                             ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-[#0b1222] dark:hover:border-white/10'
+                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-[#0F172A] dark:hover:border-white/10'
                         }`}
                       >
                         <div className="space-y-3">
@@ -905,7 +909,7 @@ export function Parametres() {
                         className={`relative cursor-pointer rounded-xl border-2 p-4 ${
                           themeMode === 'dark'
                             ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-[#0b1222] dark:hover:border-white/10'
+                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-[#0F172A] dark:hover:border-white/10'
                         }`}
                       >
                         <div className="space-y-3">
@@ -943,7 +947,7 @@ export function Parametres() {
                         className={`relative cursor-pointer rounded-xl border-2 p-4 ${
                           themeMode === 'system'
                             ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-[#0b1222] dark:hover:border-white/10'
+                            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-white/5 dark:bg-[#0F172A] dark:hover:border-white/10'
                         }`}
                       >
                         <div className="space-y-3">
@@ -988,7 +992,7 @@ export function Parametres() {
                     <div className="flex flex-col md:flex-row gap-6">
                       {/* Logo Preview */}
                       <div className="flex-shrink-0">
-                        <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center overflow-hidden dark:border-white/5 dark:bg-[#0b1222]/40">
+                        <div className="w-36 h-36 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center overflow-hidden dark:border-white/5 dark:bg-[#0F172A]/40">
                           {(form.watch('logoUrl') || logoPreview) && !logoError ? (
                             <img
                               src={logoPreview || form.watch('logoUrl')}
@@ -1094,7 +1098,7 @@ export function Parametres() {
                             setDocAccent(v);
                             if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(v)) writeDocAccent(v);
                           }}
-                          className="h-9 w-28 font-mono text-sm dark:bg-[#020617]/50 dark:border-white/10"
+                          className="h-9 w-28 font-mono text-sm dark:bg-[#12141C]/50 dark:border-white/10"
                           dir="ltr"
                         />
                         <Button
@@ -1155,7 +1159,7 @@ export function Parametres() {
                     <Button
                       type="button"
                       onClick={handleCropConfirm}
-                      className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white"
+                      className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {t('parametres.appearance.confirm_crop')}
                     </Button>
@@ -1163,7 +1167,7 @@ export function Parametres() {
                 </DialogContent>
               </Dialog>
 
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0F172A] dark:border-white/5">
                 <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -1183,7 +1187,7 @@ export function Parametres() {
                       <FormItem>
                         <FormLabel className="text-foreground font-semibold dark:text-slate-300">{t('parametres.appearance.payment_conditions')}</FormLabel>
                         <FormControl>
-                            <Input placeholder={t('parametres.appearance.payment_terms_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
+                            <Input placeholder={t('parametres.appearance.payment_terms_ph')} className="h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1199,7 +1203,7 @@ export function Parametres() {
                         <FormControl>
                           <Textarea
                             placeholder={t('parametres.appearance.footer_ph')}
-                            className="min-h-[80px] bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                            className="min-h-[80px] bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                             {...field}
                           />
                         </FormControl>
@@ -1213,7 +1217,7 @@ export function Parametres() {
                       control={form.control}
                       name="activerFiligrane"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/30 dark:border-white/5 dark:bg-[#0b1222]">
+                        <FormItem className="flex flex-row items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/30 dark:border-white/5 dark:bg-[#0F172A]">
                           <div className="space-y-0.5 flex-1">
                             <FormLabel className="text-base font-semibold cursor-pointer">{t('parametres.appearance.watermark')}</FormLabel>
                             <p className="text-sm text-muted-foreground">
@@ -1242,7 +1246,7 @@ export function Parametres() {
                           <FormControl>
                             <Input
                               placeholder={t('parametres.appearance.watermark_text_ph')}
-                              className={`h-11 bg-white border-border/50 focus:border-primary dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 transition-all ${
+                              className={`h-11 bg-white border-border/50 focus:border-primary dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500 transition-all ${
                                 !form.watch('activerFiligrane') ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                               disabled={!form.watch('activerFiligrane')}
@@ -1263,7 +1267,7 @@ export function Parametres() {
                    with a live preview). Settings persist to localStorage
                    (`pg_ticket_settings`) and are picked up automatically
                    by VentesPassagers' print action. */}
-              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0b1222] dark:border-white/5">
+              <Card className="border border-slate-100 rounded-2xl dark:bg-[#0F172A] dark:border-white/5">
                 <CardHeader className="border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5 dark:border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/50">
@@ -1283,7 +1287,7 @@ export function Parametres() {
                   <Button
                     type="button"
                     onClick={() => setTicketDialogOpen(true)}
-                    className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold h-10 px-5 rounded-[6px] shadow-none"
+                    className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 px-5 rounded-[6px] shadow-none"
                   >
                     <Receipt className="me-2 h-4 w-4" />
                     {t('parametres.ticket.trigger_button')}

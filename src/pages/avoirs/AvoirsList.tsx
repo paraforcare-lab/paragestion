@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Search, FileText, Download, Trash2, RotateCcw, Receipt, ChevronLeft, ChevronRight, CalendarDays, Filter, Info, ArrowUpRight, Plus, ArrowLeft, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,8 @@ interface Avoir {
   montantTva: number;
   montantTtc: number;
   statut: string;
+  voiture?: string;
+  matricule?: string;
 }
 
 interface StatutOption {
@@ -112,6 +114,8 @@ export function AvoirsList() {
     montantTva: Number(a.montant_tva || a.montantTva || 0),
     montantTtc: Number(a.montant_ttc || a.montantTtc || 0),
     statut: a.statut || 'en_attente',
+    voiture: a.voiture,
+    matricule: a.matricule,
   });
 
   const fetchAvoirs = async () => {
@@ -165,7 +169,7 @@ export function AvoirsList() {
           email: data.email || '',
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
-          watermarkText: data.watermark_text || 'ParaGestion',
+          watermarkText: data.watermark_text || 'SmartGestion',
           activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       }
@@ -212,6 +216,8 @@ export function AvoirsList() {
         clientId: avoir.clientId,
         dateEmission: avoir.dateEmission,
         dateEcheance: avoir.dateEmission,
+        voiture: avoir.voiture || '',
+        matricule: avoir.matricule || '',
         montantHt: avoir.montantHt,
         montantTva: avoir.montantTva,
         montantTtc: avoir.montantTtc,

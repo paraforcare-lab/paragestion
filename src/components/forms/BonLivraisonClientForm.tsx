@@ -46,6 +46,10 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
         dateEmission: z.string().min(1, t('shared.validation.emission_date_required')),
         statut: z.string().optional(),
         modePaiement: z.string().optional(),
+        voiture: z.string().optional(),
+        matricule1: z.string().optional(),
+        matricule2: z.string().optional(),
+        matricule3: z.string().optional(),
         notes: z.string().optional(),
         lignes: z
           .array(
@@ -72,6 +76,10 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
       dateEmission: new Date().toISOString().split('T')[0],
       statut: 'en_attente',
       modePaiement: 'Virement',
+      voiture: '',
+      matricule1: '',
+      matricule2: '',
+      matricule3: '',
       notes: '',
       lignes: [
         {
@@ -105,9 +113,15 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
         setParametres(parametresData?.[0] || null);
 
         if (initialData?.id) {
+          const matriculeRaw = initialData.matricule ?? initialData.matricule1 ?? '';
+          const matriculeParts = String(matriculeRaw).split('/').map((p: string) => p.trim());
           form.reset({
             ...initialData,
             clientId: initialData.clientId?.toString() || '',
+            voiture: initialData.voiture || '',
+            matricule1: initialData.matricule1 ?? matriculeParts[0] ?? '',
+            matricule2: initialData.matricule2 ?? matriculeParts[1] ?? '',
+            matricule3: initialData.matricule3 ?? matriculeParts[2] ?? '',
             dateEmission: initialData.dateCommande || initialData.dateLivraisonPrevue || new Date().toISOString().split('T')[0],
             lignes: initialData.lignes?.map((l: any) => ({
               ...l,
@@ -125,6 +139,10 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
             dateEmission: new Date().toISOString().split('T')[0],
             statut: 'en_attente',
             modePaiement: 'Virement',
+            voiture: '',
+            matricule1: '',
+            matricule2: '',
+            matricule3: '',
             notes: parametresData?.[0]?.pied_page_defaut || '',
             lignes: [
               {
@@ -204,6 +222,10 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
       const payload: any = {
         date_livraison: new Date(data.dateEmission).toISOString(),
         statut: data.statut || 'en_attente',
+        voiture: data.voiture || '',
+        matricule: [data.matricule1, data.matricule2, data.matricule3]
+          .map((p) => (p || '').trim())
+          .join(' / '),
         montant_ht: Number(totals.ht),
         montant_tva: Number(totals.tva),
         montant_ttc: Number(totals.ttc),
@@ -342,6 +364,39 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
                 <SelectItem value="annulé">{t('bons_livraison.status_cancelled')}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2 md:col-start-1">
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.vehicle')}</Label>
+            <Input
+              type="text"
+              placeholder={t('shared.form.vehicle_placeholder')}
+              className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+              {...form.register('voiture')}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-start-2">
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.matricule')}</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white text-center"
+                {...form.register('matricule1')}
+              />
+              <span className="text-slate-500 font-semibold">/</span>
+              <Input
+                type="text"
+                className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white text-center"
+                {...form.register('matricule2')}
+              />
+              <span className="text-slate-500 font-semibold">/</span>
+              <Input
+                type="text"
+                className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white text-center"
+                {...form.register('matricule3')}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -510,7 +565,7 @@ export function BonLivraisonClientForm({ initialData, onSuccess }: BLCFormProps)
         <Button type="button" variant="ghost" onClick={() => onSuccess()} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
           {t('shared.actions.cancel')}
         </Button>
-        <Button type="submit" disabled={isLoading} className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6 h-10 rounded-[4px] shadow-none dark:rounded-sm">
+        <Button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6 h-10 rounded-[4px] shadow-none dark:rounded-sm">
           {isLoading ? t('shared.actions.saving') : t('bons_livraison.form_save_button')}
         </Button>
       </div>

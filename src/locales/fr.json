@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "ParaGestion",
-    "tagline": "Solution de Gestion"
+    "name": "SmartGestion",
+    "tagline": "Gestion Automobile"
   },
   "auth": {
     "login_title":        "Connexion",
@@ -16,7 +16,7 @@
     "badge_pharmacy":     "Pharmacy Ready",
     "footer_copyright":   "© {{year}} SmartGestion. Tous droits réservés.",
     "toast_invalid":      "Email ou mot de passe incorrect",
-    "toast_success":      "Connexion réussie. Bienvenue sur ParaGestion!",
+    "toast_success":      "Connexion réussie. Bienvenue sur SmartGestion!",
     "toast_error":        "Une erreur est survenue lors de la connexion"
   },
   "dashboard": {
@@ -38,7 +38,7 @@
     },
     "header": {
       "title": "Tableau de Bord",
-      "subtitle": "Bienvenue sur ParaGestion",
+      "subtitle": "Bienvenue sur SmartGestion",
       "system_active": "Analyse Financière & Reporting — Système actif",
       "stock_value_label": "Valeur du Stock (HT)"
     },
@@ -111,7 +111,7 @@
   },
   "workspace": {
     "header": {
-      "welcome": "Bienvenue sur ParaGestion - Le système est actif",
+      "welcome": "Bienvenue sur SmartGestion - Le système est actif",
       "role_manager": "Responsable",
       "role_admin": "Admin"
     },
@@ -260,7 +260,7 @@
     "settings": "Paramètres",
     "logout": "Déconnexion",
     "subtitles": {
-      "workspace": "Bienvenue sur ParaGestion",
+      "workspace": "Bienvenue sur SmartGestion",
       "dashboard": "Analyse et rapports financiers",
       "invoices": "Gestion des factures clients",
       "quotes": "Gestion des devis",
@@ -475,6 +475,9 @@
       "validity_date":       "Date de validité",
       "planned_delivery":    "Date de livraison prévue",
       "payment_mode":        "Mode de paiement",
+      "vehicle":             "Voiture",
+      "vehicle_placeholder": "Nom de la voiture",
+      "matricule":           "Matricule",
       "suggested_payment":   "Mode de paiement suggéré",
       "notes":               "Notes",
       "notes_placeholder":   "Notes pour le client...",
@@ -1249,11 +1252,11 @@
       "payment_conditions":  "Conditions de paiement par défaut",
       "payment_terms_ph":    "ex: Paiement à la réception sous 30 jours",
       "footer":              "Pied de page par défaut",
-      "footer_ph":           "ex: Merci de votre confiance. ParaGestion - Votre système de gestion parapharmaceutique.",
+      "footer_ph":           "ex: Merci de votre confiance. SmartGestion - Votre système de gestion automobile.",
       "watermark":           "Filigrane",
       "watermark_desc":      "Activer le filigrane sur les documents PDF",
       "watermark_text":      "Texte du filigrane",
-      "watermark_text_ph":   "ParaGestion",
+      "watermark_text_ph":   "SmartGestion",
       "watermark_hint":      "Ce texte apparaîtra en arrière-plan de tous vos documents PDF."
     },
     "ticket": {
