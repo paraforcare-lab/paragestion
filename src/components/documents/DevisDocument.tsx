@@ -1,7 +1,11 @@
-import { forwardRef } from 'react'
+import { forwardRef, useMemo } from 'react'
 import { format, isValid, parseISO } from 'date-fns'
 import { getDateLocale } from '@/lib/utils'
 import { DOC_COLORS as C } from './docColors'
+
+/** Strict cap of products rendered per page. Any overflow flows onto
+ *  subsequent pages with the identical table structure / theme. */
+const ITEMS_PER_PAGE = 8
 
 interface DevisDocumentProps {
   devis: any
@@ -57,6 +61,8 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
     const dateEmission = fmtDate(pickVal(devis, 'dateEmission', 'date_emission'))
     const dateValidite = fmtDate(pickVal(devis, 'dateValidite', 'date_echeance', 'dateEcheance'))
     const modePaiement = (pickVal(devis, 'modePaiement', 'mode_paiement') as string) || ''
+    const voiture = (pickVal(devis, 'voiture') as string) || ''
+    const matricule = (pickVal(devis, 'matricule') as string) || ''
     const conditionsPaiement = devis.conditionsPaiement || ''
     const client = pickVal(devis, 'client', 'fournisseur') || {}
     const entityName = client?.nomSociete || client?.nom || '-'
@@ -65,12 +71,33 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
     const getQt = (l: any) => safeNum(l.quantite, 1)
     const getMt = (l: any) => { const m = pickNum(l, 'montantHt', 'montant_ht'); return m > 0 ? m : getPu(l) * getQt(l) }
 
+    // Split the products into pages of at most ITEMS_PER_PAGE (8) items.
+    // Each page reuses the identical table structure / theme; the totals +
+    // summary block are only rendered on the very last page.
+    const pages = useMemo(() => {
+      if (lignes.length === 0) {
+        return [{ items: [] as any[], offset: 0, isFirst: true, isLast: true }]
+      }
+      const chunks: { items: any[]; offset: number; isFirst: boolean; isLast: boolean }[] = []
+      for (let idx = 0; idx < lignes.length; idx += ITEMS_PER_PAGE) {
+        const items = lignes.slice(idx, idx + ITEMS_PER_PAGE)
+        chunks.push({
+          items,
+          offset: idx,
+          isFirst: idx === 0,
+          isLast: idx + ITEMS_PER_PAGE >= lignes.length,
+        })
+      }
+      return chunks
+    }, [lignes])
+
     return (
       <>
         <style>{`
           @page { margin: 0; size: A4; }
           @media print {
             html, body { margin: 0 !important; padding: 0 !important; }
+            .devis-page-split { page-break-after: always; }
           }
           .devis-doc {
             font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
@@ -96,19 +123,25 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
           }
         `}</style>
         <div ref={ref} className="devis-doc">
-          <div style={{
+          {pages.map((page, pIdx) => (
+          <div
+            key={pIdx}
+            className={pIdx < pages.length - 1 ? 'devis-page-split' : ''}
+            style={{
             width: '210mm',
             minHeight: '297mm',
             padding: '15mm',
             display: 'flex',
             flexDirection: 'column',
             position: 'relative',
-            overflow: 'hidden',
+            boxSizing: 'border-box',
           }}>
             {entreprise?.activerFiligrane !== false && (
-              <div className="devis-watermark">{entreprise?.watermarkText || 'ParaGestion'}</div>
+              <div className="devis-watermark">{entreprise?.watermarkText || 'SmartGestion'}</div>
             )}
 
+            {page.isFirst ? (
+            <>
             {/* ===== HEADER ============================================
                  Same red-pill design as FactureDocument so every document
                  type reads as part of the same brand family. The only
@@ -183,6 +216,8 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
                 <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                   {(entityName || '-').toString().toUpperCase()}
                 </div>
+                {voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
+                {matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
                 {client?.ice       && <div>ICE: {client.ice}</div>}
                 {client?.telephone && <div>{client.telephone}</div>}
                 {client?.adresse   && <div>{client.adresse}</div>}
@@ -221,6 +256,25 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
               Cher Client, Nous avons bien reçu votre demande et nous vous remercions de la confiance que vous nous accordez.
               Veuillez trouver ci-dessous le détail de notre proposition.
             </div>
+            </>
+            ) : (
+              /* ===== CONTINUATION HEADER (pages 2+) ====================== */
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10,
+                paddingBottom: 6,
+                borderBottom: `2px solid ${C.accent}`,
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '10pt', textTransform: 'uppercase', color: C.title }}>
+                  Devis {numero} — (suite)
+                </div>
+                <div style={{ fontSize: '9pt', fontWeight: 600, color: C.muted }}>
+                  {(entityName || '-').toString().toUpperCase()}
+                </div>
+              </div>
+            )}
 
             {/* ===== ITEMS TABLE — red header bar, zebra body ============ */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -242,21 +296,25 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
                   </tr>
                 </thead>
                 <tbody>
-                  {lignes.map((ligne: any, i: number) => (
+                  {page.items.map((ligne: any, i: number) => (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : C.rowAlt }}>
-                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.accent, fontWeight: 700 }}>{i + 1}</td>
+                      <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.accent, fontWeight: 700 }}>{page.offset + i + 1}</td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>{ligne.designation || '-'}</td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>{fmt2(getPu(ligne))} DH</td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>{fmt2(getQt(ligne))}</td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text, fontWeight: 700 }}>{fmt2(getMt(ligne))} DH</td>
                     </tr>
                   ))}
-                  {lignes.length === 0 && (
+                  {page.items.length === 0 && (
                     <tr><td colSpan={5} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>Aucun article</td></tr>
                   )}
                 </tbody>
               </table>
 
+              {!page.isLast && <div style={{ flex: 1 }} />}
+
+              {page.isLast && (
+              <>
               {/* ===== TOTALS STACK ===================================== */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
                 <table style={{ borderCollapse: 'collapse', fontSize: '9.5pt', width: 320 }}>
@@ -343,8 +401,11 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
                 {entreprise?.ifNumber && <span>I.F: {entreprise.ifNumber} — </span>}
                 {entreprise?.ice && <span>I.C.E: {entreprise.ice}</span>}
               </div>
+              </>
+              )}
             </div>
           </div>
+          ))}
         </div>
       </>
     )

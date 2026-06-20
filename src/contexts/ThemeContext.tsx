@@ -19,23 +19,26 @@ function hexToOklch(hex: string): string {
   const linearG = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
   const linearB = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
 
-  const x = 0.4124564 * linearR + 0.3575761 * linearG + 0.1804375 * linearB;
-  const y = 0.2126729 * linearR + 0.7151522 * linearG + 0.0721750 * linearB;
-  const z = 0.0193339 * linearR + 0.1191920 * linearG + 0.9503041 * linearB;
+  // Convert linear sRGB -> OKLab -> OKLCH so the actual hue/chroma of the
+  // chosen colour is preserved (previously the hue was hardcoded to teal).
+  const l_ = Math.cbrt(0.4122214708 * linearR + 0.5363325363 * linearG + 0.0514459929 * linearB);
+  const m_ = Math.cbrt(0.2119034982 * linearR + 0.6806995451 * linearG + 0.1073969566 * linearB);
+  const s_ = Math.cbrt(0.0883024619 * linearR + 0.2817188376 * linearG + 0.6299787005 * linearB);
 
-  const targetY = 0.52;
-  const targetS = 0.15;
+  const L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+  const a = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+  const bb = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
 
-  const l = targetY;
-  const s = targetS;
-  const h = 195;
+  const C = Math.sqrt(a * a + bb * bb);
+  let H = (Math.atan2(bb, a) * 180) / Math.PI;
+  if (H < 0) H += 360;
 
-  return `oklch(${l.toFixed(2)} ${s.toFixed(2)} ${h})`;
+  return `oklch(${L.toFixed(3)} ${C.toFixed(3)} ${H.toFixed(1)})`;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [primaryColor, setPrimaryColor] = useState('#267E54');
+  const [primaryColor, setPrimaryColor] = useState('#C63C4E');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

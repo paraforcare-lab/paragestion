@@ -53,6 +53,10 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     dateEcheance: z.string().optional(),
     statut: z.string().min(1, t('shared.validation.status_required')),
     modePaiement: z.string().optional(),
+    voiture: z.string().optional(),
+    matricule1: z.string().optional(),
+    matricule2: z.string().optional(),
+    matricule3: z.string().optional(),
     notes: z.string().optional(),
     conditionsPaiement: z.string().optional(),
     resteAPayer: z.number().min(0, t('shared.validation.balance_positive')).optional(),
@@ -69,6 +73,10 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
       dateEcheance: '',
       statut: 'brouillon',
       modePaiement: 'Virement',
+      voiture: '',
+      matricule1: '',
+      matricule2: '',
+      matricule3: '',
       notes: '',
       conditionsPaiement: '',
       resteAPayer: 0,
@@ -104,9 +112,15 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
         setParametres(parametresData?.[0] || null);
         
         if (initialData) {
+          const matriculeRaw = initialData.matricule ?? initialData.matricule1 ?? '';
+          const matriculeParts = String(matriculeRaw).split('/').map((p: string) => p.trim());
           form.reset({
             ...initialData,
             clientId: initialData.clientId?.toString() || '',
+            voiture: initialData.voiture || '',
+            matricule1: initialData.matricule1 ?? matriculeParts[0] ?? '',
+            matricule2: initialData.matricule2 ?? matriculeParts[1] ?? '',
+            matricule3: initialData.matricule3 ?? matriculeParts[2] ?? '',
             dateEmission: initialData.dateEmission ? new Date(initialData.dateEmission).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             dateEcheance: initialData.dateEcheance ? new Date(initialData.dateEcheance).toISOString().split('T')[0] : '',
             lignes: initialData.lignes?.map((l: any) => ({
@@ -196,6 +210,10 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
         numero: invoiceNum || initialData?.numero,
         statut: data.statut || 'brouillon',
         mode_paiement: data.modePaiement || 'Virement',
+        voiture: data.voiture || '',
+        matricule: [data.matricule1, data.matricule2, data.matricule3]
+          .map((p) => (p || '').trim())
+          .join(' / '),
         notes: data.notes || '',
         conditions_paiement: data.conditionsPaiement || '',
         montant_ht: Number(totals.ht) || 0,
@@ -350,6 +368,39 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
                 <SelectItem value="Effet">{t('shared.payment_modes.bill_of_exchange')}</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.vehicle')}</Label>
+            <Input
+              type="text"
+              placeholder={t('shared.form.vehicle_placeholder')}
+              className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300"
+              {...form.register('voiture')}
+            />
+          </div>
+
+          <div className="space-y-2 md:col-start-3">
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.matricule')}</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
+                {...form.register('matricule1')}
+              />
+              <span className="text-slate-500 font-semibold">/</span>
+              <Input
+                type="text"
+                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
+                {...form.register('matricule2')}
+              />
+              <span className="text-slate-500 font-semibold">/</span>
+              <Input
+                type="text"
+                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
+                {...form.register('matricule3')}
+              />
+            </div>
           </div>
         </div>
       </div>

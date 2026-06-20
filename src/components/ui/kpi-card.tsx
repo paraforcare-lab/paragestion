@@ -53,7 +53,7 @@ export function KPICard({
         <div
           className={cn(
             'h-8 w-8 sm:h-10 sm:w-10 rounded-sm flex items-center justify-center shrink-0',
-            iconContainerClass ?? 'bg-emerald-50 text-emerald-600',
+            iconContainerClass ?? 'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-300',
           )}
         >
           <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -80,7 +80,7 @@ export function KPICard({
             className={cn(
               'inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-[4px]',
               change.positive
-                ? 'text-emerald-400 bg-emerald-500/10'
+                ? 'text-[#0EA5E9] bg-[#0EA5E9]/10'
                 : 'text-red-400 bg-red-500/10',
             )}
             dir="ltr"

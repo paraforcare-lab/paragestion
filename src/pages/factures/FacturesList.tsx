@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, FileText, Download, CheckCircle,
@@ -56,6 +56,8 @@ interface Facture {
   statut: string;
   resteAPayer: number;
   modePaiement?: string;
+  voiture?: string;
+  matricule?: string;
   lignes?: any[];
 }
 
@@ -137,6 +139,8 @@ export function FacturesList() {
     statut: f.statut,
     resteAPayer: f.reste_a_payer,
     modePaiement: f.mode_paiement,
+    voiture: f.voiture,
+    matricule: f.matricule,
   });
 
   const fetchFactures = async () => {
@@ -162,6 +166,8 @@ export function FacturesList() {
         statut: f.statut,
         resteAPayer: f.reste_a_payer,
         modePaiement: f.mode_paiement,
+        voiture: f.voiture,
+        matricule: f.matricule,
       }));
 
       setFactures(mapped);
@@ -208,7 +214,7 @@ export function FacturesList() {
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54',
-          watermarkText: data.watermark_text || 'ParaGestion',
+          watermarkText: data.watermark_text || 'SmartGestion',
           activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       }
@@ -409,6 +415,8 @@ export function FacturesList() {
         facture_id: factureData.id,
         client_id: factureData.client_id,
         date_emission: new Date().toISOString(),
+        voiture: factureData.voiture,
+        matricule: factureData.matricule,
         montant_ht: factureData.montant_ht,
         montant_tva: factureData.montant_tva,
         montant_ttc: factureData.montant_ttc,
@@ -426,7 +434,7 @@ export function FacturesList() {
         if (m) { const n = parseInt(m[1], 10); if (n > mn) mn = n; }
       }
       numeroAvoir = `AV-${year}-${String(mn + 1).padStart(4, '0')}`;
-      const retry = await supabase.from('avoirs').upsert([{ user_id: user?.id, numero: numeroAvoir, facture_id: factureData.id, client_id: factureData.client_id, date_emission: new Date().toISOString(), montant_ht: factureData.montant_ht, montant_tva: factureData.montant_tva, montant_ttc: factureData.montant_ttc, statut: 'Généré', notes: `Avoir pour annulation de la facture ${factureData.numero}` }]).select().single();
+      const retry = await supabase.from('avoirs').upsert([{ user_id: user?.id, numero: numeroAvoir, facture_id: factureData.id, client_id: factureData.client_id, date_emission: new Date().toISOString(), voiture: factureData.voiture, matricule: factureData.matricule, montant_ht: factureData.montant_ht, montant_tva: factureData.montant_tva, montant_ttc: factureData.montant_ttc, statut: 'Généré', notes: `Avoir pour annulation de la facture ${factureData.numero}` }]).select().single();
       avoirData = retry.data;
       avoirError = retry.error;
     }

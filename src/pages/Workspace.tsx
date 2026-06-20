@@ -50,11 +50,11 @@ interface InventoryItem {
 // Labels are now resolved dynamically via t() at render time; only styling here.
 
 const stockStyleConfig: Record<StockStatus, { barColor: string; badgeClass: string }> = {
-  rupture:  { barColor: 'bg-red-500',     badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
-  critique: { barColor: 'bg-red-500',     badgeClass: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  rupture:  { barColor: 'bg-[#B84A59]',   badgeClass: 'bg-[#B84A59]/10 text-[#C63C4E] border-[#B84A59]/20 dark:text-[#E2828F]' },
+  critique: { barColor: 'bg-[#B84A59]',   badgeClass: 'bg-[#B84A59]/10 text-[#C63C4E] border-[#B84A59]/20 dark:text-[#E2828F]' },
   faible:   { barColor: 'bg-amber-500',   badgeClass: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
   moyen:    { barColor: 'bg-blue-500',    badgeClass: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-  stable:   { barColor: 'bg-emerald-500', badgeClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+  stable:   { barColor: 'bg-[#0EA5E9]',   badgeClass: 'bg-[#0EA5E9]/10 text-[#0EA5E9] border-[#0EA5E9]/20' },
 };
 
 function getStockInfo(actuel: number, min: number): { status: StockStatus; percentage: number } {
@@ -81,7 +81,7 @@ const quickActionDefs: Array<{
   { key: 'invoice',  icon: FileText,     href: '/factures',       iconBg: 'bg-blue-500/10 dark:bg-blue-500/20',    iconColor: 'text-blue-600 dark:text-blue-400' },
   { key: 'quote',    icon: TrendingUp,   href: '/devis',          iconBg: 'bg-violet-500/10 dark:bg-violet-500/20', iconColor: 'text-violet-600 dark:text-violet-400' },
   { key: 'order',    icon: ShoppingCart, href: '/bons-commande',  iconBg: 'bg-amber-500/10 dark:bg-amber-500/20',  iconColor: 'text-amber-600 dark:text-amber-400' },
-  { key: 'delivery', icon: Box,          href: '/bons-livraison', iconBg: 'bg-emerald-500/10 dark:bg-emerald-500/20', iconColor: 'text-emerald-600 dark:text-emerald-400' },
+  { key: 'delivery', icon: Box,          href: '/bons-livraison', iconBg: 'bg-[#0EA5E9]/10 dark:bg-[#0EA5E9]/20', iconColor: 'text-[#0EA5E9] dark:text-[#0EA5E9]' },
   { key: 'expense',  icon: CreditCard,   href: '/depenses',       iconBg: 'bg-rose-500/10 dark:bg-rose-500/20',   iconColor: 'text-rose-600 dark:text-rose-400' },
   { key: 'customer', icon: Users,        href: '/clients',        iconBg: 'bg-indigo-500/10 dark:bg-indigo-500/20', iconColor: 'text-indigo-600 dark:text-indigo-400' },
 ];
@@ -265,9 +265,20 @@ export function Workspace() {
     }
   };
 
+  // ─── Load saved tasks on mount ─────────────────────────────────────────────
+  const fetchTasks = async () => {
+    try {
+      const { data: tasksData } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+      setTasks(tasksData || []);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  };
+
   useEffect(() => {
     if (!user?.id) return;
     fetchData();
+    fetchTasks();
   }, [user, selectedRange, i18n.language]); // re-fetch when language changes to get translated month names
 
   useEffect(() => {
@@ -430,8 +441,8 @@ export function Workspace() {
                   <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#267E54" stopOpacity={0.25} />
-                        <stop offset="100%" stopColor="#267E54" stopOpacity={0.02} />
+                        <stop offset="0%" stopColor="#0EA5E9" stopOpacity={0.25} />
+                        <stop offset="100%" stopColor="#0EA5E9" stopOpacity={0.02} />
                       </linearGradient>
                       <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#ef4444" stopOpacity={0.12} />
@@ -455,9 +466,9 @@ export function Workspace() {
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--border)', strokeWidth: 1 }} />
                     <Area
-                      type="monotone" dataKey="revenue" stroke="#267E54" strokeWidth={2.5}
+                      type="monotone" dataKey="revenue" stroke="#0EA5E9" strokeWidth={2.5}
                       fillOpacity={1} fill="url(#revenueGrad)" dot={false}
-                      activeDot={{ r: 5, fill: '#267E54', stroke: 'white', strokeWidth: 2 }}
+                      activeDot={{ r: 5, fill: '#0EA5E9', stroke: 'white', strokeWidth: 2 }}
                     />
                     <Area
                       type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2}
@@ -608,7 +619,7 @@ export function Workspace() {
               </div>
             </div>
             <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
-              <div className="h-10 w-10 rounded-[8px] bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-[8px] bg-[#0EA5E9]/10 text-[#0EA5E9] flex items-center justify-center shrink-0">
                 <Users className="h-5 w-5" />
               </div>
               <div>
@@ -667,7 +678,7 @@ export function Workspace() {
                 <CardTitle className="text-base font-semibold text-card-foreground">
                   {t('workspace.tasks.section_title')}
                 </CardTitle>
-                <Badge className="bg-emerald-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-[4px]">
+                <Badge className="bg-[#B84A59] hover:bg-[#B84A59] text-white text-[10px] font-semibold px-2 py-0.5 rounded-[4px]">
                   {tasks.filter(t => !t.completed).length}
                 </Badge>
               </div>
@@ -681,12 +692,12 @@ export function Workspace() {
                   value={newTask}
                   onChange={(e) => setNewTask(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addTask()}
-                  className="focus-visible:ring-emerald-500/30 h-9 text-sm rounded-[4px]"
+                  className="focus-visible:ring-[#B84A59]/30 h-9 text-sm rounded-[4px]"
                 />
                 <Button
                   size="icon"
                   onClick={addTask}
-                  className="bg-emerald-600 hover:bg-emerald-700 shrink-0 h-9 w-9 rounded-[4px]"
+                  className="bg-[#B84A59] hover:bg-[#C63C4E] shrink-0 h-9 w-9 rounded-[4px]"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -718,7 +729,7 @@ export function Workspace() {
                             className={cn(
                               "h-5 w-5 rounded-[4px] border-2 flex items-center justify-center transition-all shrink-0",
                               task.completed
-                                ? "bg-emerald-500 border-emerald-500 text-white"
+                                ? "bg-[#0EA5E9] border-[#0EA5E9] text-white"
                                 : "border-border"
                             )}
                           >
@@ -781,7 +792,7 @@ export function Workspace() {
               // the icon-group and the switch always sit at OPPOSITE edges of the card.
               "flex flex-row items-center justify-between gap-4",
               notificationsEnabled
-                ? "bg-emerald-500/10 border-emerald-500/20"
+                ? "bg-[#0EA5E9]/10 border-[#0EA5E9]/20"
                 : "bg-muted border-border",
             )}
           >
@@ -790,13 +801,13 @@ export function Workspace() {
               <div
                 className={cn(
                   "h-9 w-9 rounded-[8px] flex items-center justify-center shrink-0 transition-colors duration-200",
-                  notificationsEnabled ? "bg-emerald-500/10" : "bg-muted",
+                  notificationsEnabled ? "bg-[#0EA5E9]/15" : "bg-muted",
                 )}
               >
                 <Bell
                   className={cn(
                     "h-4.5 w-4.5 transition-colors duration-200",
-                    notificationsEnabled ? "text-emerald-400" : "text-muted-foreground",
+                    notificationsEnabled ? "text-[#0EA5E9]" : "text-muted-foreground",
                   )}
                 />
               </div>
@@ -837,10 +848,10 @@ export function Workspace() {
               onCheckedChange={handleToggleNotifications}
               className={cn(
                 "shrink-0",
-                "data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-muted",
-                "data-[state=unchecked]:border-[#267E54] dark:data-[state=unchecked]:border-[#2ECC71]",
+                "data-[state=checked]:bg-[#0EA5E9] data-[state=unchecked]:bg-muted",
+                "data-[state=unchecked]:border-[#0EA5E9]/40 dark:data-[state=unchecked]:border-[#0EA5E9]/40",
               )}
-              thumbClassName="data-[state=unchecked]:bg-[#267E54] dark:data-[state=unchecked]:bg-[#2ECC71]"
+              thumbClassName="data-[state=checked]:bg-white data-[state=unchecked]:bg-[#0EA5E9] dark:data-[state=unchecked]:bg-[#0EA5E9]"
             />
           </div>
         </div>

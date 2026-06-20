@@ -4,4 +4,4 @@
 -- =====================================================
 
 ALTER TABLE parametres 
-ADD COLUMN IF NOT EXISTS watermark_text TEXT DEFAULT 'ParaGestion';
+ADD COLUMN IF NOT EXISTS watermark_text TEXT DEFAULT 'SmartGestion';

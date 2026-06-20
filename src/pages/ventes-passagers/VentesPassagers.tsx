@@ -876,7 +876,7 @@ export default function VentesPassagers() {
                     toast.success(t('ventes.toast_item_added', { name: produit.designation || t('shared.table.product') }));
                   }}
                   trigger={
-                    <Button className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm shadow-none text-base">
+                    <Button className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-sm shadow-none text-base">
                       <ShoppingCart className="mr-2 h-5 w-5" />
                       {t('ventes.select_product')}
                     </Button>
@@ -1011,7 +1011,7 @@ export default function VentesPassagers() {
               <Button
                 onClick={handleSubmit}
                 disabled={panier.length === 0}
-                className="h-10 px-5 rounded-sm bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-none"
+                className="h-10 px-5 rounded-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-sm shadow-none"
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 {t('ventes.btn_validate')}
@@ -1033,7 +1033,7 @@ export default function VentesPassagers() {
               </div>
             </div>
 
-            <Button onClick={openNewForm} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
+            <Button onClick={openNewForm} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-sm h-10 px-5 shadow-none">
               <Plus className="mr-2 h-4 w-4" />
               {t('ventes.new_button')}
             </Button>

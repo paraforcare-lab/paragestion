@@ -4,4 +4,4 @@ ALTER TABLE parametres
 ADD COLUMN IF NOT EXISTS activer_filigrane BOOLEAN DEFAULT TRUE;
 
 ALTER TABLE parametres 
-ADD COLUMN IF NOT EXISTS texte_filigrane TEXT DEFAULT 'ParaGestion';
+ADD COLUMN IF NOT EXISTS texte_filigrane TEXT DEFAULT 'SmartGestion';

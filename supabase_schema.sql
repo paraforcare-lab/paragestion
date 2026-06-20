@@ -85,6 +85,8 @@ CREATE TABLE IF NOT EXISTS devis (
     date_emission DATE DEFAULT CURRENT_DATE,
     date_validite DATE,
     statut TEXT DEFAULT 'brouillon',
+    voiture TEXT,
+    matricule TEXT,
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
@@ -121,6 +123,8 @@ CREATE TABLE IF NOT EXISTS factures (
     date_echeance DATE,
     statut TEXT DEFAULT 'brouillon',
     mode_paiement TEXT,
+    voiture TEXT,
+    matricule TEXT,
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
@@ -224,6 +228,8 @@ CREATE TABLE IF NOT EXISTS bons_livraison_client (
     facture_id BIGINT REFERENCES factures(id),
     date_livraison DATE DEFAULT CURRENT_DATE,
     statut TEXT DEFAULT 'en_attente',
+    voiture TEXT,
+    matricule TEXT,
     montant_ht DECIMAL(15, 2) DEFAULT 0,
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
@@ -308,6 +314,8 @@ CREATE TABLE IF NOT EXISTS avoirs (
     montant_tva DECIMAL(15, 2) DEFAULT 0,
     montant_ttc DECIMAL(15, 2) DEFAULT 0,
     statut TEXT DEFAULT 'en_attente',
+    voiture TEXT,
+    matricule TEXT,
     notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -410,7 +418,7 @@ CREATE TABLE IF NOT EXISTS parametres (
     conditions_paiement_defaut TEXT,
     pied_page_defaut TEXT,
     activer_droit_timbre BOOLEAN DEFAULT TRUE,
-    watermark_text TEXT DEFAULT 'ParaGestion',
+    watermark_text TEXT DEFAULT 'SmartGestion',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -459,3 +467,13 @@ EXCEPTION WHEN OTHERS THEN
     RETURN json_build_object('status', 'error', 'message', SQLERRM);
 END;
 $$;
+
+-- Migrations: ensure vehicle columns exist on factures for existing databases
+ALTER TABLE factures ADD COLUMN IF NOT EXISTS voiture TEXT;
+ALTER TABLE factures ADD COLUMN IF NOT EXISTS matricule TEXT;
+ALTER TABLE devis ADD COLUMN IF NOT EXISTS voiture TEXT;
+ALTER TABLE devis ADD COLUMN IF NOT EXISTS matricule TEXT;
+ALTER TABLE avoirs ADD COLUMN IF NOT EXISTS voiture TEXT;
+ALTER TABLE avoirs ADD COLUMN IF NOT EXISTS matricule TEXT;
+ALTER TABLE bons_livraison_client ADD COLUMN IF NOT EXISTS voiture TEXT;
+ALTER TABLE bons_livraison_client ADD COLUMN IF NOT EXISTS matricule TEXT;

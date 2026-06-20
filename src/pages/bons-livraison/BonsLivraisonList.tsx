@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download, Truck, Package, Clock,
@@ -183,7 +183,7 @@ export function BonsLivraisonList() {
           ice: data.ice || '',
           logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54',
-          watermarkText: data.watermark_text || 'ParaGestion',
+          watermarkText: data.watermark_text || 'SmartGestion',
           activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       }
@@ -492,7 +492,7 @@ export function BonsLivraisonList() {
             </div>
             <Button
               onClick={openNewForm}
-              className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
+              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-[4px] h-10 px-5 shadow-none dark:rounded-sm"
             >
               <Plus className="me-2 h-4 w-4" />
               {t('bons_livraison.new_button')}
@@ -951,7 +951,7 @@ export function BonsLivraisonList() {
             </Button>
             {detailBon && (
               <Button
-                className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-[4px] h-10 shadow-none"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-[4px] h-10 shadow-none"
                 onClick={() => { handleEdit(detailBon); setIsDetailOpen(false); }}
               >
                 <FileEdit className="me-2 h-4 w-4" />

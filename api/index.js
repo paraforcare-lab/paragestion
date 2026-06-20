@@ -429,7 +429,8 @@ function generateHTML(data) {
   let totalHT = 0;
   let totalTVA = 0;
   let totalTTC = 0;
-  const itemRows = data.items.map((item, index) => {
+  const ITEMS_PER_PDF_PAGE = 8;
+  const singleRow = (item) => {
     const qte = Number(item.quantite) || 0;
     const pu = Number(item.prix_unitaire_ht) || 0;
     const montantHT = qte * pu;
@@ -447,6 +448,32 @@ function generateHTML(data) {
         <td style="padding:5px 6px;font-size:9pt;text-align:right;border-bottom:0.5pt solid #E5E7EB;">${formatCurrency(pu, 4)}</td>
         <td style="padding:5px 6px;font-size:9pt;text-align:right;font-weight:600;border-bottom:0.5pt solid #E5E7EB;">${formatCurrency(montantHT)}</td>
       </tr>`;
+  };
+  const itemChunks = [];
+  for (let i = 0; i < data.items.length; i += ITEMS_PER_PDF_PAGE) {
+    itemChunks.push(data.items.slice(i, i + ITEMS_PER_PDF_PAGE));
+  }
+  const itemsTable = itemChunks.map((chunk, chunkIndex) => {
+    const isLastChunk = chunkIndex === itemChunks.length - 1;
+    const wrapStyle = isLastChunk ? "" : ' style="page-break-after:always;"';
+    const rows = chunk.map(singleRow).join("");
+    return `
+  <div class="items-block"${wrapStyle}>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th class="ref">${L.itemCols[0]}</th>
+          <th class="des">${L.itemCols[1]}</th>
+          <th class="qty">${L.itemCols[2]}</th>
+          <th class="pu">${L.itemCols[3]}</th>
+          <th class="mht">${L.itemCols[4]}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>`;
   }).join("");
   const tvaBuckets = computeTvaBuckets(data.items);
   const dhs = L.totals.dhs;
@@ -496,6 +523,9 @@ function generateHTML(data) {
   .items-table {
     width: 100%;
     border-collapse: collapse;
+  }
+  .items-table thead {
+    display: table-header-group;
   }
   .items-table th {
     padding: 6px 8px;
@@ -654,20 +684,7 @@ function generateHTML(data) {
   </div>
 
   <!-- ITEMS TABLE -->
-  <table class="items-table">
-    <thead>
-      <tr>
-        <th class="ref">${L.itemCols[0]}</th>
-        <th class="des">${L.itemCols[1]}</th>
-        <th class="qty">${L.itemCols[2]}</th>
-        <th class="pu">${L.itemCols[3]}</th>
-        <th class="mht">${L.itemCols[4]}</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${itemRows}
-    </tbody>
-  </table>
+  ${itemsTable}
 
   <!-- TOTALS + WORDS -->
   <div class="totals-wrapper">

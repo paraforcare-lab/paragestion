@@ -14,7 +14,7 @@ interface DocumentPreviewProps {
   lang?: string
 }
 
-const ITEMS_PER_PAGE = 22
+const ITEMS_PER_PAGE = 8
 
 const fmt2 = (n: number): string =>
   new Intl.NumberFormat('fr-MA', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
@@ -119,6 +119,8 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
     const totalTva = pickNum(data, 'montantTva', 'montant_tva')
     const totalTtc = pickNum(data, 'montantTtc', 'montant_ttc')
     const modePaiement = (pickVal(data, 'modePaiement', 'mode_paiement') as string) || ''
+    const voiture = (pickVal(data, 'voiture') as string) || ''
+    const matricule = (pickVal(data, 'matricule') as string) || ''
 
     const entity = pickVal(data, 'client', 'fournisseur') || {}
     const entityName = entity?.nomSociete || entity?.nom || '-'
@@ -204,17 +206,18 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
               className={pIdx < pages.length - 1 ? 'page-split' : ''}
               style={{
                 width: '210mm',
-                minHeight: '297mm',
+                height: '297mm',
                 padding: '15mm',
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'relative',
                 overflow: 'hidden',
+                boxSizing: 'border-box',
               }}
             >
               {/* ===== WATERMARK ===== */}
               {entreprise?.activerFiligrane !== false && (
-                <div className="watermark">{entreprise?.watermarkText || 'ParaGestion'}</div>
+                <div className="watermark">{entreprise?.watermarkText || 'SmartGestion'}</div>
               )}
 
               {page.isFirst ? (
@@ -294,6 +297,8 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
                       <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                         {(entityName || '-').toString().toUpperCase()}
                       </div>
+                      {type === 'bon_livraison_client' && voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
+                      {type === 'bon_livraison_client' && matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
                       {entity?.ice       && <div>ICE: {entity.ice}</div>}
                       {entity?.telephone && <div>{entity.telephone}</div>}
                       {entity?.adresse   && <div>{entity.adresse}</div>}

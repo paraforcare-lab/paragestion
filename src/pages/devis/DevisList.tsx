@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useRef, useMemo } from 'react'
+import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Plus, Search, FileEdit, Trash2, Download,   ArrowLeft, ArrowRightLeft, FileText,
@@ -45,6 +45,8 @@ interface Devis {
   montantTtc: number;
   montantTva: number;
   statut: string;
+  voiture?: string;
+  matricule?: string;
   lignes?: any[];
 }
 
@@ -114,6 +116,8 @@ export function DevisList() {
     montantTva: d.montant_tva,
     montantTtc: d.montant_ttc,
     statut: d.statut,
+    voiture: d.voiture,
+    matricule: d.matricule,
     lignes: d.lignes || [],
   });
 
@@ -199,7 +203,7 @@ export function DevisList() {
           banque: data.banque || '',
           rib: data.rib || '',
           swift: data.swift || '',
-          watermarkText: data.watermark_text || 'ParaGestion',
+          watermarkText: data.watermark_text || 'SmartGestion',
           activerFiligrane: data.activer_filigrane !== undefined ? data.activer_filigrane : true,
         });
       } else {
@@ -254,6 +258,8 @@ export function DevisList() {
         montant_ttc: devis.montant_ttc,
         statut: 'en_attente',
         reste_a_payer: devis.montant_ttc,
+        voiture: devis.voiture,
+        matricule: devis.matricule,
         devis_id: id,
         numero: numero,
       };
@@ -390,6 +396,10 @@ export function DevisList() {
   };
 
   const handleStatusChange = async (id: number, newStatut: string) => {
+    if (newStatut === 'converti') {
+      await handleConvertToFacture(id);
+      return;
+    }
     try {
       const { error } = await supabase
         .from('devis')
@@ -537,7 +547,7 @@ export function DevisList() {
                 <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{t('devis.page_subtitle')}</p>
               </div>
             </div>
-            <Button onClick={openNewForm} className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-sm h-10 px-5 shadow-none">
+            <Button onClick={openNewForm} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-sm h-10 px-5 shadow-none">
               <Plus className="me-2 h-4 w-4" />
               {t('devis.new_button')}
             </Button>

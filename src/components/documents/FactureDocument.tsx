@@ -11,6 +11,10 @@ interface FactureDocumentProps {
   lang?: string
 }
 
+/** Strict cap of products rendered per page. Any overflow flows onto
+ *  subsequent pages with the identical table structure / formatting. */
+const ITEMS_PER_PAGE = 8
+
 const fmt3 = (n: number): string =>
   new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n)
 
@@ -82,6 +86,8 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
     const dateEmission = fmtDate(pickVal(facture, 'dateEmission', 'date_emission'))
     const numero = facture.numero || '-'
     const modePaiement = (pickVal(facture, 'modePaiement', 'mode_paiement') as string) || ''
+    const voiture = (pickVal(facture, 'voiture') as string) || ''
+    const matricule = (pickVal(facture, 'matricule') as string) || ''
     const client = pickVal(facture, 'client', 'fournisseur') || {}
     const ville = client?.ville || 'CASABLANCA'
     const entityName = client?.nomSociete || client?.nom || '-'
@@ -94,12 +100,37 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
 
     const amountWords = numberToFrenchWords(Math.abs(Number(totalTtc)))
 
+    // Split the products into pages of at most ITEMS_PER_PAGE (8) items.
+    // Each page reuses the identical table structure / purple theme; the
+    // totals + summary block are only rendered on the very last page.
+    const pages = useMemo(() => {
+      if (lignes.length === 0) {
+        return [{ items: [] as any[], offset: 0, isFirst: true, isLast: true }]
+      }
+      const chunks: { items: any[]; offset: number; isFirst: boolean; isLast: boolean }[] = []
+      for (let idx = 0; idx < lignes.length; idx += ITEMS_PER_PAGE) {
+        const items = lignes.slice(idx, idx + ITEMS_PER_PAGE)
+        chunks.push({
+          items,
+          offset: idx,
+          isFirst: idx === 0,
+          isLast: idx + ITEMS_PER_PAGE >= lignes.length,
+        })
+      }
+      return chunks
+    }, [lignes])
+
     return (
       <>
         <style>{`
+          /* margin:0 leaves the browser no margin box to print its own
+             URL / page-title header & footer into, so those are removed.
+             The 15mm page whitespace is supplied by the content padding
+             below instead. */
           @page { margin: 0; size: A4; }
           @media print {
             html, body { margin: 0 !important; padding: 0 !important; }
+            .fw-page-split { page-break-after: always; }
           }
           .fw-doc {
             font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
@@ -108,8 +139,14 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
             position: relative;
           }
           .fw-doc table { border-collapse: collapse; }
+          /* Allow long item lists to flow onto additional pages instead of
+             being clipped. The table is permitted to break between rows, the
+             header repeats on each page, and individual rows are never split. */
+          .fw-items-table { break-inside: auto; }
+          .fw-items-table thead { display: table-header-group; }
+          .fw-items-table tr { break-inside: avoid; page-break-inside: avoid; }
           .fw-watermark {
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) rotate(-45deg);
@@ -125,19 +162,25 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
           }
         `}</style>
         <div ref={ref} className="fw-doc">
-          <div style={{
+          {pages.map((page, pIdx) => (
+          <div
+            key={pIdx}
+            className={pIdx < pages.length - 1 ? 'fw-page fw-page-split' : 'fw-page'}
+            style={{
             width: '210mm',
             minHeight: '297mm',
             padding: '15mm',
             display: 'flex',
             flexDirection: 'column',
             position: 'relative',
-            overflow: 'hidden',
+            boxSizing: 'border-box',
           }}>
             {entreprise?.activerFiligrane !== false && (
-              <div className="fw-watermark">{entreprise?.watermarkText || 'ParaGestion'}</div>
+              <div className="fw-watermark">{entreprise?.watermarkText || 'SmartGestion'}</div>
             )}
 
+            {page.isFirst ? (
+            <>
             {/* ===== HEADER =================================================
                  Left column: optional logo + company name + contact lines.
                  Right column: red title pill with white text + N°/Date row.
@@ -214,6 +257,8 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                   {(entityName || '-').toUpperCase()}
                 </div>
+                {voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
+                {matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
                 {client?.ice       && <div>ICE: {client.ice}</div>}
                 {client?.telephone && <div>{client.telephone}</div>}
                 {client?.adresse   && <div>{client.adresse}</div>}
@@ -236,6 +281,28 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 <strong style={{ color: C.title }}>Mode de paiement:</strong> {modePaiement}
               </div>
             )}
+            </>
+            ) : (
+              /* ===== CONTINUATION HEADER (pages 2+) =======================
+                 Slim branded report line so the document still reads as the
+                 same invoice across page breaks, without repeating the full
+                 header/FACTURÉ À block. */
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 10,
+                paddingBottom: 6,
+                borderBottom: `2px solid ${C.accent}`,
+              }}>
+                <div style={{ fontWeight: 700, fontSize: '10pt', textTransform: 'uppercase', color: C.title }}>
+                  {(facture?.isAvoir ? 'Avoir' : 'Facture')} {numero} — (suite)
+                </div>
+                <div style={{ fontSize: '9pt', fontWeight: 600, color: C.muted }}>
+                  {(entityName || '-').toString().toUpperCase()}
+                </div>
+              </div>
+            )}
 
             {/* ===== ITEMS TABLE ============================================
                  Solid red header bar with white uppercase column labels.
@@ -244,7 +311,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                  simple row index (N°) printed in the accent red — a small
                  brand touch that matches the reference image. */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fw-items-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <colgroup>
                   <col style={{ width: '8%' }} />
                   <col style={{ width: '40%' }} />
@@ -262,10 +329,12 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                   </tr>
                 </thead>
                 <tbody>
-                  {lignes.map((ligne: any, i: number) => (
+                  {page.items.map((ligne: any, i: number) => {
+                    const rowNum = page.offset + i + 1
+                    return (
                     <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : C.rowAlt }}>
                       <td style={{ padding: '8px', fontSize: '9.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.accent, fontWeight: 700 }}>
-                        {i + 1}
+                        {rowNum}
                       </td>
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {ligne.designation || '-'}
@@ -280,8 +349,9 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                         {fmt3(getMt(ligne))} DH
                       </td>
                     </tr>
-                  ))}
-                  {lignes.length === 0 && (
+                    )
+                  })}
+                  {page.items.length === 0 && (
                     <tr>
                       <td colSpan={5} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>
                         Aucun article
@@ -291,6 +361,13 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 </tbody>
               </table>
 
+              {/* Fills remaining vertical space so the totals/summary block
+                  on the last page sits naturally; on non-last pages it simply
+                  pushes nothing extra. */}
+              {!page.isLast && <div style={{ flex: 1 }} />}
+
+              {page.isLast && (
+              <>
               {/* ===== TOTALS STACK =========================================
                    Right-aligned 3-row block: Total H.T → TVA → solid red
                    TOTAL TTC bar. Each row uses thin slate dividers; the
@@ -452,8 +529,11 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 {entreprise?.ifNumber && <span>I.F: {entreprise.ifNumber} — </span>}
                 {entreprise?.ice      && <span>I.C.E: {entreprise.ice}</span>}
               </div>
+              </>
+              )}
             </div>
           </div>
+          ))}
         </div>
       </>
     )

@@ -497,7 +497,7 @@ export function Dashboard() {
   // ─── Quick actions (labels from i18n) ────────────────────────────────────
   const quickActions = [
     { label: td('quick_actions.new_invoice'), icon: FileText,     bg: 'bg-primary/10',      color: 'text-primary',    link: '/factures'         },
-    { label: td('quick_actions.quick_sale'),  icon: ShoppingCart, bg: 'bg-emerald-500/10',  color: 'text-emerald-400',link: '/ventes-passagers'  },
+    { label: td('quick_actions.quick_sale'),  icon: ShoppingCart, bg: 'bg-[#0EA5E9]/10',  color: 'text-[#0EA5E9]',link: '/ventes-passagers'  },
     { label: td('quick_actions.new_expense'), icon: CreditCard,   bg: 'bg-red-500/10',      color: 'text-red-400',    link: '/depenses'          },
     { label: td('quick_actions.add_client'),  icon: Users,        bg: 'bg-amber-500/10',    color: 'text-amber-400',  link: '/clients'           },
   ]
@@ -578,7 +578,7 @@ export function Dashboard() {
                 className={cn(
                   'px-3 py-1.5 text-xs font-medium rounded-md border transition-all',
                   dateRange === key
-                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    ? 'bg-[#0EA5E9] text-white border-[#0EA5E9] shadow-sm'
                     : 'bg-background text-muted-foreground border-input hover:bg-accent hover:text-accent-foreground'
                 )}
               >
@@ -652,7 +652,7 @@ export function Dashboard() {
           className={cn(
             'px-3 py-1 text-xs font-medium rounded-md transition-all',
             !isTtcMode
-              ? 'bg-primary text-primary-foreground shadow-sm'
+              ? 'bg-[#0EA5E9] text-white shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
@@ -664,7 +664,7 @@ export function Dashboard() {
           className={cn(
             'px-3 py-1 text-xs font-medium rounded-md transition-all',
             isTtcMode
-              ? 'bg-primary text-primary-foreground shadow-sm'
+              ? 'bg-[#0EA5E9] text-white shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
           )}
         >
@@ -688,7 +688,7 @@ export function Dashboard() {
           value={fmt(isTtcMode ? (stats?.totalRevenue ?? 0) : (stats?.totalRevenueHT ?? 0))}
           subtitle={td('kpi.revenue.subtitle')}
           icon={DollarSign}
-          iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
+          iconContainerClass="bg-[#0EA5E9]/10 border border-[#0EA5E9]/30 text-[#0EA5E9] dark:bg-[#0EA5E9]/10 dark:border-[#0EA5E9]/20 dark:text-[#0EA5E9]"
         />
         <KPICard
           title={td('kpi.receivables.title')}
@@ -744,7 +744,7 @@ export function Dashboard() {
           value={String(stats?.bonsCommandeCount ?? 0)}
           subtitle={td('kpi.purchase_orders.subtitle')}
           icon={ClipboardList}
-          iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
+          iconContainerClass="bg-slate-100 border border-slate-200/60 text-slate-600 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-300"
         />
         <KPICard
           title={td('kpi.clients.title')}
@@ -772,7 +772,7 @@ export function Dashboard() {
           value={String(stats?.facturesCount ?? 0)}
           subtitle={td('kpi.invoices.subtitle')}
           icon={FileText}
-          iconContainerClass="bg-emerald-50 border border-emerald-200/60 text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400"
+          iconContainerClass="bg-slate-100 border border-slate-200/60 text-slate-600 dark:bg-slate-500/10 dark:border-slate-500/20 dark:text-slate-300"
         />
       </div>
 
@@ -800,7 +800,7 @@ export function Dashboard() {
             {/* Legend — ms-auto pushes it to the logical end */}
             <div className="flex items-center gap-4 text-xs ms-auto shrink-0">
               <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-gradient-to-r from-primary to-primary/60 shrink-0" />
+                <div className="h-3 w-3 rounded-full bg-gradient-to-r from-[#0EA5E9] to-[#0EA5E9]/60 shrink-0" />
                 <span className="text-muted-foreground font-medium">
                   {td('chart.legend_revenue')}
                 </span>
@@ -833,8 +833,8 @@ export function Dashboard() {
                 >
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="oklch(0.52 0.15 195)" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="oklch(0.52 0.15 195)" stopOpacity={0} />
+                      <stop offset="5%"  stopColor="#0EA5E9" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#0EA5E9" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="oklch(0.55 0.2 25)" stopOpacity={0.15} />
@@ -861,7 +861,7 @@ export function Dashboard() {
                     type="monotone"
                     dataKey="revenue"
                     name={td('chart.tooltip_revenue')}
-                    stroke="oklch(0.52 0.15 195)"
+                    stroke="#0EA5E9"
                     strokeWidth={3}
                     fillOpacity={1}
                     fill="url(#colorRevenue)"
@@ -919,7 +919,7 @@ export function Dashboard() {
                     <div className={cn(
                       'h-11 w-11 rounded-[6px] flex items-center justify-center shrink-0',
                       facture.statut === 'payée'
-                        ? 'bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 text-emerald-400'
+                        ? 'bg-gradient-to-br from-[#0EA5E9]/10 to-[#0EA5E9]/5 text-[#0EA5E9]'
                         : facture.statut === 'reste_a_payer'
                           ? 'bg-gradient-to-br from-blue-500/10 to-blue-500/5 text-blue-400'
                           : 'bg-gradient-to-br from-amber-500/10 to-amber-500/5 text-amber-400',
@@ -956,7 +956,7 @@ export function Dashboard() {
                         className={cn(
                           'text-[10px] h-5 px-2 font-bold border-0',
                           facture.statut === 'payée'
-                            ? 'bg-emerald-500/10 text-emerald-400'
+                            ? 'bg-[#0EA5E9]/10 text-[#0EA5E9]'
                             : facture.statut === 'reste_a_payer'
                               ? 'bg-blue-500/10 text-blue-400'
                               : 'bg-amber-500/10 text-amber-400',
@@ -1071,10 +1071,10 @@ export function Dashboard() {
                 ))
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 rounded-[8px] p-4 mb-3">
-                    <ShieldCheck className="h-8 w-8 text-emerald-400" />
+                  <div className="bg-gradient-to-br from-[#0EA5E9]/10 to-[#0EA5E9]/5 rounded-[8px] p-4 mb-3">
+                    <ShieldCheck className="h-8 w-8 text-[#0EA5E9]" />
                   </div>
-                  <p className="text-sm font-semibold text-emerald-400">{td('stock_alerts.optimal_title')}</p>
+                  <p className="text-sm font-semibold text-[#0EA5E9]">{td('stock_alerts.optimal_title')}</p>
                   <p className="text-xs text-muted-foreground">{td('stock_alerts.optimal_subtitle')}</p>
                 </div>
               )}
@@ -1123,14 +1123,14 @@ export function Dashboard() {
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-start">
                   {td('tva.deductible')}
                 </p>
-                <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                <div className="h-2 w-2 rounded-full bg-[#0EA5E9] shrink-0" />
               </div>
               <p className="text-2xl font-black text-foreground" dir="ltr">
                 {Number(stats?.totalTvaDeductible ?? 0).toFixed(2)}{' '}
                 <span className="text-sm font-medium text-muted-foreground">{td('tva.currency_short')}</span>
               </p>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden" dir="ltr">
-                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full w-[45%]" />
+                <div className="h-full bg-gradient-to-r from-[#0EA5E9] to-[#0EA5E9]/70 rounded-full w-[45%]" />
               </div>
             </div>
 
@@ -1144,7 +1144,7 @@ export function Dashboard() {
                   'font-bold shrink-0',
                   (stats?.tvaNet ?? 0) > 0
                     ? 'bg-red-500/10 text-red-400 hover:bg-red-500/10'
-                    : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/10',
+                    : 'bg-[#0EA5E9]/10 text-[#0EA5E9] hover:bg-[#0EA5E9]/10',
                 )}>
                   {(stats?.tvaNet ?? 0) > 0 ? td('tva.to_pay') : td('tva.credit')}
                 </Badge>
@@ -1162,7 +1162,7 @@ export function Dashboard() {
                         (Math.abs(Number(stats.tvaNet)) / Number(stats.totalTvaCollectee)) * 100,
                         100,
                       )}%`,
-                      backgroundColor: (stats?.tvaNet ?? 0) > 0 ? '#267E54' : '#0ea5e9',
+                      backgroundColor: (stats?.tvaNet ?? 0) > 0 ? '#B84A59' : '#0ea5e9',
                     }}
                   />
                 )}

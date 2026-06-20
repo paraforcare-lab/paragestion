@@ -381,7 +381,7 @@ export function TicketSettingsDialog({ open, onOpenChange }: TicketSettingsDialo
           </div>
 
           {/* ── RIGHT: live preview (dark canvas like the screenshot) ── */}
-          <div className="bg-slate-900 dark:bg-[#0B1222] p-5 sm:p-6 flex flex-col items-center justify-center min-h-[420px] md:min-h-0">
+          <div className="bg-slate-900 dark:bg-[#0F172A] p-5 sm:p-6 flex flex-col items-center justify-center min-h-[420px] md:min-h-0">
             <div className="w-full max-w-[280px]">
               {/* Receipt card — white paper-like surface with a subtle
                   shadow. Force LTR + black text regardless of the dialog
@@ -488,7 +488,7 @@ export function TicketSettingsDialog({ open, onOpenChange }: TicketSettingsDialo
           <Button
             type="button"
             onClick={handleSave}
-            className="h-9 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold"
+            className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
           >
             <Save className="h-4 w-4 me-2" />
             {tk('btn_save')}

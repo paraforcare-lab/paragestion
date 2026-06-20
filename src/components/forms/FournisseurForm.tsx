@@ -132,7 +132,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                 <FormLabel className="text-sm font-semibold dark:text-slate-300">{t('shared.form.type_label')}</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
+                    <SelectTrigger className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
                       <SelectValue placeholder={t('shared.form.select_placeholder')} />
                     </SelectTrigger>
                   </FormControl>
@@ -169,7 +169,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                     <Truck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-slate-500" />
                     <Input 
                       placeholder={isEntreprise ? 'Fournisseur SARL' : 'Ahmed Benali'} 
-                      className="h-12 pl-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                      className="h-12 pl-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                       {...field} 
                     />
                   </div>
@@ -199,7 +199,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                       <Input
                         type="email"
                         placeholder={t('shared.form.email_ph_supplier')}
-                        className="h-12 ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        className="h-12 ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                         {...field}
                       />
                     </div>
@@ -222,7 +222,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                         type="tel"
                         dir="ltr"
                         placeholder="+212 5 00 00 00 00"
-                        className="h-12 ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        className="h-12 ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                         {...field}
                       />
                     </div>
@@ -252,7 +252,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                       <MapPin className="absolute start-4 top-4 h-4 w-4 text-muted-foreground dark:text-slate-500" />
                       <Textarea
                         placeholder={t('shared.form.address_ph_supplier')}
-                        className="min-h-[80px] ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                        className="min-h-[80px] ps-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                         {...field}
                       />
                     </div>
@@ -271,7 +271,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                   <FormControl>
                     <Input
                       placeholder={t('shared.form.city_ph')}
-                      className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                      className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                       {...field}
                     />
                   </FormControl>
@@ -300,7 +300,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
                     <Input
                       placeholder={t('shared.form.ice_digits_ph')}
                       dir="ltr"
-                      className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                      className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 font-mono dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                       {...field}
                     />
                   </FormControl>
@@ -321,7 +321,7 @@ export function FournisseurForm({ initialData, onSuccess }: FournisseurFormProps
               <FormControl>
                 <Input
                   placeholder={t('shared.form.contact_person_ph')}
-                  className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#020617]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                  className="h-12 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/10 dark:bg-[#12141C]/50 dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
                   {...field}
                 />
               </FormControl>

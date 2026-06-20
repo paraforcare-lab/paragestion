@@ -276,7 +276,7 @@ export function DatabaseManager() {
                   <Button 
                     onClick={executeSql} 
                     disabled={isSqlLoading || !sqlQuery.trim()} 
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-[4px] shadow-none"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-[4px] shadow-none"
                   >
                   <Play className="mr-2 h-4 w-4" />
                   Exécuter
