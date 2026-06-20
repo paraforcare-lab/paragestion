@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "SmartGestion",
-    "tagline": "Automobile Management"
+    "tagline": "SmartGestion"
   },
   "auth": {
     "login_title":        "Sign in",
@@ -13,7 +13,7 @@
     "sign_in":            "Sign in",
     "signing_in":         "Signing in...",
     "badge_secure":       "Secure",
-    "badge_pharmacy":     "Pharmacy Ready",
+    "badge_pharmacy":     "All-in-One Solution",
     "footer_copyright":   "© {{year}} SmartGestion. All rights reserved.",
     "toast_invalid":      "Invalid email or password",
     "toast_success":      "Signed in. Welcome to SmartGestion!",

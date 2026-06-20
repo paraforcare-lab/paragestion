@@ -216,8 +216,6 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
                 <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                   {(entityName || '-').toString().toUpperCase()}
                 </div>
-                {voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
-                {matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
                 {client?.ice       && <div>ICE: {client.ice}</div>}
                 {client?.telephone && <div>{client.telephone}</div>}
                 {client?.adresse   && <div>{client.adresse}</div>}

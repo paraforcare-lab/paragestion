@@ -369,39 +369,6 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
               </SelectContent>
             </Select>
           </div>
-
-          <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.vehicle')}</Label>
-            <Input
-              type="text"
-              placeholder={t('shared.form.vehicle_placeholder')}
-              className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300"
-              {...form.register('voiture')}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-start-3">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.matricule')}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule1')}
-              />
-              <span className="text-slate-500 font-semibold">/</span>
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule2')}
-              />
-              <span className="text-slate-500 font-semibold">/</span>
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule3')}
-              />
-            </div>
-          </div>
         </div>
       </div>
 

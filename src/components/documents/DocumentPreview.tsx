@@ -297,8 +297,6 @@ export const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
                       <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                         {(entityName || '-').toString().toUpperCase()}
                       </div>
-                      {type === 'bon_livraison_client' && voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
-                      {type === 'bon_livraison_client' && matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
                       {entity?.ice       && <div>ICE: {entity.ice}</div>}
                       {entity?.telephone && <div>{entity.telephone}</div>}
                       {entity?.adresse   && <div>{entity.adresse}</div>}

@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "SmartGestion - Gestion Automobile",
+        "title": "SmartGestion",
         "width": 1400,
         "height": 900,
         "minWidth": 1024,

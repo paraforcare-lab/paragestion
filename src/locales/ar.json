@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "SmartGestion",
-    "tagline": "إدارة السيارات"
+    "tagline": "SmartGestion"
   },
   "auth": {
     "login_title":        "تسجيل الدخول",
@@ -13,7 +13,7 @@
     "sign_in":            "تسجيل الدخول",
     "signing_in":         "جارٍ تسجيل الدخول...",
     "badge_secure":       "آمن",
-    "badge_pharmacy":     "جاهز للصيدلية",
+    "badge_pharmacy":     "حل متكامل",
     "footer_copyright":   "© {{year}} SmartGestion. جميع الحقوق محفوظة.",
     "toast_invalid":      "البريد الإلكتروني أو كلمة المرور غير صحيحة",
     "toast_success":      "تم تسجيل الدخول. مرحباً بك في SmartGestion!",
