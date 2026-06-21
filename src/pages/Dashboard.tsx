@@ -11,6 +11,7 @@ import {
   TrendingUp, ShieldCheck, ChevronRight, Receipt, Building2,
   HeartPulse, ClipboardList, Plus, ShoppingCart, AlertTriangle,
   Pill, PieChart, CalendarDays, Filter, Calculator,
+  Target, Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,6 +57,25 @@ interface Stats {
   lowStockProduits: any[]
   recentFactures: any[]
   bonsCommandeCount: number
+  // ── Optique expiry & price-variation alerts ──────────────────────────────
+  // Prescriptions (by date_expiration) and clients' glasses (lunette_expiration_date)
+  // that are already past due, plus those expiring within the next 30 days.
+  expiredOrdonnances: any[]
+  expiredLunettes: any[]
+  dueExpiredOrdonnances: any[]
+  dueExpiredLunettes: any[]
+  // Lines whose document price differs from the product's current sell price.
+  priceAlerts: PriceAlert[]
+}
+
+interface PriceAlert {
+  type: 'facture' | 'vp'
+  docNum: string
+  docDate: string
+  produit: string
+  currentPrice: number
+  docPrice: number
+  difference: number
 }
 
 // ─── Month-index → i18n key map ───────────────────────────────────────────────
@@ -229,7 +249,11 @@ export function Dashboard() {
         bcQuery,
         avoirQuery,
         avoirFournQuery,
-      ]).then(async ([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes, avoirRes, avoirFournRes]) => {
+        // Ordonnances (prescriptions) with their owning client's name, for the
+        // "Expiré / Bientôt expiré" cards. Not date-filtered: expiry status is
+        // independent of the dashboard period selector.
+        supabase.from('prescriptions').select('*, clients(nom)').eq('user_id', user.id),
+      ]).then(async ([factRes, vpRes, depRes, prodRes, cliRes, fourRes, recentRes, bcRes, avoirRes, avoirFournRes, presRes]) => {
         const factures         = factRes.data  ?? []
         const ventesPassagers  = vpRes.data    ?? []
         const depenses         = depRes.data   ?? []
@@ -439,6 +463,114 @@ export function Dashboard() {
 
         const stockValueHT = produits.reduce((s, p: any) => s + (Number(p.stock_actuel || 0) * Number(p.prix_achat_ht || 0)), 0)
 
+        // ── Optique: expiry alerts (ordonnances + lunettes) ───────────────
+        // Reference point is "now" (Date.now), normalised to midnight so only
+        // the calendar day matters. Dates are stored as YYYY-MM-DD TEXT/DATE, so
+        // comparing day-strings is exact and timezone-safe.
+        //
+        // Rules (date = lunette_expiration_date / date_expiration):
+        //   • date  <  today          → EXPIRÉ (already past)
+        //   • date === today          → EXPIRÉ (today counts as expired)
+        //   • today < date <= today+2 → BIENTÔT EXPIRÉ (expires within 2 days)
+        //   • date  >  today+2        → still valid, not shown
+        const toDayStr = (d: Date) => {
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          return `${y}-${m}-${day}`
+        }
+        const expNow = new Date(Date.now())
+        expNow.setHours(0, 0, 0, 0)
+        const twoDaysLater = new Date(expNow)
+        twoDaysLater.setDate(twoDaysLater.getDate() + 2)
+        const todayStr = toDayStr(expNow)
+        const twoDaysLaterStr = toDayStr(twoDaysLater)
+
+        // Compare on the date-only portion (handles stored values like
+        // "2026-06-21" as well as "2026-06-21T00:00:00").
+        const dayOf = (v: any): string | null => {
+          if (!v) return null
+          return String(v).split('T')[0]
+        }
+
+        // Resolve each prescription's client name from the already-loaded
+        // clients list (the `clients(nom)` join shape varies between the cloud
+        // client and the local SQLite adapter, so we look it up by client_id
+        // and normalise the result onto `p.clients.nom`).
+        const clientNameById = new Map<string, string>()
+        for (const c of clients as any[]) {
+          clientNameById.set(String(c.id), c.nom || c.nom_societe || '')
+        }
+        const prescriptions = ((presRes?.data ?? []) as any[]).map((p: any) => ({
+          ...p,
+          clients: {
+            nom:
+              p.clients?.nom ||
+              clientNameById.get(String(p.client_id)) ||
+              '',
+          },
+        }))
+        const isExpired = (v: any) => {
+          const d = dayOf(v)
+          return d != null && d <= todayStr
+        }
+        const isDueSoon = (v: any) => {
+          const d = dayOf(v)
+          return d != null && d > todayStr && d <= twoDaysLaterStr
+        }
+
+        const expiredOrdonnances = prescriptions.filter((p: any) => isExpired(p.date_expiration))
+        const dueExpiredOrdonnances = prescriptions.filter((p: any) => isDueSoon(p.date_expiration))
+        const expiredLunettes = (clients as any[]).filter((c: any) => isExpired(c.lunette_expiration_date))
+        const dueExpiredLunettes = (clients as any[]).filter((c: any) => isDueSoon(c.lunette_expiration_date))
+
+        // ── Optique: price-variation alerts ───────────────────────────────
+        // Compare each invoice / walk-in-sale line's recorded unit price (HT)
+        // against the product's current sell price (prix_vente_ht). Any non-zero
+        // difference surfaces as an alert so the user can spot stale pricing.
+        const prodSellMap = new Map<string, any>()
+        for (const p of produits as any[]) prodSellMap.set(String(p.id), p)
+
+        const factById = new Map<string, any>()
+        for (const f of facturesValides as any[]) factById.set(String(f.id), f)
+        const vpById = new Map<string, any>()
+        for (const v of ventesPassagers as any[]) vpById.set(String(v.id), v)
+
+        const priceAlerts: PriceAlert[] = []
+
+        const pushAlert = (
+          type: 'facture' | 'vp',
+          doc: any,
+          line: any,
+        ) => {
+          if (!doc) return
+          const prod = prodSellMap.get(String(line.produit_id))
+          if (!prod) return
+          const currentPrice = Number(prod.prix_vente_ht || 0)
+          const docPrice = Number(line.prix_unitaire_ht || 0)
+          if (currentPrice > 0 && docPrice > 0 && Math.abs(currentPrice - docPrice) > 0.01) {
+            priceAlerts.push({
+              type,
+              docNum: doc.numero || '',
+              docDate: doc.date_emission || doc.date || '',
+              produit: prod.designation || prod.nom || 'Produit',
+              currentPrice,
+              docPrice,
+              difference: docPrice - currentPrice,
+            })
+          }
+        }
+
+        for (const l of factLignes as any[]) pushAlert('facture', factById.get(String(l.facture_id)), l)
+        for (const l of vpLignes as any[]) {
+          const key = l.vp_id ?? l.vente_passager_id
+          pushAlert('vp', vpById.get(String(key)), l)
+        }
+
+        priceAlerts.sort(
+          (a, b) => new Date(b.docDate).getTime() - new Date(a.docDate).getTime(),
+        )
+
         setStats({
           clientsCount: clients.length,
           facturesCount: payeesFact.length + resteAPayerFact.length + brouillonFact.length,
@@ -454,6 +586,11 @@ export function Dashboard() {
           bonsCommandeCount: bonsCommande.filter((b: any) => ['livré', 'livrée'].includes(b.statut)).length,
           lowStockProduits: produits.filter((p: any) => Number(p.stock_actuel) <= Number(p.stock_min)).slice(0, 5),
           recentFactures: recentFacturesRaw,
+          expiredOrdonnances,
+          expiredLunettes,
+          dueExpiredOrdonnances,
+          dueExpiredLunettes,
+          priceAlerts: priceAlerts.slice(0, 20),
         })
       }).catch((err) => {
         console.error('Failed to fetch stats', err)
@@ -1079,6 +1216,154 @@ export function Dashboard() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Expiry & Price alerts (Optique) ───────────────────────────────── */}
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+
+        {/* Expiré */}
+        <Card className="shadow-none rounded-[6px]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-[8px] bg-red-50 dark:bg-red-500/10 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </div>
+              <CardTitle className="text-base font-bold text-card-foreground">
+                {td('expiry_alerts.expired_title')}
+              </CardTitle>
+              <Badge className="bg-red-500 hover:bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ms-auto min-w-[20px] text-center justify-center">
+                {(stats?.expiredOrdonnances?.length ?? 0) + (stats?.expiredLunettes?.length ?? 0)}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 max-h-[220px] overflow-y-auto">
+            {(stats?.expiredOrdonnances?.length ?? 0) === 0 && (stats?.expiredLunettes?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-muted-foreground/60 text-sm">
+                {td('expiry_alerts.expired_empty')}
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {stats?.expiredOrdonnances?.map((p: any) => (
+                  <div key={`eo-${p.id}`} className="flex items-center justify-between px-5 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                      <span className="text-sm truncate">{p.clients?.nom || '—'} — {td('expiry_alerts.kind_ordonnance')}</span>
+                    </div>
+                    <span className="text-xs text-red-500 shrink-0 ms-2" dir="ltr">{p.date_expiration}</span>
+                  </div>
+                ))}
+                {stats?.expiredLunettes?.map((c: any) => (
+                  <div key={`el-${c.id}`} className="flex items-center justify-between px-5 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                      <span className="text-sm truncate">{c.nom || c.nom_societe || '—'} — {td('expiry_alerts.kind_lunette')}</span>
+                    </div>
+                    <span className="text-xs text-red-500 shrink-0 ms-2" dir="ltr">{c.lunette_expiration_date}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Bientôt expiré */}
+        <Card className="shadow-none rounded-[6px]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-[8px] bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center shrink-0">
+                <Target className="h-4 w-4 text-amber-500" />
+              </div>
+              <CardTitle className="text-base font-bold text-card-foreground">
+                {td('expiry_alerts.due_title')}
+              </CardTitle>
+              <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ms-auto min-w-[20px] text-center justify-center">
+                {(stats?.dueExpiredOrdonnances?.length ?? 0) + (stats?.dueExpiredLunettes?.length ?? 0)}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 max-h-[220px] overflow-y-auto">
+            {(stats?.dueExpiredOrdonnances?.length ?? 0) === 0 && (stats?.dueExpiredLunettes?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-muted-foreground/60 text-sm">
+                {td('expiry_alerts.due_empty')}
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {stats?.dueExpiredOrdonnances?.map((p: any) => (
+                  <div key={`do-${p.id}`} className="flex items-center justify-between px-5 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span className="text-sm truncate">{p.clients?.nom || '—'} — {td('expiry_alerts.kind_ordonnance')}</span>
+                    </div>
+                    <span className="text-xs text-amber-600 shrink-0 ms-2" dir="ltr">{p.date_expiration}</span>
+                  </div>
+                ))}
+                {stats?.dueExpiredLunettes?.map((c: any) => (
+                  <div key={`dl-${c.id}`} className="flex items-center justify-between px-5 py-2.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span className="text-sm truncate">{c.nom || c.nom_societe || '—'} — {td('expiry_alerts.kind_lunette')}</span>
+                    </div>
+                    <span className="text-xs text-amber-600 shrink-0 ms-2" dir="ltr">{c.lunette_expiration_date}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Alertes de prix */}
+        <Card className="shadow-none rounded-[6px]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-[8px] bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center shrink-0">
+                <DollarSign className="h-4 w-4 text-purple-500" />
+              </div>
+              <CardTitle className="text-base font-bold text-card-foreground">
+                {td('expiry_alerts.price_title')}
+              </CardTitle>
+              <Badge className="bg-purple-500 hover:bg-purple-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ms-auto min-w-[20px] text-center justify-center">
+                {stats?.priceAlerts?.length ?? 0}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0 max-h-[260px] overflow-y-auto">
+            {(stats?.priceAlerts?.length ?? 0) === 0 ? (
+              <div className="text-center py-8 text-muted-foreground/60 text-sm">
+                {td('expiry_alerts.price_empty')}
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {stats?.priceAlerts?.map((a: PriceAlert, i: number) => (
+                  <div key={`pa-${i}`} className="px-5 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                        <span className="text-sm truncate font-medium">{a.produit}</span>
+                      </div>
+                      <span className={cn(
+                        'text-xs font-semibold shrink-0 ms-2',
+                        a.difference > 0 ? 'text-red-500' : 'text-emerald-500',
+                      )} dir="ltr">
+                        {a.difference > 0 ? '+' : ''}{fmt(a.difference)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-2 mt-0.5">
+                      <span className="text-[11px] text-muted-foreground" dir="ltr">
+                        {a.type === 'facture' ? td('expiry_alerts.doc_facture') : td('expiry_alerts.doc_vp')} {a.docNum}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground" dir="ltr">
+                        — {td('expiry_alerts.price_doc')}: {fmt(a.docPrice)}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground" dir="ltr">
+                        {td('expiry_alerts.price_current')}: {fmt(a.currentPrice)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

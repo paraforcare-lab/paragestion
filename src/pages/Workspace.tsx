@@ -4,8 +4,11 @@ import { cn } from '@/lib/utils'
 import {
   Plus, FileText, Users, Package, CheckCircle2, TrendingUp,
   Trash2, ShoppingCart, Box, CreditCard, Bell,
-  DollarSign, AlertTriangle, Target, ChevronRight, TrendingDown
+  DollarSign, AlertTriangle, Target, ChevronRight, TrendingDown,
+  Eye, CalendarClock, CalendarDays, Receipt
 } from 'lucide-react';
+import { Link } from 'react-router-dom'
+import { ComingUpCalendar, type UpcomingRdv } from '@/components/dashboard/ComingUpCalendar'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -44,6 +47,14 @@ interface InventoryItem {
   unite: string;
   status: StockStatus;
   percentage: number;
+}
+
+interface ExpiringItem {
+  id: string;
+  kind: 'prescription' | 'lunette';
+  label: string;
+  date: string;
+  daysLeft: number;
 }
 
 // ─── Stock Config ─────────────────────────────────────────────────────────────
@@ -94,6 +105,13 @@ export function Workspace() {
   // Derive direction from live language for sub-component layout decisions
   const isRTL = i18n.language?.startsWith('ar')
 
+  // BCP-47 locale for formatting rendez-vous dates in the upcoming list.
+  const rdvDateLocale = i18n.language?.startsWith('ar')
+    ? 'ar-MA'
+    : i18n.language?.startsWith('en')
+      ? 'en-US'
+      : 'fr-FR'
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState('');
   const { user } = useAuth();
@@ -113,6 +131,8 @@ export function Workspace() {
   });
   const [chartData, setChartData] = useState<any[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [upcomingRdvs, setUpcomingRdvs] = useState<UpcomingRdv[]>([]);
+  const [expiringItems, setExpiringItems] = useState<ExpiringItem[]>([]);
   const [selectedRange, setSelectedRange] = useState('6m');
   const [isLoading, setIsLoading] = useState(true);
   const [newClients, setNewClients] = useState(0);
@@ -258,6 +278,62 @@ export function Workspace() {
         return d && new Date(d) >= thirtyDaysAgo;
       });
       setNewClients(recentClients.length);
+
+      // ── Optique: upcoming appointments + expiry alerts ──────────────────
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const in60Days = new Date(today);
+      in60Days.setDate(in60Days.getDate() + 60);
+
+      const [rdvRes, presRes] = await Promise.all([
+        supabase.from('rendez_vous').select('*, clients(nom)').eq('user_id', user.id),
+        supabase.from('prescriptions').select('*, clients(nom)').eq('user_id', user.id),
+      ]);
+
+      const rdvs = (rdvRes.data || [])
+        .filter((r: any) => r.date_rdv && new Date(r.date_rdv) >= today && r.statut !== 'annule')
+        .map((r: any) => ({
+          id: r.id,
+          date_rdv: r.date_rdv,
+          heure_rdv: r.heure_rdv || '',
+          client_nom: r.clients?.nom || r.client_nom || '',
+          statut: r.statut || 'planifie',
+        }));
+      setUpcomingRdvs(rdvs);
+
+      const daysBetween = (d: string) =>
+        Math.ceil((new Date(d).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      const expiring: ExpiringItem[] = [];
+      for (const p of (presRes.data || [])) {
+        if (!p.date_expiration) continue;
+        const exp = new Date(p.date_expiration);
+        if (exp >= today && exp <= in60Days) {
+          expiring.push({
+            id: `pres-${p.id}`,
+            kind: 'prescription',
+            label: p.clients?.nom || `#${p.id}`,
+            date: p.date_expiration,
+            daysLeft: daysBetween(p.date_expiration),
+          });
+        }
+      }
+      for (const c of clients) {
+        const d = (c as any).lunette_expiration_date;
+        if (!d) continue;
+        const exp = new Date(d);
+        if (exp >= today && exp <= in60Days) {
+          expiring.push({
+            id: `lun-${c.id}`,
+            kind: 'lunette',
+            label: c.nom || c.nom_societe || '-',
+            date: d,
+            daysLeft: daysBetween(d),
+          });
+        }
+      }
+      expiring.sort((a, b) => a.daysLeft - b.daysLeft);
+      setExpiringItems(expiring);
     } catch (error) {
       console.error('Error fetching workspace data:', error);
     } finally {
@@ -608,7 +684,7 @@ export function Workspace() {
           </Card>
 
           {/* Summary Stats Row */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
               <div className="h-10 w-10 rounded-[8px] bg-violet-500/10 text-violet-400 flex items-center justify-center shrink-0">
                 <FileText className="h-5 w-5" />
@@ -627,10 +703,7 @@ export function Workspace() {
                 <p className="text-lg font-bold text-card-foreground" dir="ltr">{newClients}</p>
               </div>
             </div>
-            {/* col-span-2 sm:col-span-1: on the 2-col mobile grid this stat
-                spans the full width so we don't get a lonely card on its own
-                second row. On tablets+ we revert to a normal cell. */}
-            <div className="col-span-2 sm:col-span-1 rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
+            <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
               <div className="h-10 w-10 rounded-[8px] bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
                 <AlertTriangle className="h-5 w-5" />
               </div>
@@ -641,7 +714,70 @@ export function Workspace() {
                 </p>
               </div>
             </div>
+            <div className="rounded-[8px] bg-card p-4 border border-border flex items-center gap-3">
+              <div className="h-10 w-10 rounded-[8px] bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0">
+                <CalendarClock className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('workspace.summary.expiry_alerts')}</p>
+                <p className="text-lg font-bold text-card-foreground" dir="ltr">
+                  {expiringItems.length}
+                </p>
+              </div>
+            </div>
           </div>
+
+          {/* Expiry Alerts — prescriptions & glasses nearing expiration */}
+          {expiringItems.length > 0 && (
+            <Card className="shadow-none hover:shadow-none rounded-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-card-foreground flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4 text-rose-500" />
+                  {t('workspace.expiry.title')}
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  {t('workspace.expiry.subtitle')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="max-h-[260px] overflow-y-auto divide-y divide-border">
+                  {expiringItems.slice(0, 8).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between px-5 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={cn(
+                          "h-8 w-8 rounded-[6px] flex items-center justify-center shrink-0",
+                          item.kind === 'prescription'
+                            ? "bg-violet-500/10 text-violet-500"
+                            : "bg-sky-500/10 text-sky-500"
+                        )}>
+                          {item.kind === 'prescription' ? <FileText className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-card-foreground truncate">{item.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.kind === 'prescription' ? t('workspace.expiry.kind_prescription') : t('workspace.expiry.kind_lunette')}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-end shrink-0">
+                        <p className="text-xs text-muted-foreground" dir="ltr">
+                          {new Date(item.date).toLocaleDateString()}
+                        </p>
+                        <span className={cn(
+                          "inline-block text-[10px] font-semibold px-2 py-0.5 rounded-[4px] border mt-0.5",
+                          item.daysLeft <= 14
+                            ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                            : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                        )} dir="ltr">
+                          {t('workspace.expiry.days_left', { count: item.daysLeft })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* ── Right / End Column (5 cols) ──────────────────────────────────── */}
@@ -670,6 +806,89 @@ export function Workspace() {
               ))}
             </CardContent>
           </Card>
+
+          {/* Upcoming appointments: calendar + client list side by side */}
+          <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
+            {/* Calendar */}
+            <Card className="shadow-none hover:shadow-none rounded-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold text-card-foreground">
+                  {t('dashboard.coming_up.title')}
+                </CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  {t('dashboard.coming_up.subtitle')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ComingUpCalendar rdvs={upcomingRdvs} />
+              </CardContent>
+            </Card>
+
+            {/* Clients with upcoming rendez-vous */}
+            <Card className="shadow-none hover:shadow-none rounded-sm">
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+                <CardTitle className="text-base font-semibold text-card-foreground flex items-center gap-2.5">
+                  <span className="h-8 w-8 rounded-[8px] bg-[#EEEDFB] dark:bg-[#6D5BF6]/10 flex items-center justify-center shrink-0">
+                    <Receipt className="h-4 w-4 text-[#6D5BF6] dark:text-[#A78BFA]" />
+                  </span>
+                  {t('dashboard.coming_up.title')}
+                </CardTitle>
+                <Link
+                  to="/rendez-vous"
+                  className="flex items-center gap-1 text-sm font-semibold text-[#6D5BF6] dark:text-[#A78BFA] hover:bg-[#EEEDFB] dark:hover:bg-[#6D5BF6]/10 rounded-[8px] ms-auto shrink-0 h-8 px-2.5 transition-colors"
+                >
+                  {t('dashboard.recent_invoices.view_all')}
+                  <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                </Link>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1 max-h-[300px] overflow-y-auto">
+                  {upcomingRdvs.length ? (
+                    upcomingRdvs.map((rdv) => (
+                      <div
+                        key={rdv.id}
+                        className="flex items-center gap-3 p-2.5 rounded-[8px] hover:bg-[#F8F8FD] dark:hover:bg-white/5 transition-colors duration-200"
+                      >
+                        {/* Date chip */}
+                        <div className="h-10 w-10 rounded-[8px] bg-[#EEEDFB] dark:bg-[#6D5BF6]/10 flex flex-col items-center justify-center shrink-0 leading-none" dir="ltr">
+                          <span className="text-sm font-black text-[#4A3FCF] dark:text-[#A78BFA]">
+                            {new Date(rdv.date_rdv).getDate()}
+                          </span>
+                          <span className="text-[8px] font-bold text-[#6D5BF6]/70 dark:text-[#A78BFA]/70 uppercase">
+                            {new Date(rdv.date_rdv).toLocaleDateString(rdvDateLocale, { month: 'short' })}
+                          </span>
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate text-foreground text-start">
+                            {rdv.client_nom || t('dashboard.recent_invoices.walk_in_client')}
+                          </p>
+                          <p className="text-xs text-muted-foreground" dir="ltr">
+                            {new Date(rdv.date_rdv).toLocaleDateString(rdvDateLocale)}
+                            {rdv.heure_rdv ? ` • ${rdv.heure_rdv}` : ''}
+                          </p>
+                        </div>
+
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] h-5 px-2 font-bold border-0 bg-[#6D5BF6]/10 text-[#4A3FCF] dark:text-[#A78BFA] shrink-0"
+                        >
+                          {t(`rendez_vous.statut_${rdv.statut}`)}
+                        </Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <div className="bg-[#EEEDFB] dark:bg-[#6D5BF6]/10 rounded-[12px] p-3 mb-3">
+                        <CalendarDays className="h-7 w-7 text-[#6D5BF6]/60 dark:text-[#A78BFA]/60" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">{t('dashboard.coming_up.none')}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Task Manager */}
           <Card className="shadow-none hover:shadow-none rounded-[8px] overflow-hidden">

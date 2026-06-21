@@ -56,8 +56,6 @@ interface Facture {
   statut: string;
   resteAPayer: number;
   modePaiement?: string;
-  voiture?: string;
-  matricule?: string;
   lignes?: any[];
 }
 
@@ -139,8 +137,6 @@ export function FacturesList() {
     statut: f.statut,
     resteAPayer: f.reste_a_payer,
     modePaiement: f.mode_paiement,
-    voiture: f.voiture,
-    matricule: f.matricule,
   });
 
   const fetchFactures = async () => {
@@ -166,8 +162,6 @@ export function FacturesList() {
         statut: f.statut,
         resteAPayer: f.reste_a_payer,
         modePaiement: f.mode_paiement,
-        voiture: f.voiture,
-        matricule: f.matricule,
       }));
 
       setFactures(mapped);
@@ -206,12 +200,17 @@ export function FacturesList() {
           : data.logo_url;
         setEntreprise({
           userId: user.id,
+          nom: data.nom || data.nom_societe || '',
           nomEntreprise: data.nom_societe || data.nom || '',
           adresse: data.adresse || '',
           ville: data.ville || '',
           telephone: data.telephone || '',
           email: data.email || '',
           ice: data.ice || '',
+          rc: data.rc || '',
+          ifNumber: data.if_number || data.if_identifiant || '',
+          patente: data.patente || data.tp_patente || '',
+          inpe: data.inpe || '',
           logoUrl: cleanLogoUrl,
           couleurPrincipale: data.couleur_principale || '#267E54',
           watermarkText: data.watermark_text || 'SmartGestion',
@@ -292,6 +291,9 @@ export function FacturesList() {
           tva: Number(l.tva || produit?.taux_tva || produit?.tva || 20),
           montantHt: Number(l.montant_ht || 0),
           montantTtc: Number(l.montant_ttc || 0),
+          prixOdHt: l.prix_od_ht ?? '',
+          prixOgHt: l.prix_og_ht ?? '',
+          prescriptionId: l.prescription_id ? String(l.prescription_id) : '',
         };
       });
 
@@ -299,6 +301,8 @@ export function FacturesList() {
         ...factureData,
         client: clientData,
         clientId: String(factureData?.client_id || ''),
+        type: factureData?.type || 'simple',
+        prescriptionId: factureData?.prescription_id ? String(factureData.prescription_id) : '',
         dateEmission: factureData?.date_emission?.split('T')[0] || new Date().toISOString().split('T')[0],
         dateEcheance: factureData?.date_echeance?.split('T')[0] || '',
         montantHt: Number(factureData?.montant_ht || 0),
@@ -415,8 +419,6 @@ export function FacturesList() {
         facture_id: factureData.id,
         client_id: factureData.client_id,
         date_emission: new Date().toISOString(),
-        voiture: factureData.voiture,
-        matricule: factureData.matricule,
         montant_ht: factureData.montant_ht,
         montant_tva: factureData.montant_tva,
         montant_ttc: factureData.montant_ttc,
@@ -434,7 +436,7 @@ export function FacturesList() {
         if (m) { const n = parseInt(m[1], 10); if (n > mn) mn = n; }
       }
       numeroAvoir = `AV-${year}-${String(mn + 1).padStart(4, '0')}`;
-      const retry = await supabase.from('avoirs').upsert([{ user_id: user?.id, numero: numeroAvoir, facture_id: factureData.id, client_id: factureData.client_id, date_emission: new Date().toISOString(), voiture: factureData.voiture, matricule: factureData.matricule, montant_ht: factureData.montant_ht, montant_tva: factureData.montant_tva, montant_ttc: factureData.montant_ttc, statut: 'Généré', notes: `Avoir pour annulation de la facture ${factureData.numero}` }]).select().single();
+      const retry = await supabase.from('avoirs').upsert([{ user_id: user?.id, numero: numeroAvoir, facture_id: factureData.id, client_id: factureData.client_id, date_emission: new Date().toISOString(), montant_ht: factureData.montant_ht, montant_tva: factureData.montant_tva, montant_ttc: factureData.montant_ttc, statut: 'Généré', notes: `Avoir pour annulation de la facture ${factureData.numero}` }]).select().single();
       avoirData = retry.data;
       avoirError = retry.error;
     }
@@ -528,6 +530,18 @@ export function FacturesList() {
 
       const { data: lignesData } = await supabase.from('facture_lignes').select('*').eq('facture_id', facture.id).order('ordre');
 
+      // For optique invoices the printable layout shows the linked
+      // ordonnance (Vision de loin/près, verre type/indice/traitement).
+      let prescription: any = null;
+      if (factureData?.prescription_id) {
+        const { data: presc } = await supabase
+          .from('prescriptions')
+          .select('*')
+          .eq('id', factureData.prescription_id)
+          .single();
+        prescription = presc || null;
+      }
+
       const produitsMap: any = {};
       (allProductsData || []).forEach((p: any) => {
         produitsMap[p.id] = p;
@@ -539,14 +553,18 @@ export function FacturesList() {
           ...l,
           designation: l.designation || l.description || produit?.nom || produit?.designation || '',
           reference: l.reference || produit?.reference || '',
+          // Surface the frame material so the optique layout can print it.
+          monture_matiere: produit?.monture_matiere || produit?.montureMatiere || '',
         };
       });
 
       const mappedFacture = {
         ...factureData,
         numero: factureData.numero,
+        type: factureData.type || 'simple',
         clientId: factureData.client_id,
         client: factureData.client,
+        prescription,
         dateEmission: factureData.date_emission,
         dateEcheance: factureData.date_echeance,
         montantHt: factureData.montant_ht,

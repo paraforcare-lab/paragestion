@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "SmartGestion",
-    "tagline": "Automobile Management"
+    "tagline": "Optical Management"
   },
   "auth": {
     "login_title":        "Sign in",
@@ -20,6 +20,13 @@
     "toast_error":        "An error occurred while signing in"
   },
   "dashboard": {
+    "coming_up": {
+      "title": "Upcoming appointments",
+      "subtitle": "Your upcoming appointments",
+      "none": "No upcoming appointments",
+      "appointments_one": "{{count}} appointment",
+      "appointments_other": "{{count}} appointments"
+    },
     "date_range": {
       "placeholder": "Filter by period",
       "today": "Today",
@@ -97,6 +104,20 @@
       "low_stock": "Low stock",
       "optimal_title": "Stock optimal",
       "optimal_subtitle": "All your products are well-stocked"
+    },
+    "expiry_alerts": {
+      "expired_title": "Expired",
+      "expired_empty": "No expired items",
+      "due_title": "Expiring soon",
+      "due_empty": "No items about to expire",
+      "price_title": "Price alerts",
+      "price_empty": "No price variation",
+      "kind_ordonnance": "Prescription",
+      "kind_lunette": "Glasses",
+      "doc_facture": "Invoice",
+      "doc_vp": "WS",
+      "price_doc": "Doc price",
+      "price_current": "Current price"
     },
     "tva": {
       "section_title": "VAT Summary",
@@ -207,7 +228,16 @@
     "summary": {
       "pending_invoices": "Pending Invoices",
       "new_clients": "New Customers",
-      "stock_alerts": "Stock Alerts"
+      "stock_alerts": "Stock Alerts",
+      "expiry_alerts": "Expiries"
+    },
+    "expiry": {
+      "title": "Upcoming expiries",
+      "subtitle": "Prescriptions and glasses nearing expiration",
+      "kind_prescription": "Prescription",
+      "kind_lunette": "Glasses renewal",
+      "days_left_one": "{{count}} day",
+      "days_left_other": "{{count}} days"
     }
   },
   "navigation": {
@@ -226,10 +256,14 @@
     "suppliers": "Suppliers",
     "products": "Products",
     "settings": "Settings",
-    "transactions": "Transactions"
+    "transactions": "Transactions",
+    "prescriptions": "Prescriptions",
+    "appointments": "Appointments",
+    "work_orders": "Work Orders"
   },
   "nav": {
     "general": "Dashboard",
+    "optique": "Optical",
     "ventes": "Sales",
     "achats": "Purchases",
     "contacts": "Contacts",
@@ -475,15 +509,13 @@
       "validity_date":       "Validity date",
       "planned_delivery":    "Planned delivery date",
       "payment_mode":        "Payment method",
-      "vehicle":             "Car",
-      "vehicle_placeholder": "Car name",
-      "matricule":           "Registration",
       "suggested_payment":   "Suggested payment method",
       "notes":               "Notes",
       "notes_placeholder":   "Notes for the customer...",
       "conditions":          "Payment terms",
       "lines_section":       "Line items",
       "add_line":            "Add line",
+      "add_product":         "Add product",
       "choose_product":      "Choose...",
       "client_label":        "Customer *",
       "supplier_label":      "Supplier *",
@@ -1136,7 +1168,52 @@
     "col_vat":         "VAT",
     "col_price_ttc":   "Price (incl.)",
     "col_stock":       "Stock",
-    "col_actions":     "Actions"
+    "col_actions":     "Actions",
+    "form": {
+      "type_produit":        "Product type",
+      "type_produit_ph":     "Select a type",
+      "type_monture":        "Frame",
+      "type_verre":          "Lens",
+      "type_lentille":       "Contact lens",
+      "type_autre":          "Other",
+      "section_verre":         "LENS CHARACTERISTICS",
+      "verre_type":            "Lens type",
+      "verre_indice":          "Refractive index",
+      "verre_traitement":      "Coating",
+      "verre_couleur":         "Tint / Color",
+      "ph_verre_type":         "Single vision, progressive, bifocal...",
+      "ph_verre_traitement":   "Anti-reflective, photochromic, blue-cut...",
+      "section_lentille":      "CONTACT LENS CHARACTERISTICS",
+      "lentille_type":         "Lens type",
+      "lentille_marque":       "Brand",
+      "lentille_courbe_base":  "Base curve (BC)",
+      "lentille_diametre":     "Diameter (DIA)",
+      "solution_volume_ml":    "Solution volume (ml)",
+      "solution_type":         "Solution type",
+      "ph_lentille_type":      "Daily, monthly, toric...",
+      "section_monture":       "FRAME CHARACTERISTICS",
+      "monture_taille":        "Size (eye/bridge/temple)",
+      "monture_couleur":       "Color",
+      "monture_matiere":       "Material",
+      "monture_forme":         "Shape",
+      "monture_genre":         "Gender",
+      "genre_homme":           "Men",
+      "genre_femme":           "Women",
+      "genre_enfant":          "Kids",
+      "genre_mixte":           "Mixed / Unisex",
+      "monture_largeur":       "A Boxing — Lens width (mm)",
+      "monture_hauteur":       "B Boxing — Lens height (mm)",
+      "monture_ponte":         "Bridge (mm)",
+      "section_tracabilite":   "TRACEABILITY & LOGISTICS",
+      "fournisseur_ref":       "Supplier ref.",
+      "emplacement":           "In-store location",
+      "lot":                   "Batch no.",
+      "date_peremption":       "Expiry date",
+      "garantie_mois":         "Warranty (months)",
+      "ph_color":              "Black, tortoise, transparent...",
+      "ph_matiere":            "Acetate, titanium, metal...",
+      "ph_forme":              "Round, square, cat-eye..."
+    }
   },
   "transactions": {
     "page_title":      "Transactions",
@@ -1252,7 +1329,7 @@
       "payment_conditions":  "Default payment terms",
       "payment_terms_ph":    "e.g. Payment on receipt within 30 days",
       "footer":              "Default footer",
-      "footer_ph":           "e.g. Thank you for your trust. SmartGestion - Your automobile management system.",
+      "footer_ph":           "e.g. Thank you for your trust. SmartGestion - Your optical management system.",
       "watermark":           "Watermark",
       "watermark_desc":      "Enable watermark on PDF documents",
       "watermark_text":      "Watermark text",
@@ -1313,6 +1390,143 @@
       "postal_required":       "Postal code is required",
       "phone_required":        "Phone is required",
       "email_invalid":         "Invalid email"
+    }
+  },
+  "rendez_vous": {
+    "page_title": "Appointments",
+    "page_subtitle": "Manage your clients' appointments",
+    "new_button": "New Appointment",
+    "dialog_create": "New Appointment",
+    "dialog_edit": "Edit appointment",
+    "dialog_subtitle_create": "Schedule a new appointment",
+    "dialog_subtitle_edit": "Editing appointment",
+    "search_ph": "Search by client...",
+    "loading": "Loading appointments...",
+    "empty_filtered": "No appointment found",
+    "empty_all": "No appointment scheduled",
+    "create_first": "Schedule an appointment",
+    "toast_saved": "Appointment saved successfully",
+    "toast_deleted": "Appointment deleted",
+    "toast_load_error": "Error while loading",
+    "filter_all_status": "All statuses",
+    "filter_all_types": "All types",
+    "statut_planifie": "Scheduled",
+    "statut_confirme": "Confirmed",
+    "statut_effectue": "Completed",
+    "statut_annule": "Cancelled",
+    "statut_reporte": "Rescheduled",
+    "type_examen_vue": "Eye exam",
+    "type_essayage": "Fitting",
+    "type_livraison": "Delivery",
+    "type_reparation": "Repair",
+    "type_reglage": "Adjustment",
+    "type_rappel_periodique": "Periodic reminder",
+    "type_autre": "Other",
+    "col_client": "Client",
+    "col_date": "Date",
+    "col_heure": "Time",
+    "col_type": "Type",
+    "col_status": "Status",
+    "col_actions": "Actions",
+    "form": {
+      "client_label": "Client *",
+      "date_rdv": "Appointment date *",
+      "heure_rdv": "Time *",
+      "duree": "Duration (minutes)",
+      "type_rdv": "Type *",
+      "notes": "Notes",
+      "rappel_sms": "SMS reminder",
+      "rappel_email": "Email reminder"
+    }
+  },
+  "ordres_travail": {
+    "page_title": "Work Orders",
+    "page_subtitle": "Workshop and laboratory tracking",
+    "new_button": "New Order",
+    "dialog_create": "New Work Order",
+    "dialog_edit": "Edit work order",
+    "dialog_subtitle_create": "Create an order for the laboratory",
+    "dialog_subtitle_edit": "Editing work order",
+    "search_ph": "Search by client, number...",
+    "empty_filtered": "No order found",
+    "empty_all": "No work order",
+    "delete_title": "Delete work order",
+    "delete_description": "This action is irreversible.",
+    "toast_saved": "Work order saved",
+    "toast_deleted": "Work order deleted",
+    "toast_load_error": "Error while loading",
+    "filter_all_status": "All statuses",
+    "statut_brouillon": "Draft",
+    "statut_envoye_labo": "Sent to lab",
+    "statut_recu_labo": "Received from lab",
+    "statut_montage": "Assembly",
+    "statut_controle": "Quality check",
+    "statut_termine": "Completed",
+    "statut_annule": "Cancelled",
+    "col_numero": "Order #",
+    "col_client": "Client",
+    "col_date": "Date",
+    "col_statut": "Status",
+    "col_actions": "Actions",
+    "section_general": "General information",
+    "section_monture": "Frame",
+    "section_verre": "Lens",
+    "section_labo": "Laboratory",
+    "validation": {
+      "numero_required": "Number is required"
+    },
+    "form": {
+      "client": "Client",
+      "prescription": "Prescription",
+      "numero": "Order #",
+      "statut": "Status",
+      "date_creation": "Creation date",
+      "date_souhaitee": "Desired date",
+      "monture_reference": "Frame reference",
+      "monture_designation": "Frame designation",
+      "verre_type": "Lens type",
+      "verre_indice": "Index",
+      "verre_traitement": "Treatment",
+      "labo_nom": "Laboratory name",
+      "labo_prix": "Lab price (excl. tax)",
+      "prix_vente_ht": "Selling price (excl. tax)",
+      "instructions": "Instructions for the lab"
+    }
+  },
+  "prescriptions": {
+    "page_title": "Prescriptions",
+    "page_subtitle": "Manage your clients' prescriptions"
+  },
+  "optique": {
+    "client": {
+      "section_insurance": "INSURANCE & HEALTH",
+      "date_naissance": "Date of birth",
+      "couverture_sociale": "Social coverage",
+      "couverture_none": "None",
+      "couverture_cnops": "CNOPS",
+      "couverture_cnss": "CNSS",
+      "couverture_mutuelle": "Private health fund",
+      "couverture_prive": "Private insurance",
+      "cnops_matricule": "CNOPS ID",
+      "cnss_numero": "CNSS no.",
+      "mutuelle_nom": "Health fund name",
+      "mutuelle_numero": "Health fund member no.",
+      "medecin_traitant": "Referring doctor",
+      "medecin_telephone": "Doctor's phone"
+    },
+    "invoice": {
+      "type_label": "Invoice type",
+      "type_simple": "Simple",
+      "type_optique": "Optical",
+      "prescription_label": "Linked prescription",
+      "prescription_ph": "Select a prescription",
+      "prescription_none": "None",
+      "prise_en_charge_label": "Coverage type",
+      "prise_none": "None",
+      "bon_prise_en_charge": "Coverage voucher no.",
+      "od": "RE",
+      "og": "LE",
+      "od_og": "RE/LE"
     }
   }
 }

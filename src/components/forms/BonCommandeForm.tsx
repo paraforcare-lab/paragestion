@@ -35,8 +35,16 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   const isEditing = !!initialData?.id;
   const [fournisseurs, setFournisseurs] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedPrescription, setSelectedPrescription] = useState<any>(null);
+  const [verreProductId, setVerreProductId] = useState('');
+  const [verrePrixHt, setVerrePrixHt] = useState(0);
+  const [verreTva, setVerreTva] = useState(20);
+  const [verreQuantite, setVerreQuantite] = useState(1);
+  const [verreDesignation, setVerreDesignation] = useState('');
 
   const ligneSchema = z.object({
     produitId: z.string().optional(),
@@ -45,16 +53,27 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
     quantite: z.number().min(0.01, t('shared.validation.qty_min')),
     prixUnitaireHt: z.number().min(0, t('shared.validation.price_positive')),
     tva: z.number().min(0, t('shared.validation.vat_positive')),
+    prescriptionId: z.string().optional(),
   });
 
   const bcSchema = z.object({
+    type: z.string().optional(),
     fournisseurId: z.string().optional(),
+    clientId: z.string().optional(),
     dateEmission: z.string().min(1, t('shared.validation.emission_date_required')),
     dateLivraisonPrevue: z.string().optional(),
     statut: z.string().optional(),
     modePaiement: z.string().optional(),
     notes: z.string().optional(),
-    lignes: z.array(ligneSchema).min(1, t('shared.validation.lines_min')),
+    lignes: z.array(ligneSchema).min(0).optional(),
+  }).superRefine((data, ctx) => {
+    if (data.type === 'verre') {
+      if (!data.clientId || data.clientId === '' || data.clientId === 'none') {
+        ctx.addIssue({ code: 'custom', path: ['clientId'], message: t('shared.validation.client_required') });
+      }
+    } else if (!data.lignes || data.lignes.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['lignes'], message: t('shared.validation.lines_min') });
+    }
   });
 
   type BCFormValues = z.infer<typeof bcSchema>;
@@ -62,7 +81,9 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   const form = useForm<BCFormValues>({
     resolver: zodResolver(bcSchema),
     defaultValues: {
+      type: initialData?.type || 'simple',
       fournisseurId: '',
+      clientId: '',
       dateEmission: new Date().toISOString().split('T')[0],
       dateLivraisonPrevue: '',
       statut: 'brouillon',
@@ -89,25 +110,30 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
       if (!user?.id) return;
       
       try {
-        const [{ data: fournisseursData }, { data: produitsData }, { data: parametresData }] = await Promise.all([
+        const [{ data: fournisseursData }, { data: produitsData }, { data: clientsData }, { data: parametresData }] = await Promise.all([
           supabase.from('fournisseurs').select('*').eq('user_id', user.id).order('nom'),
           supabase.from('produits').select('*').eq('user_id', user.id).order('designation'),
+          supabase.from('clients').select('*').eq('user_id', user.id).order('nom'),
           supabase.from('parametres').select('*').eq('user_id', user.id).limit(1)
         ]);
         
         setFournisseurs(fournisseursData || []);
         setProduits(produitsData || []);
+        setClients(clientsData || []);
         setParametres(parametresData?.[0] || null);
 
         if (initialData?.id) {
           form.reset({
             ...initialData,
+            type: initialData.type || 'simple',
             fournisseurId: initialData.fournisseurId?.toString() || '',
+            clientId: initialData.clientId?.toString() || '',
             dateEmission: initialData.dateCommande ? new Date(initialData.dateCommande).toISOString().split('T')[0] : '',
             dateLivraisonPrevue: initialData.dateLivraisonPrevue ? new Date(initialData.dateLivraisonPrevue).toISOString().split('T')[0] : '',
             lignes: initialData.lignes?.map((l: any) => ({
               ...l,
               produitId: l.produitId?.toString() || '',
+              prescriptionId: l.prescriptionId?.toString() || '',
               prixUnitaireHt: Number(l.prixUnitaireHt || 0),
               quantite: Number(l.quantite || 0),
               tva: Number(l.tva || 0),
@@ -117,7 +143,9 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
           });
         } else {
           form.reset({
+            type: 'simple',
             fournisseurId: '',
+            clientId: '',
             dateEmission: new Date().toISOString().split('T')[0],
             dateLivraisonPrevue: '',
             statut: 'brouillon',
@@ -141,20 +169,65 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
     fetchData();
   }, [initialData?.id]);
 
-  const watchLignes = form.watch('lignes');
+  const watchLignes = form.watch('lignes') || [];
+  const bcType = form.watch('type');
+  const clientId = form.watch('clientId');
+  const verreProducts = produits.filter((p) => (p.type_produit || p.typeProduit) === 'verre');
+  const selectedClient = clients.find((c) => c.id.toString() === clientId);
 
-  const totals = watchLignes.reduce(
-    (acc, ligne) => {
-      const montantHt = (ligne.quantite || 0) * (ligne.prixUnitaireHt || 0);
-      const montantTva = montantHt * ((ligne.tva || 0) / 100);
-      return {
-        ht: acc.ht + montantHt,
-        tva: acc.tva + montantTva,
-        ttc: acc.ttc + montantHt + montantTva,
-      };
-    },
-    { ht: 0, tva: 0, ttc: 0 }
-  );
+  // Fetch active prescriptions for the selected client (verre commande only).
+  // Nothing is shown until a client is chosen, and only that client's active
+  // ordonnances are listed.
+  useEffect(() => {
+    if (bcType === 'verre' && clientId) {
+      supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('client_id', parseInt(clientId))
+        .eq('statut', 'active')
+        .order('date_ordonnance', { ascending: false })
+        .then(({ data }) => setPrescriptions(data || []));
+    } else {
+      setPrescriptions([]);
+    }
+  }, [bcType, clientId]);
+
+  const totals = bcType === 'verre'
+    ? (() => {
+        const ht = verrePrixHt * (verreQuantite || 0);
+        const tva = ht * (verreTva / 100);
+        return { ht, tva, ttc: ht + tva };
+      })()
+    : watchLignes.reduce(
+        (acc, ligne) => {
+          const montantHt = (ligne.quantite || 0) * (ligne.prixUnitaireHt || 0);
+          const montantTva = montantHt * ((ligne.tva || 0) / 100);
+          return {
+            ht: acc.ht + montantHt,
+            tva: acc.tva + montantTva,
+            ttc: acc.ttc + montantHt + montantTva,
+          };
+        },
+        { ht: 0, tva: 0, ttc: 0 }
+      );
+
+  const handlePrescriptionSelect = (prescriptionId: string) => {
+    const prescr = prescriptions.find((p) => p.id.toString() === prescriptionId);
+    if (!prescr) return;
+    setSelectedPrescription(prescr);
+    const odStr = `OD: ${prescr.od_sph_vl ?? '-'}${prescr.od_cyl_vl ? ` (${prescr.od_cyl_vl})` : ''}`;
+    const ogStr = `OG: ${prescr.og_sph_vl ?? '-'}${prescr.og_cyl_vl ? ` (${prescr.og_cyl_vl})` : ''}`;
+    setVerreDesignation(`Verre ${prescr.verre_type || ''} — ${odStr} / ${ogStr}`);
+  };
+
+  const handleVerreProductSelect = (productId: string) => {
+    setVerreProductId(productId);
+    const produit = verreProducts.find((p) => p.id.toString() === productId);
+    if (produit) {
+      setVerrePrixHt(Number(produit.prix_achat_ht || produit.prixAchatHt || 0));
+      setVerreTva(Number(produit.taux_tva || produit.tva || 20));
+    }
+  };
 
   async function generateBCReference(): Promise<string> {
     const year = new Date().getFullYear();
@@ -180,6 +253,22 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   const onSubmit = async (data: BCFormValues) => {
     setIsLoading(true);
     try {
+      if (data.type === 'verre' && !data.clientId) {
+        toast.error(t('shared.validation.client_required'));
+        setIsLoading(false);
+        return;
+      }
+      if (data.type === 'verre' && !selectedPrescription) {
+        toast.error('Veuillez sélectionner une ordonnance');
+        setIsLoading(false);
+        return;
+      }
+      if (data.type === 'verre' && !verreProductId) {
+        toast.error('Veuillez sélectionner un produit verre');
+        setIsLoading(false);
+        return;
+      }
+
       let bonId = initialData?.id;
       let numero;
 
@@ -200,7 +289,12 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
         ? parseInt(data.fournisseurId) 
         : null;
 
+      const parsedClientId = data.clientId && data.clientId !== 'none' && data.clientId !== ''
+        ? parseInt(data.clientId)
+        : null;
+
       const payload: any = {
+        type: data.type || 'simple',
         date_commande: new Date(data.dateEmission).toISOString(),
         date_livraison_prevue: data.dateLivraisonPrevue ? new Date(data.dateLivraisonPrevue).toISOString() : null,
         statut: data.statut || 'brouillon',
@@ -212,6 +306,9 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
 
       if (fournisseurId) {
         payload.fournisseur_id = fournisseurId;
+      }
+      if (parsedClientId) {
+        payload.client_id = parsedClientId;
       }
 
       // Snapshot the previous stock_updated flag BEFORE the row gets
@@ -250,25 +347,42 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
         await supabase.from('bon_commande_lignes').delete().eq('bon_commande_id', bonId);
       }
 
-      const lignesPayload = data.lignes.map((ligne, index) => {
-        const mht = Number(ligne.quantite || 0) * Number(ligne.prixUnitaireHt || 0);
-        const mtva = mht * (Number(ligne.tva || 0) / 100);
-        const mttc = mht + mtva;
-        const produitId = ligne.produitId && ligne.produitId !== 'none' && ligne.produitId !== '' 
-          ? parseInt(ligne.produitId) 
-          : null;
-        return {
-          bon_commande_id: bonId,
-          produit_id: produitId,
-          designation: ligne.designation || '',
-          quantite: Number(ligne.quantite || 0),
-          prix_unitaire_ht: Number(ligne.prixUnitaireHt || 0),
-          tva: Number(ligne.tva || 20),
-          montant_ht: mht,
-          montant_ttc: mttc,
-          ordre: index,
-        };
-      });
+      const lignesPayload = data.type === 'verre' && selectedPrescription
+        ? [{
+            bon_commande_id: bonId,
+            produit_id: verreProductId ? parseInt(verreProductId) : null,
+            prescription_id: selectedPrescription.id,
+            designation: verreDesignation || `Verre — Ordonnance #${selectedPrescription.id}`,
+            quantite: Number(verreQuantite || 1),
+            prix_unitaire_ht: Number(verrePrixHt || 0),
+            tva: Number(verreTva || 20),
+            montant_ht: Number(verrePrixHt || 0) * Number(verreQuantite || 1),
+            montant_ttc: Number(verrePrixHt || 0) * Number(verreQuantite || 1) * (1 + Number(verreTva || 20) / 100),
+            ordre: 0,
+          }]
+        : (data.lignes || []).map((ligne, index) => {
+            const mht = Number(ligne.quantite || 0) * Number(ligne.prixUnitaireHt || 0);
+            const mtva = mht * (Number(ligne.tva || 0) / 100);
+            const mttc = mht + mtva;
+            const produitId = ligne.produitId && ligne.produitId !== 'none' && ligne.produitId !== '' 
+              ? parseInt(ligne.produitId) 
+              : null;
+            const prescrId = ligne.prescriptionId && ligne.prescriptionId !== 'none' && ligne.prescriptionId !== ''
+              ? parseInt(ligne.prescriptionId)
+              : null;
+            return {
+              bon_commande_id: bonId,
+              produit_id: produitId,
+              prescription_id: prescrId,
+              designation: ligne.designation || '',
+              quantite: Number(ligne.quantite || 0),
+              prix_unitaire_ht: Number(ligne.prixUnitaireHt || 0),
+              tva: Number(ligne.tva || 20),
+              montant_ht: mht,
+              montant_ttc: mttc,
+              ordre: index,
+            };
+          });
 
       if (lignesPayload.length > 0) {
         const { error: lignesError } = await supabase.from('bon_commande_lignes').insert(lignesPayload);
@@ -347,7 +461,39 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
       <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 dark:bg-slate-900/60 dark:border-white/10 dark:rounded-sm">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div className="space-y-2">
+            <Label className="text-slate-700 font-semibold dark:text-slate-300">Type de commande</Label>
+            <Select
+              value={form.watch('type') || 'simple'}
+              onValueChange={(val) => {
+                form.setValue('type', val);
+                if (val === 'verre') {
+                  form.setValue('lignes', []);
+                  setSelectedPrescription(null);
+                  setVerreProductId('');
+                  setVerrePrixHt(0);
+                  setVerreTva(20);
+                  setVerreQuantite(1);
+                  setVerreDesignation('');
+                } else {
+                  form.setValue('clientId', '');
+                  if ((form.getValues('lignes')?.length || 0) === 0) {
+                    form.setValue('lignes', [{ designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20 }]);
+                  }
+                }
+              }}
+            >
+              <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
+                <SelectValue placeholder="Type..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="simple">Simple Commande</SelectItem>
+                <SelectItem value="verre">Verre Commande</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.supplier_label')}</Label>
             <Select
@@ -370,20 +516,99 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.emission_date')}</Label>
-            <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateEmission')} />
-            {form.formState.errors.dateEmission && (
-              <p className="text-xs text-red-500 font-medium">{form.formState.errors.dateEmission.message}</p>
+          {bcType === 'verre' ? (
+            <>
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-semibold dark:text-slate-300">Client</Label>
+                <Select
+                  value={form.watch('clientId') || ''}
+                  onValueChange={(val) => {
+                    form.setValue('clientId', val);
+                    setSelectedPrescription(null);
+                    setVerreProductId('');
+                    setVerrePrixHt(0);
+                    setVerreQuantite(1);
+                    setVerreDesignation('');
+                  }}
+                >
+                  <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
+                    <SelectValue placeholder="Sélectionner un client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id.toString()}>{c.nom}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {form.formState.errors.clientId && (
+                  <p className="text-xs text-red-500 font-medium">{form.formState.errors.clientId.message}</p>
+                )}
+              </div>
+              {selectedClient && (
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold dark:text-slate-300">CINE</Label>
+                  <Input value={selectedClient.cine || '-'} disabled className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white" />
+                </div>
+              )}
+              {selectedClient?.couverture_sociale && (
+                <div className="space-y-2">
+                  <Label className="text-slate-700 font-semibold dark:text-slate-300">Couverture</Label>
+                  <Input value={`${(selectedClient.couverture_sociale || '').toUpperCase()} ${selectedClient.couverture_sociale_detail ? `(${selectedClient.couverture_sociale_detail})` : ''}`} disabled className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white" />
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.emission_date')}</Label>
+                <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateEmission')} />
+                {form.formState.errors.dateEmission && (
+                  <p className="text-xs text-red-500 font-medium">{form.formState.errors.dateEmission.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.planned_delivery')}</Label>
+                <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateLivraisonPrevue')} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {bcType === 'verre' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.emission_date')}</Label>
+              <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateEmission')} />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.planned_delivery')}</Label>
+              <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateLivraisonPrevue')} />
+            </div>
+            {isEditing && (
+              <div className="space-y-2">
+                <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.status_label')}</Label>
+                <Select
+                  value={form.watch('statut') || ""}
+                  onValueChange={(val) => form.setValue('statut', val)}
+                >
+                  <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white [&_.lucide-chevron-down]:dark:text-slate-500">
+                    <SelectValue placeholder={t('shared.form.select_status')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en_attente">{t('shared.status.pending')}</SelectItem>
+                    <SelectItem value="confirmé">{t('shared.status.confirmed')}</SelectItem>
+                    <SelectItem value="livré">{t('shared.status.delivered')}</SelectItem>
+                    <SelectItem value="annulé">{t('shared.status.cancelled')}</SelectItem>
+                    <SelectItem value="refusé">{t('shared.status.refused')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
+        )}
 
-          <div className="space-y-2">
-            <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.planned_delivery')}</Label>
-            <Input type="date" className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white dark:[color-scheme:dark]" {...form.register('dateLivraisonPrevue')} />
-          </div>
-
-          {isEditing && (
+        {bcType !== 'verre' && isEditing && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div className="space-y-2">
               <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.status_label')}</Label>
               <Select
@@ -402,10 +627,173 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
                 </SelectContent>
               </Select>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
+      {bcType === 'verre' ? (
+        <>
+          {/* Prescription selector for Verre — nothing shows until a client is
+              chosen; only that client's active ordonnances are listed. */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b pb-2 dark:border-white/5">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Ordonnance</h3>
+              <div className="flex gap-2">
+                {clientId && (
+                  <Select
+                    value={selectedPrescription ? selectedPrescription.id.toString() : ''}
+                    onValueChange={(val) => {
+                      handlePrescriptionSelect(val);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 bg-white border-slate-200 dark:bg-slate-950/50 dark:border-white/10 w-64">
+                      <SelectValue placeholder="Ajouter une ordonnance..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prescriptions.length === 0 && (
+                        <SelectItem value="__none" disabled>Aucune ordonnance active</SelectItem>
+                      )}
+                      {prescriptions.map((p) => {
+                        const odStr = `OD: ${p.od_sph_vl ?? '-'}${p.od_cyl_vl ? ` (${p.od_cyl_vl})` : ''}`;
+                        const ogStr = `OG: ${p.og_sph_vl ?? '-'}${p.og_cyl_vl ? ` (${p.og_cyl_vl})` : ''}`;
+                        return (
+                          <SelectItem key={p.id} value={p.id.toString()}>
+                            {p.date_ordonnance} — {odStr} / {ogStr} — {p.verre_type || '-'}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            </div>
+
+            {/* Prescription details */}
+            {selectedPrescription ? (
+              <div className="rounded-[6px] border border-sky-200 bg-sky-50/30 dark:border-sky-500/20 dark:bg-sky-950/10 overflow-hidden">
+                <div className="px-4 py-3 border-b border-sky-100 dark:border-sky-500/10">
+                  <p className="font-semibold text-sky-800 dark:text-sky-300">
+                    Ordonnance du {selectedPrescription.date_ordonnance} — {selectedPrescription.verre_type || 'Standard'}
+                  </p>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                    <div className="col-span-2 md:col-span-4 font-semibold text-slate-600 dark:text-slate-400 border-b pb-1 mb-1">Réfraction VL</div>
+                    <div className="text-slate-500">OD Sph: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_sph_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OD Cyl: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_cyl_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OD Axe: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_axe_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OD Add: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_add_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OG Sph: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_sph_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OG Cyl: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_cyl_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OG Axe: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_axe_vl ?? '-'}</span></div>
+                    <div className="text-slate-500">OG Add: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_add_vl ?? '-'}</span></div>
+                    {selectedPrescription.od_sph_vp != null && (
+                      <>
+                        <div className="col-span-2 md:col-span-4 font-semibold text-slate-600 dark:text-slate-400 border-b pb-1 mb-1 mt-2">Réfraction VP</div>
+                        <div className="text-slate-500">OD Sph: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_sph_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OD Cyl: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_cyl_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OD Axe: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_axe_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OD Add: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.od_add_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OG Sph: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_sph_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OG Cyl: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_cyl_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OG Axe: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_axe_vp ?? '-'}</span></div>
+                        <div className="text-slate-500">OG Add: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.og_add_vp ?? '-'}</span></div>
+                      </>
+                    )}
+                    {(selectedPrescription.dp_binoculaire || selectedPrescription.dp_od || selectedPrescription.dp_og) && (
+                      <>
+                        <div className="col-span-2 md:col-span-4 font-semibold text-slate-600 dark:text-slate-400 border-b pb-1 mb-1 mt-2">DP &amp; Hauteurs</div>
+                        <div className="text-slate-500">DP binoculaire: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.dp_binoculaire ?? '-'}</span></div>
+                        <div className="text-slate-500">DP OD: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.dp_od ?? '-'}</span></div>
+                        <div className="text-slate-500">DP OG: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.dp_og ?? '-'}</span></div>
+                        <div className="text-slate-500">Haut. OD: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.hauteur_od ?? '-'}</span></div>
+                        <div className="text-slate-500">Haut. OG: <span className="font-mono font-semibold text-slate-800 dark:text-white">{selectedPrescription.hauteur_og ?? '-'}</span></div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-slate-400 dark:text-slate-500 text-sm">
+                Sélectionnez une ordonnance pour afficher les détails
+              </div>
+            )}
+          </div>
+
+          {/* Pricing for Verre */}
+          {selectedPrescription && (
+            <div className="rounded-[6px] border border-amber-200 bg-amber-50/30 dark:border-amber-500/20 dark:bg-amber-950/10 p-4">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-300 mb-4">Produit &amp; Prix</h4>
+              {verreProducts.length === 0 ? (
+                <div className="text-center py-4 text-sm text-slate-500 dark:text-slate-400">
+                  Aucun produit de type verre trouvé. Veuillez d'abord{' '}
+                  <a href="/produits" className="text-amber-600 underline hover:text-amber-700">ajouter un produit verre</a>.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-700 font-semibold dark:text-slate-300">Produit verre</Label>
+                    <Select
+                      value={verreProductId}
+                      onValueChange={handleVerreProductSelect}
+                    >
+                      <SelectTrigger className="bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10">
+                        <SelectValue placeholder="Sélectionner un produit verre..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {verreProducts.map((p) => (
+                          <SelectItem key={p.id} value={p.id.toString()}>
+                            {p.designation || p.nom || 'Verre'} — {(p.reference || p.ref || '')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-slate-700 font-semibold dark:text-slate-300">Prix unitaire HT</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={verrePrixHt}
+                        onChange={(e) => setVerrePrixHt(Number(e.target.value) || 0)}
+                        className="h-11 bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-700 font-semibold dark:text-slate-300">{t('shared.form.qty_label')}</Label>
+                      <Input
+                        type="number"
+                        step="1"
+                        min="1"
+                        value={verreQuantite}
+                        onChange={(e) => setVerreQuantite(Number(e.target.value) || 0)}
+                        className="h-11 bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-700 font-semibold dark:text-slate-300">TVA (%)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={verreTva}
+                        onChange={(e) => setVerreTva(Number(e.target.value) || 0)}
+                        className="h-11 bg-white border-slate-300 dark:bg-slate-950/50 dark:border-white/10 dark:text-white"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-700 font-semibold dark:text-slate-300">Prix TTC</Label>
+                      <div className="h-11 flex items-center px-3 bg-white border border-slate-300 rounded-lg dark:bg-slate-950/50 dark:border-white/10 dark:text-white font-bold text-lg">
+                        {formatCurrency(verrePrixHt * (verreQuantite || 0) * (1 + verreTva / 100))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b pb-2 dark:border-white/5">
           <h3 className="text-lg font-bold text-slate-800 dark:text-white">{t('shared.form.lines_section')}</h3>
@@ -516,6 +904,7 @@ export function BonCommandeForm({ initialData, onSuccess }: BCFormProps) {
           </div>
         </div>
       </div>
+      )}
 
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">

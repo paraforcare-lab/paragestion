@@ -92,12 +92,33 @@ export function BonsCommandeList() {
 
   // --- Payment status (visualization only, local UI state) ---------------
   // Mirrors the "Statut" column but is purely for display: no DB / logic.
-  const [paymentStatuses, setPaymentStatuses] = useState<Record<number, string>>({});
+  // Persisted to localStorage (per user) so it survives navigation/reloads.
+  const paymentStatusKey = `bc_payment_statuses_${user?.id ?? 'anon'}`;
+  const unpaidAmountsKey = `bc_unpaid_amounts_${user?.id ?? 'anon'}`;
+  const readStoredRecord = (key: string): Record<number, string> => {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+  const [paymentStatuses, setPaymentStatuses] = useState<Record<number, string>>(() =>
+    readStoredRecord(paymentStatusKey)
+  );
   const getPaymentStatus = (id: number) => paymentStatuses[id] ?? 'non_paye';
   const setPaymentStatus = (id: number, value: string) =>
-    setPaymentStatuses((prev) => ({ ...prev, [id]: value }));
+    setPaymentStatuses((prev) => {
+      const next = { ...prev, [id]: value };
+      try {
+        localStorage.setItem(paymentStatusKey, JSON.stringify(next));
+      } catch { /* ignore storage errors */ }
+      return next;
+    });
   // Amounts (visualization only) for the "edit unpaid" popup on partial payments.
-  const [unpaidAmounts, setUnpaidAmounts] = useState<Record<number, string>>({});
+  const [unpaidAmounts, setUnpaidAmounts] = useState<Record<number, string>>(() =>
+    readStoredRecord(unpaidAmountsKey)
+  );
   const [editPaymentBon, setEditPaymentBon] = useState<BonCommande | null>(null);
   const [editPaymentValue, setEditPaymentValue] = useState('');
 
@@ -252,11 +273,14 @@ export function BonsCommandeList() {
 
       const mappedData = {
         ...bonData,
+        type: bonData.type || 'simple',
         fournisseurId: bonData.fournisseur_id?.toString() || '',
+        clientId: bonData.client_id?.toString() || '',
         dateCommande: bonData.date_commande?.split('T')[0] || '',
         dateLivraisonPrevue: bonData.date_livraison_prevue?.split('T')[0] || '',
         lignes: (lignesData || []).map((l: any) => ({
           produitId: l.produit_id?.toString() || '',
+          prescriptionId: l.prescription_id?.toString() || '',
           designation: l.designation || '',
           quantite: Number(l.quantite || 1),
           prixUnitaireHt: Number(l.prix_unitaire_ht || 0),
@@ -280,7 +304,7 @@ export function BonsCommandeList() {
 
       const { data: bonData, error } = await supabase
         .from('bons_commande')
-        .select('*, fournisseur:fournisseurs(*)')
+        .select('*, fournisseur:fournisseurs(*), client:clients(*)')
         .eq('id', bon.id)
         .single();
 
@@ -292,11 +316,28 @@ export function BonsCommandeList() {
         .eq('bon_commande_id', bon.id)
         .order('ordre');
 
+      // For a verre commande, pull the linked ordonnance so the optique
+      // layout can render the OD/OG vision boxes.
+      let prescription: any = null;
+      if (bonData.type === 'verre') {
+        const prescrId = (lignesData || []).map((l: any) => l.prescription_id).find((id: any) => id != null);
+        if (prescrId != null) {
+          const { data: prescrData } = await supabase
+            .from('prescriptions')
+            .select('*')
+            .eq('id', prescrId)
+            .single();
+          prescription = prescrData || null;
+        }
+      }
+
       const mappedBon = {
         ...bonData,
         numero: bonData.numero,
         fournisseurId: bonData.fournisseur_id,
         fournisseur: bonData.fournisseur,
+        client: bonData.client,
+        prescription,
         dateCommande: bonData.date_commande,
         dateLivraisonPrevue: bonData.date_livraison_prevue,
         montantHt: bonData.montant_ht,
@@ -877,7 +918,13 @@ export function BonsCommandeList() {
             <Button
               onClick={() => {
                 if (editPaymentBon) {
-                  setUnpaidAmounts((prev) => ({ ...prev, [editPaymentBon.id]: editPaymentValue }));
+                  setUnpaidAmounts((prev) => {
+                    const next = { ...prev, [editPaymentBon.id]: editPaymentValue };
+                    try {
+                      localStorage.setItem(unpaidAmountsKey, JSON.stringify(next));
+                    } catch { /* ignore storage errors */ }
+                    return next;
+                  });
                 }
                 setEditPaymentBon(null);
               }}

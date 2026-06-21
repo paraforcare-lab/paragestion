@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft, Plus, Search, FileEdit, Trash2, Package, AlertTriangle,
-  ChevronLeft, ChevronRight, ImageIcon
+  ChevronLeft, ChevronRight, ImageIcon, Filter
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -32,6 +39,7 @@ interface Produit {
   designation?: string;
   marque?: string;
   barcode?: string;
+  typeProduit: string;
   prixAchatHt: number;
   prixVenteHt: number;
   prixVenteTtc: number;
@@ -50,6 +58,7 @@ export function ProduitsList() {
   const { user } = useAuth();
   const [produits, setProduits] = useState<Produit[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingProduit, setEditingProduit] = useState<Produit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,6 +74,7 @@ export function ProduitsList() {
     designation: p.designation || p.nom || '',
     marque: p.marque || '',
     barcode: p.barcode || '',
+    typeProduit: p.type_produit || p.typeProduit || 'monture',
     prixVenteHt: Number(p.prix_vente_ht || 0),
     prixAchatHt: Number(p.prix_achat_ht || 0),
     prixVenteTtc: Number(p.prix_vente_ttc || 0),
@@ -153,15 +163,21 @@ export function ProduitsList() {
   };
 
   const filteredProduits = useMemo(() => {
-    if (!searchQuery.trim()) return produits;
-    const query = searchQuery.toLowerCase();
-    return produits.filter((produit) =>
-      produit.designation?.toLowerCase().includes(query) ||
-      produit.reference?.toLowerCase().includes(query) ||
-      produit.barcode?.toLowerCase().includes(query) ||
-      produit.marque?.toLowerCase().includes(query)
-    );
-  }, [produits, searchQuery]);
+    let filtered = produits;
+    if (typeFilter) {
+      filtered = filtered.filter((p) => p.typeProduit === typeFilter);
+    }
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((produit) =>
+        produit.designation?.toLowerCase().includes(query) ||
+        produit.reference?.toLowerCase().includes(query) ||
+        produit.barcode?.toLowerCase().includes(query) ||
+        produit.marque?.toLowerCase().includes(query)
+      );
+    }
+    return filtered;
+  }, [produits, searchQuery, typeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProduits.length / ITEMS_PER_PAGE));
   const paginatedProduits = filteredProduits.slice(
@@ -251,17 +267,32 @@ export function ProduitsList() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
         {/* Left Column - Table */}
         <div className="lg:col-span-3 space-y-4 min-w-0">
-          {/* Search — logical start-3 so the icon flips in RTL; full-width
-              on mobile, max-w-md from sm up. */}
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
-            <Input
-              type="text"
-              placeholder={t('produits.search_ph')}
-              className="ps-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          {/* Search & Filter — search uses logical start-3 so the icon flips
+              in RTL; the type filter sits beside it (stacks on mobile). */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="relative w-full sm:max-w-md sm:flex-1">
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
+              <Input
+                type="text"
+                placeholder={t('produits.search_ph')}
+                className="ps-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-500"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v === 'all' ? '' : v); setCurrentPage(1); }}>
+              <SelectTrigger className="h-10 w-full sm:w-44 rounded-[4px] border-slate-200 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white">
+                <Filter className="h-4 w-4 me-2 text-slate-400" />
+                <SelectValue placeholder={t('produits.filter_all_types')} />
+              </SelectTrigger>
+              <SelectContent className="dark:bg-slate-900 dark:border-white/10">
+                <SelectItem value="all">{t('produits.filter_all_types')}</SelectItem>
+                <SelectItem value="monture">{t('produits.form.type_monture')}</SelectItem>
+                <SelectItem value="verre">{t('produits.form.type_verre')}</SelectItem>
+                <SelectItem value="lentille">{t('produits.form.type_lentille')}</SelectItem>
+                <SelectItem value="autre">{t('produits.form.type_autre')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Table */}
@@ -349,11 +380,22 @@ export function ProduitsList() {
                             {produit.marque && (
                               <span className="text-[11px] text-slate-400 italic dark:text-slate-500">{produit.marque}</span>
                             )}
-                            {produit.barcode && (
-                              <span className="text-[10px] font-mono text-slate-300 mt-0.5 dark:text-slate-600">
-                                {produit.barcode}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className={cn(
+                                "text-[10px] px-1.5 py-0 h-4 font-medium rounded-[2px] border",
+                                produit.typeProduit === 'monture' && "border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:bg-amber-500/10",
+                                produit.typeProduit === 'verre' && "border-blue-300 text-blue-700 bg-blue-50 dark:border-blue-500/30 dark:text-blue-400 dark:bg-blue-500/10",
+                                produit.typeProduit === 'lentille' && "border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-400 dark:bg-emerald-500/10",
+                                produit.typeProduit === 'autre' && "border-slate-300 text-slate-600 bg-slate-50 dark:border-slate-500/30 dark:text-slate-400 dark:bg-slate-500/10"
+                              )}>
+                                {t(`produits.form.type_${produit.typeProduit}`)}
+                              </Badge>
+                              {produit.barcode && (
+                                <span className="text-[10px] font-mono text-slate-300 dark:text-slate-600">
+                                  {produit.barcode}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-5">

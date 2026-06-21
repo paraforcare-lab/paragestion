@@ -45,8 +45,6 @@ interface Devis {
   montantTtc: number;
   montantTva: number;
   statut: string;
-  voiture?: string;
-  matricule?: string;
   lignes?: any[];
 }
 
@@ -116,8 +114,6 @@ export function DevisList() {
     montantTva: d.montant_tva,
     montantTtc: d.montant_ttc,
     statut: d.statut,
-    voiture: d.voiture,
-    matricule: d.matricule,
     lignes: d.lignes || [],
   });
 
@@ -258,8 +254,6 @@ export function DevisList() {
         montant_ttc: devis.montant_ttc,
         statut: 'en_attente',
         reste_a_payer: devis.montant_ttc,
-        voiture: devis.voiture,
-        matricule: devis.matricule,
         devis_id: id,
         numero: numero,
       };

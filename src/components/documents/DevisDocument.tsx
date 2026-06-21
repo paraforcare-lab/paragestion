@@ -61,8 +61,6 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
     const dateEmission = fmtDate(pickVal(devis, 'dateEmission', 'date_emission'))
     const dateValidite = fmtDate(pickVal(devis, 'dateValidite', 'date_echeance', 'dateEcheance'))
     const modePaiement = (pickVal(devis, 'modePaiement', 'mode_paiement') as string) || ''
-    const voiture = (pickVal(devis, 'voiture') as string) || ''
-    const matricule = (pickVal(devis, 'matricule') as string) || ''
     const conditionsPaiement = devis.conditionsPaiement || ''
     const client = pickVal(devis, 'client', 'fournisseur') || {}
     const entityName = client?.nomSociete || client?.nom || '-'
@@ -216,8 +214,6 @@ export const DevisDocument = forwardRef<HTMLDivElement, DevisDocumentProps>(
                 <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                   {(entityName || '-').toString().toUpperCase()}
                 </div>
-                {voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
-                {matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
                 {client?.ice       && <div>ICE: {client.ice}</div>}
                 {client?.telephone && <div>{client.telephone}</div>}
                 {client?.adresse   && <div>{client.adresse}</div>}

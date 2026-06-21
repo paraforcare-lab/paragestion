@@ -122,8 +122,6 @@ pub const MIGRATIONS: &[&str] = &[
         updated_at          TEXT    DEFAULT CURRENT_TIMESTAMP,
         mode_paiement       TEXT,
         date_echeance       TEXT,
-        voiture             TEXT,
-        matricule           TEXT,
         user_id             TEXT,
         FOREIGN KEY (client_id) REFERENCES clients(id)
     );
@@ -158,8 +156,6 @@ pub const MIGRATIONS: &[&str] = &[
         date_echeance       TEXT,
         statut              TEXT    DEFAULT 'brouillon',
         mode_paiement       TEXT,
-        voiture             TEXT,
-        matricule           TEXT,
         montant_ht          REAL    DEFAULT 0,
         montant_tva         REAL    DEFAULT 0,
         montant_ttc         REAL    DEFAULT 0,
@@ -207,8 +203,6 @@ pub const MIGRATIONS: &[&str] = &[
         montant_ttc   REAL    DEFAULT 0,
         statut        TEXT    DEFAULT 'brouillon',
         notes         TEXT,
-        voiture       TEXT,
-        matricule     TEXT,
         created_at    TEXT    DEFAULT CURRENT_TIMESTAMP,
         updated_at    TEXT    DEFAULT CURRENT_TIMESTAMP,
         user_id       TEXT,
@@ -367,8 +361,6 @@ pub const MIGRATIONS: &[&str] = &[
         facture_id      INTEGER,
         date_livraison  TEXT    DEFAULT CURRENT_DATE,
         statut          TEXT    DEFAULT 'en_attente',
-        voiture         TEXT,
-        matricule       TEXT,
         montant_ht      REAL    DEFAULT 0,
         montant_tva     REAL    DEFAULT 0,
         montant_ttc     REAL    DEFAULT 0,
@@ -605,6 +597,238 @@ pub const MIGRATIONS: &[&str] = &[
     "#,
 
     // -----------------------------------------------------------------
+    // OPTIQUE — Prescriptions (ordonnances)
+    //
+    // Eyewear prescriptions: OD (œil droit) / OG (œil gauche) values for
+    // vision de loin (VL) and vision de près (VP), prisms, visual acuity,
+    // fitting parameters and prescribed-lens specs. Translated from the
+    // Supabase MIGRATION_OPTIQUE / MIGRATION_OPTIQUE_V2 schema.
+    // -----------------------------------------------------------------
+    r#"
+    CREATE TABLE IF NOT EXISTS prescriptions (
+        id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id                     TEXT,
+        client_id                   INTEGER,
+        date_ordonnance             TEXT    DEFAULT CURRENT_DATE,
+        date_expiration             TEXT,
+        type_prescription           TEXT,
+        type_vision                 TEXT,
+        notes                       TEXT,
+
+        -- Prescriber (médecin traitant)
+        opticien_nom                TEXT,
+        opticien_adresse            TEXT,
+        opticien_telephone          TEXT,
+        medecin_traitant_nom        TEXT,
+        medecin_traitant_specialite TEXT,
+        medecin_traitant_telephone  TEXT,
+        medecin_traitant_email      TEXT,
+        medecin_traitant_adresse    TEXT,
+
+        -- Vision de loin (VL)
+        od_sph_vl                   REAL,
+        od_cyl_vl                   REAL,
+        od_axe_vl                   INTEGER,
+        od_add_vl                   REAL,
+        og_sph_vl                   REAL,
+        og_cyl_vl                   REAL,
+        og_axe_vl                   INTEGER,
+        og_add_vl                   REAL,
+
+        -- Vision de près (VP)
+        od_sph_vp                   REAL,
+        od_cyl_vp                   REAL,
+        od_axe_vp                   INTEGER,
+        od_add_vp                   REAL,
+        og_sph_vp                   REAL,
+        og_cyl_vp                   REAL,
+        og_axe_vp                   INTEGER,
+        og_add_vp                   REAL,
+
+        -- Acuité visuelle
+        od_av_vl                    REAL,
+        og_av_vl                    REAL,
+        od_av_vp                    REAL,
+        og_av_vp                    REAL,
+        od_av_nature                TEXT,
+        og_av_nature                TEXT,
+        od_av_vp_vl                 REAL,
+        og_av_vp_vl                 REAL,
+        od_av_vp_nature             TEXT,
+        og_av_vp_nature             TEXT,
+
+        -- Prismes (VL)
+        od_prisme_horizontal        REAL,
+        od_prisme_vertical          REAL,
+        od_prisme_base              TEXT,
+        og_prisme_horizontal        REAL,
+        og_prisme_vertical          REAL,
+        og_prisme_base              TEXT,
+
+        -- Prismes (VP)
+        od_prisme_vp_horizontal     REAL,
+        od_prisme_vp_vertical       REAL,
+        od_prisme_vp_base           TEXT,
+        og_prisme_vp_horizontal     REAL,
+        og_prisme_vp_vertical       REAL,
+        og_prisme_vp_base           TEXT,
+
+        -- Distance pupillaire / hauteurs
+        dp_binoculaire              REAL,
+        dp_od                       REAL,
+        dp_og                       REAL,
+        hauteur_od                  REAL,
+        hauteur_og                  REAL,
+
+        -- Paramètres de montage
+        distance_vertex             REAL,
+        inclinaison_pantoscopique   REAL,
+        angle_courbe_faciale        REAL,
+
+        -- Verre prescrit
+        verre_type                  TEXT,
+        verre_indice                REAL,
+        verre_traitement            TEXT,
+
+        -- Scan de l'ordonnance
+        scanned_url                 TEXT,
+
+        statut                      TEXT    DEFAULT 'active',
+        created_at                  TEXT    DEFAULT CURRENT_TIMESTAMP,
+        updated_at                  TEXT    DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+    );
+    "#,
+
+    // -----------------------------------------------------------------
+    // OPTIQUE — Ordres de travail (lab / atelier work orders)
+    //
+    // The optician's workshop workflow: brouillon -> envoye_labo ->
+    // recu_labo -> montage -> controle -> termine. Links a client +
+    // prescription to a frame and lens, with lab info and pricing.
+    // -----------------------------------------------------------------
+    r#"
+    CREATE TABLE IF NOT EXISTS ordres_travail (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id             TEXT,
+        client_id           INTEGER,
+        prescription_id     INTEGER,
+
+        numero_ordre        TEXT    NOT NULL,
+        date_creation       TEXT    DEFAULT CURRENT_DATE,
+        date_souhaitee      TEXT,
+        date_envoi_labo     TEXT,
+        date_reception_labo TEXT,
+        date_montage        TEXT,
+        date_controle       TEXT,
+        date_remise         TEXT,
+
+        statut              TEXT    DEFAULT 'brouillon',
+
+        -- Frame
+        produit_monture_id  INTEGER,
+        monture_reference   TEXT,
+        monture_designation TEXT,
+
+        -- Lens (stocked product OR free description)
+        produit_verre_id    INTEGER,
+        verre_type          TEXT,
+        verre_indice        REAL,
+        verre_traitement    TEXT,
+        verre_couleur       TEXT,
+        verre_designation   TEXT,
+
+        -- Lab instructions
+        instructions_labo   TEXT,
+        type_detourage      TEXT,
+        centrage_notes      TEXT,
+        biseau_type         TEXT,
+
+        -- Laboratory / supplier
+        labo_nom            TEXT,
+        labo_contact        TEXT,
+        labo_prix           REAL    DEFAULT 0,
+
+        -- Selling price
+        prix_vente_ht       REAL    DEFAULT 0,
+        taux_tva            REAL    DEFAULT 20,
+
+        created_at          TEXT    DEFAULT CURRENT_TIMESTAMP,
+        updated_at          TEXT    DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (client_id)         REFERENCES clients(id),
+        FOREIGN KEY (prescription_id)   REFERENCES prescriptions(id),
+        FOREIGN KEY (produit_monture_id) REFERENCES produits(id),
+        FOREIGN KEY (produit_verre_id)  REFERENCES produits(id)
+    );
+    "#,
+
+    // -----------------------------------------------------------------
+    // OPTIQUE — Rendez-vous (appointments)
+    // -----------------------------------------------------------------
+    r#"
+    CREATE TABLE IF NOT EXISTS rendez_vous (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id          TEXT,
+        client_id        INTEGER,
+        prescription_id  INTEGER,
+        ordre_travail_id INTEGER,
+
+        date_rdv         TEXT    NOT NULL,
+        heure_rdv        TEXT    NOT NULL,
+        duree_minutes    INTEGER DEFAULT 30,
+        type_rdv         TEXT    NOT NULL,
+        statut           TEXT    DEFAULT 'planifie',
+        notes            TEXT,
+        rappel_sms       INTEGER DEFAULT 0,
+        rappel_email     INTEGER DEFAULT 0,
+        rappel_envoye    INTEGER DEFAULT 0,
+
+        created_at       TEXT    DEFAULT CURRENT_TIMESTAMP,
+        updated_at       TEXT    DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (client_id)        REFERENCES clients(id),
+        FOREIGN KEY (prescription_id)  REFERENCES prescriptions(id),
+        FOREIGN KEY (ordre_travail_id) REFERENCES ordres_travail(id)
+    );
+    "#,
+
+    // -----------------------------------------------------------------
+    // OPTIQUE — NGAP reimbursement codes (Moroccan nomenclature)
+    // -----------------------------------------------------------------
+    r#"
+    CREATE TABLE IF NOT EXISTS ngap_codes (
+        id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+        code                      TEXT    NOT NULL UNIQUE,
+        libelle                   TEXT    NOT NULL,
+        tarif_tnr                 REAL,
+        taux_remboursement_cnops  REAL,
+        taux_remboursement_cnss   REAL,
+        categorie                 TEXT,
+        actif                     INTEGER DEFAULT 1,
+        created_at                TEXT    DEFAULT CURRENT_TIMESTAMP
+    );
+    "#,
+
+    // -----------------------------------------------------------------
+    // OPTIQUE — Ayants droit (client dependents / beneficiaries)
+    // -----------------------------------------------------------------
+    r#"
+    CREATE TABLE IF NOT EXISTS ayants_droit (
+        id                INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id           TEXT,
+        client_id         INTEGER,
+        nom               TEXT    NOT NULL,
+        prenom            TEXT    NOT NULL,
+        date_naissance    TEXT,
+        lien_parente      TEXT,
+        cnops_matricule   TEXT,
+        cnss_numero       TEXT,
+        mutuelle_numero   TEXT,
+        created_at        TEXT    DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+    );
+    "#,
+
+    // -----------------------------------------------------------------
     // Helpful indexes on hot foreign-key paths
     // -----------------------------------------------------------------
     "CREATE INDEX IF NOT EXISTS idx_users_email                 ON users(email);",
@@ -631,10 +855,36 @@ pub const MIGRATIONS: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_notifications_user_id       ON notifications(user_id);",
     "CREATE INDEX IF NOT EXISTS idx_produits_reference          ON produits(reference);",
     "CREATE INDEX IF NOT EXISTS idx_produits_barcode            ON produits(barcode);",
+
+    // -------------------- OPTIQUE indexes --------------------------------
+    "CREATE INDEX IF NOT EXISTS idx_prescriptions_client        ON prescriptions(client_id);",
+    "CREATE INDEX IF NOT EXISTS idx_prescriptions_user          ON prescriptions(user_id);",
+    "CREATE INDEX IF NOT EXISTS idx_ordres_travail_client       ON ordres_travail(client_id);",
+    "CREATE INDEX IF NOT EXISTS idx_ordres_travail_user         ON ordres_travail(user_id);",
+    "CREATE INDEX IF NOT EXISTS idx_ordres_travail_statut       ON ordres_travail(statut);",
+    "CREATE INDEX IF NOT EXISTS idx_rdv_client                  ON rendez_vous(client_id);",
+    "CREATE INDEX IF NOT EXISTS idx_rdv_user                    ON rendez_vous(user_id);",
+    "CREATE INDEX IF NOT EXISTS idx_rdv_date                    ON rendez_vous(date_rdv);",
+    "CREATE INDEX IF NOT EXISTS idx_ayants_droit_client         ON ayants_droit(client_id);",
+
+    // -------------------- OPTIQUE seed: NGAP codes -----------------------
+    r#"
+    INSERT OR IGNORE INTO ngap_codes (code, libelle, tarif_tnr, taux_remboursement_cnops, taux_remboursement_cnss, categorie) VALUES
+        ('FQ',    'Monture de lunettes (forfait)', 200, 80, 70, 'optique'),
+        ('FV',    'Verre simple foyer',            150, 80, 70, 'optique'),
+        ('FV-MF', 'Verre multifocal/progressif',   300, 80, 70, 'optique'),
+        ('LENT',  'Lentille de contact par œil',   250, 80, 70, 'lentille'),
+        ('CS',    'Consultation spécialiste',      150, 80, 70, 'consultation'),
+        ('CG',    'Consultation généraliste',       80, 80, 70, 'consultation'),
+        ('REF',   'Réfraction (examen de vue)',    100, 80, 70, 'acte');
+    "#,
 ];
 
 /// Current schema version (bump when adding migrations).
 ///
 ///   v1 — initial Supabase-parity schema (Task 2).
 ///   v2 — adds the `users` table for offline authentication (Task 4A).
-pub const SCHEMA_VERSION: i64 = 2;
+///   v3 — Optique: prescriptions, rendez_vous, ordres_travail, ngap_codes,
+///        ayants_droit tables + optical columns on produits/clients/factures/
+///        facture_lignes/parametres.
+pub const SCHEMA_VERSION: i64 = 3;

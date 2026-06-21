@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "SmartGestion",
-    "tagline": "إدارة السيارات"
+    "tagline": "إدارة البصريات"
   },
   "auth": {
     "login_title":        "تسجيل الدخول",
@@ -20,6 +20,13 @@
     "toast_error":        "حدث خطأ أثناء تسجيل الدخول"
   },
   "dashboard": {
+    "coming_up": {
+      "title": "المواعيد القادمة",
+      "subtitle": "مواعيدك القادمة",
+      "none": "لا توجد مواعيد قادمة",
+      "appointments_one": "{{count}} موعد",
+      "appointments_other": "{{count}} مواعيد"
+    },
     "date_range": {
       "placeholder": "تصفية حسب الفترة",
       "today": "اليوم",
@@ -97,6 +104,20 @@
       "low_stock": "مخزون منخفض",
       "optimal_title": "المخزون مثالي",
       "optimal_subtitle": "جميع منتجاتك مزوّدة بشكل جيد"
+    },
+    "expiry_alerts": {
+      "expired_title": "منتهي الصلاحية",
+      "expired_empty": "لا توجد عناصر منتهية الصلاحية",
+      "due_title": "قريباً منتهي الصلاحية",
+      "due_empty": "لا توجد عناصر على وشك الانتهاء",
+      "price_title": "تنبيهات الأسعار",
+      "price_empty": "لا يوجد تغير في الأسعار",
+      "kind_ordonnance": "وصفة طبية",
+      "kind_lunette": "نظارة",
+      "doc_facture": "فاتورة",
+      "doc_vp": "بيع عابر",
+      "price_doc": "سعر الوثيقة",
+      "price_current": "السعر الحالي"
     },
     "tva": {
       "section_title": "ملخص الضريبة (TVA)",
@@ -207,7 +228,16 @@
     "summary": {
       "pending_invoices": "الفواتير المعلقة",
       "new_clients": "عملاء جدد",
-      "stock_alerts": "تنبيهات المخزون"
+      "stock_alerts": "تنبيهات المخزون",
+      "expiry_alerts": "آجال الانتهاء"
+    },
+    "expiry": {
+      "title": "آجال الانتهاء القادمة",
+      "subtitle": "الوصفات والنظارات التي تقترب من انتهاء صلاحيتها",
+      "kind_prescription": "وصفة طبية",
+      "kind_lunette": "تجديد النظارات",
+      "days_left_one": "{{count}} يوم",
+      "days_left_other": "{{count}} أيام"
     }
   },
   "navigation": {
@@ -226,10 +256,14 @@
     "suppliers": "الموردون",
     "products": "المنتجات",
     "settings": "الإعدادات",
-    "transactions": "المعاملات"
+    "transactions": "المعاملات",
+    "prescriptions": "الوصفات الطبية",
+    "appointments": "المواعيد",
+    "work_orders": "أوامر العمل"
   },
   "nav": {
     "general": "لوحة التحكم",
+    "optique": "البصريات",
     "ventes": "المبيعات",
     "achats": "المشتريات",
     "contacts": "جهات الاتصال",
@@ -475,15 +509,13 @@
       "validity_date":       "تاريخ الصلاحية",
       "planned_delivery":    "تاريخ التسليم المتوقع",
       "payment_mode":        "طريقة الدفع",
-      "vehicle":             "السيارة",
-      "vehicle_placeholder": "اسم السيارة",
-      "matricule":           "رقم التسجيل",
       "suggested_payment":   "طريقة الدفع المقترحة",
       "notes":               "ملاحظات",
       "notes_placeholder":   "ملاحظات للعميل...",
       "conditions":          "شروط الدفع",
       "lines_section":       "بنود الوثيقة",
       "add_line":            "إضافة بند",
+      "add_product":         "إضافة منتج",
       "choose_product":      "اختر...",
       "client_label":        "العميل *",
       "supplier_label":      "المورد *",
@@ -1136,7 +1168,52 @@
     "col_vat":         "ض.ق.م",
     "col_price_ttc":   "السعر (ش.ض)",
     "col_stock":       "المخزون",
-    "col_actions":     "الإجراءات"
+    "col_actions":     "الإجراءات",
+    "form": {
+      "type_produit":        "نوع المنتج",
+      "type_produit_ph":     "اختر نوعاً",
+      "type_monture":        "إطار",
+      "type_verre":          "عدسة",
+      "type_lentille":       "عدسة لاصقة",
+      "type_autre":          "آخر",
+      "section_verre":         "خصائص العدسة",
+      "verre_type":            "نوع العدسة",
+      "verre_indice":          "معامل الانكسار",
+      "verre_traitement":      "المعالجة",
+      "verre_couleur":         "اللون / الصبغة",
+      "ph_verre_type":         "أحادية، متدرجة، ثنائية...",
+      "ph_verre_traitement":   "مضاد للانعكاس، متلون، حاجب أزرق...",
+      "section_lentille":      "خصائص العدسة اللاصقة",
+      "lentille_type":         "نوع العدسة اللاصقة",
+      "lentille_marque":       "العلامة التجارية",
+      "lentille_courbe_base":  "انحناء القاعدة (BC)",
+      "lentille_diametre":     "القطر (DIA)",
+      "solution_volume_ml":    "حجم المحلول (مل)",
+      "solution_type":         "نوع المحلول",
+      "ph_lentille_type":      "يومية، شهرية، توريك...",
+      "section_monture":       "خصائص الإطار",
+      "monture_taille":        "المقاس (عين/جسر/ذراع)",
+      "monture_couleur":       "اللون",
+      "monture_matiere":       "المادة",
+      "monture_forme":         "الشكل",
+      "monture_genre":         "الجنس",
+      "genre_homme":           "رجالي",
+      "genre_femme":           "نسائي",
+      "genre_enfant":          "أطفال",
+      "genre_mixte":           "مشترك",
+      "monture_largeur":       "A Boxing — عرض الزجاجة (مم)",
+      "monture_hauteur":       "B Boxing — ارتفاع الزجاجة (مم)",
+      "monture_ponte":         "الجسر (مم)",
+      "section_tracabilite":   "التتبع واللوجستيك",
+      "fournisseur_ref":       "مرجع المورد",
+      "emplacement":           "الموقع في المتجر",
+      "lot":                   "رقم الدفعة",
+      "date_peremption":       "تاريخ الصلاحية",
+      "garantie_mois":         "الضمان (أشهر)",
+      "ph_color":              "أسود، صدفي، شفاف...",
+      "ph_matiere":            "أسيتات، تيتانيوم، معدن...",
+      "ph_forme":              "دائري، مربع، فراشة..."
+    }
   },
   "transactions": {
     "page_title":      "المعاملات",
@@ -1252,7 +1329,7 @@
       "payment_conditions":  "شروط الدفع الافتراضية",
       "payment_terms_ph":    "مثال: الدفع عند الاستلام خلال 30 يوماً",
       "footer":              "التذييل الافتراضي",
-      "footer_ph":           "مثال: شكراً لثقتك. SmartGestion - نظامك لإدارة السيارات.",
+      "footer_ph":           "مثال: شكراً لثقتك. SmartGestion - نظامك لإدارة البصريات.",
       "watermark":           "العلامة المائية",
       "watermark_desc":      "تفعيل العلامة المائية على مستندات PDF",
       "watermark_text":      "نص العلامة المائية",
@@ -1313,6 +1390,143 @@
       "postal_required":       "الرمز البريدي مطلوب",
       "phone_required":        "الهاتف مطلوب",
       "email_invalid":         "البريد الإلكتروني غير صالح"
+    }
+  },
+  "rendez_vous": {
+    "page_title": "المواعيد",
+    "page_subtitle": "إدارة مواعيد عملائك",
+    "new_button": "موعد جديد",
+    "dialog_create": "موعد جديد",
+    "dialog_edit": "تعديل الموعد",
+    "dialog_subtitle_create": "حدد موعداً جديداً",
+    "dialog_subtitle_edit": "تعديل الموعد",
+    "search_ph": "البحث حسب العميل...",
+    "loading": "جارٍ تحميل المواعيد...",
+    "empty_filtered": "لم يتم العثور على موعد",
+    "empty_all": "لا توجد مواعيد مجدولة",
+    "create_first": "حدد موعداً",
+    "toast_saved": "تم حفظ الموعد بنجاح",
+    "toast_deleted": "تم حذف الموعد",
+    "toast_load_error": "خطأ أثناء التحميل",
+    "filter_all_status": "كل الحالات",
+    "filter_all_types": "كل الأنواع",
+    "statut_planifie": "مجدول",
+    "statut_confirme": "مؤكد",
+    "statut_effectue": "تم",
+    "statut_annule": "ملغى",
+    "statut_reporte": "مؤجل",
+    "type_examen_vue": "فحص النظر",
+    "type_essayage": "قياس",
+    "type_livraison": "تسليم",
+    "type_reparation": "إصلاح",
+    "type_reglage": "ضبط",
+    "type_rappel_periodique": "تذكير دوري",
+    "type_autre": "أخرى",
+    "col_client": "العميل",
+    "col_date": "التاريخ",
+    "col_heure": "الوقت",
+    "col_type": "النوع",
+    "col_status": "الحالة",
+    "col_actions": "إجراءات",
+    "form": {
+      "client_label": "العميل *",
+      "date_rdv": "تاريخ الموعد *",
+      "heure_rdv": "الوقت *",
+      "duree": "المدة (دقائق)",
+      "type_rdv": "النوع *",
+      "notes": "ملاحظات",
+      "rappel_sms": "تذكير بالرسائل القصيرة",
+      "rappel_email": "تذكير بالبريد الإلكتروني"
+    }
+  },
+  "ordres_travail": {
+    "page_title": "أوامر العمل",
+    "page_subtitle": "متابعة الورشة والمختبر",
+    "new_button": "أمر جديد",
+    "dialog_create": "أمر عمل جديد",
+    "dialog_edit": "تعديل أمر العمل",
+    "dialog_subtitle_create": "أنشئ أمراً للمختبر",
+    "dialog_subtitle_edit": "تعديل أمر العمل",
+    "search_ph": "البحث حسب العميل أو الرقم...",
+    "empty_filtered": "لم يتم العثور على أمر",
+    "empty_all": "لا توجد أوامر عمل",
+    "delete_title": "حذف أمر العمل",
+    "delete_description": "لا يمكن التراجع عن هذا الإجراء.",
+    "toast_saved": "تم حفظ أمر العمل",
+    "toast_deleted": "تم حذف أمر العمل",
+    "toast_load_error": "خطأ أثناء التحميل",
+    "filter_all_status": "كل الحالات",
+    "statut_brouillon": "مسودة",
+    "statut_envoye_labo": "أُرسل إلى المختبر",
+    "statut_recu_labo": "استُلم من المختبر",
+    "statut_montage": "تركيب",
+    "statut_controle": "مراقبة الجودة",
+    "statut_termine": "مكتمل",
+    "statut_annule": "ملغى",
+    "col_numero": "رقم الأمر",
+    "col_client": "العميل",
+    "col_date": "التاريخ",
+    "col_statut": "الحالة",
+    "col_actions": "إجراءات",
+    "section_general": "معلومات عامة",
+    "section_monture": "الإطار",
+    "section_verre": "العدسة",
+    "section_labo": "المختبر",
+    "validation": {
+      "numero_required": "الرقم مطلوب"
+    },
+    "form": {
+      "client": "العميل",
+      "prescription": "الوصفة الطبية",
+      "numero": "رقم الأمر",
+      "statut": "الحالة",
+      "date_creation": "تاريخ الإنشاء",
+      "date_souhaitee": "التاريخ المطلوب",
+      "monture_reference": "مرجع الإطار",
+      "monture_designation": "تسمية الإطار",
+      "verre_type": "نوع العدسة",
+      "verre_indice": "المؤشر",
+      "verre_traitement": "المعالجة",
+      "labo_nom": "اسم المختبر",
+      "labo_prix": "سعر المختبر (دون ضريبة)",
+      "prix_vente_ht": "سعر البيع (دون ضريبة)",
+      "instructions": "تعليمات للمختبر"
+    }
+  },
+  "prescriptions": {
+    "page_title": "الوصفات الطبية",
+    "page_subtitle": "إدارة وصفات عملائك الطبية"
+  },
+  "optique": {
+    "client": {
+      "section_insurance": "التأمين والصحة",
+      "date_naissance": "تاريخ الميلاد",
+      "couverture_sociale": "التغطية الاجتماعية",
+      "couverture_none": "لا شيء",
+      "couverture_cnops": "CNOPS",
+      "couverture_cnss": "CNSS",
+      "couverture_mutuelle": "تعاضدية",
+      "couverture_prive": "تأمين خاص",
+      "cnops_matricule": "رقم تسجيل CNOPS",
+      "cnss_numero": "رقم CNSS",
+      "mutuelle_nom": "اسم التعاضدية",
+      "mutuelle_numero": "رقم العضوية بالتعاضدية",
+      "medecin_traitant": "الطبيب المعالج",
+      "medecin_telephone": "هاتف الطبيب"
+    },
+    "invoice": {
+      "type_label": "نوع الفاتورة",
+      "type_simple": "بسيطة",
+      "type_optique": "بصريات",
+      "prescription_label": "الوصفة المرتبطة",
+      "prescription_ph": "اختر وصفة",
+      "prescription_none": "لا شيء",
+      "prise_en_charge_label": "نوع التغطية",
+      "prise_none": "لا شيء",
+      "bon_prise_en_charge": "رقم سند التغطية",
+      "od": "العين اليمنى",
+      "og": "العين اليسرى",
+      "od_og": "اليمنى/اليسرى"
     }
   }
 }

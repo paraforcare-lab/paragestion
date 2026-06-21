@@ -52,10 +52,6 @@ export function AvoirForm({ onSuccess }: AvoirFormProps) {
   const avoirSchema = z.object({
     clientId: z.string().min(1, t('shared.validation.client_required')),
     dateEmission: z.string().min(1, t('shared.validation.emission_date_required')),
-    voiture: z.string().optional(),
-    matricule1: z.string().optional(),
-    matricule2: z.string().optional(),
-    matricule3: z.string().optional(),
     notes: z.string().optional(),
     lignes: z.array(ligneSchema).min(1, t('shared.validation.lines_min')),
   });
@@ -67,10 +63,6 @@ export function AvoirForm({ onSuccess }: AvoirFormProps) {
     defaultValues: {
       clientId: '',
       dateEmission: new Date().toISOString().split('T')[0],
-      voiture: '',
-      matricule1: '',
-      matricule2: '',
-      matricule3: '',
       notes: '',
       lignes: [
         {
@@ -158,10 +150,6 @@ export function AvoirForm({ onSuccess }: AvoirFormProps) {
         facture_id: null,
         client_id: data.clientId === 'none' ? null : Number(data.clientId),
         date_emission: new Date(data.dateEmission).toISOString(),
-        voiture: data.voiture || '',
-        matricule: [data.matricule1, data.matricule2, data.matricule3]
-          .map((p) => (p || '').trim())
-          .join(' / '),
         montant_ht: Number(totals.ht) || 0,
         montant_tva: Number(totals.tva) || 0,
         montant_ttc: Number(totals.ttc) || 0,
@@ -258,39 +246,6 @@ export function AvoirForm({ onSuccess }: AvoirFormProps) {
             {form.formState.errors.dateEmission && (
               <p className="text-xs text-red-500 font-medium">{form.formState.errors.dateEmission.message}</p>
             )}
-          </div>
-
-          <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.vehicle')}</Label>
-            <Input
-              type="text"
-              placeholder={t('shared.form.vehicle_placeholder')}
-              className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300"
-              {...form.register('voiture')}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-start-3">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.matricule')}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule1')}
-              />
-              <span className="text-slate-500 font-semibold">/</span>
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule2')}
-              />
-              <span className="text-slate-500 font-semibold">/</span>
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule3')}
-              />
-            </div>
           </div>
         </div>
       </div>

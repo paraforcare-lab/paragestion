@@ -536,8 +536,6 @@ const handleAvoirLogic = async (factureId: any, newStatut: string, oldStatut: st
           facture_id: factureId,
           client_id: facture.client_id,
           date_emission: new Date().toISOString().split('T')[0],
-          voiture: facture.voiture,
-          matricule: facture.matricule,
           montant_ht: Number(facture.montant_ht || 0),
           montant_tva: Number(facture.montant_tva || 0),
           montant_ttc: Number(facture.montant_ttc || 0),
@@ -1356,8 +1354,6 @@ router.post('/factures', async (req, res) => {
       date_echeance: factureData.dateEcheance,
       statut: factureData.statut || 'brouillon',
       mode_paiement: factureData.modePaiement,
-      voiture: factureData.voiture,
-      matricule: factureData.matricule,
       montant_ht: Number(factureData.montantHt || 0),
       montant_tva: Number(factureData.montantTva || 0),
       montant_ttc: Number(factureData.montantTtc || 0),
@@ -1480,8 +1476,6 @@ router.put('/factures/:id', async (req, res) => {
     if (factureData.dateEcheance !== undefined) updateData.date_echeance = factureData.dateEcheance;
     if (factureData.statut !== undefined) updateData.statut = factureData.statut;
     if (factureData.modePaiement !== undefined) updateData.mode_paiement = factureData.modePaiement;
-    if (factureData.voiture !== undefined) updateData.voiture = factureData.voiture;
-    if (factureData.matricule !== undefined) updateData.matricule = factureData.matricule;
     if (factureData.montantHt !== undefined) updateData.montant_ht = Number(factureData.montantHt || 0);
     if (factureData.montantTva !== undefined) updateData.montant_tva = Number(factureData.montantTva || 0);
     if (factureData.montantTtc !== undefined) updateData.montant_ttc = Number(factureData.montantTtc || 0);
@@ -1793,8 +1787,6 @@ router.post('/devis', async (req, res) => {
       date_validite: devisData.dateValidite,
       statut: devisData.statut || 'brouillon',
       mode_paiement: devisData.modePaiement,
-      voiture: devisData.voiture,
-      matricule: devisData.matricule,
       montant_ht: Number(devisData.montantHt || 0),
       montant_tva: Number(devisData.montantTva || 0),
       montant_ttc: Number(devisData.montantTtc || 0),
@@ -1903,8 +1895,6 @@ router.put('/devis/:id', async (req, res) => {
     if (devisData.dateValidite !== undefined) updateData.date_validite = devisData.dateValidite;
     if (devisData.statut !== undefined) updateData.statut = devisData.statut;
     if (devisData.modePaiement !== undefined) updateData.mode_paiement = devisData.modePaiement;
-    if (devisData.voiture !== undefined) updateData.voiture = devisData.voiture;
-    if (devisData.matricule !== undefined) updateData.matricule = devisData.matricule;
     if (devisData.montantHt !== undefined) updateData.montant_ht = Number(devisData.montantHt || 0);
     if (devisData.montantTva !== undefined) updateData.montant_tva = Number(devisData.montantTva || 0);
     if (devisData.montantTtc !== undefined) updateData.montant_ttc = Number(devisData.montantTtc || 0);
@@ -2016,8 +2006,6 @@ router.post('/devis/:id/convert', async (req, res) => {
         statut: 'en_attente',
         reste_a_payer: devis.montant_ttc,
         mode_paiement: devis.mode_paiement,
-        voiture: devis.voiture,
-        matricule: devis.matricule,
         notes: `Facture gÃ©nÃ©rÃ©e Ã  partir du devis ${devis.numero}`
       }])
       .select()

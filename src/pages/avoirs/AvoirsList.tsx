@@ -44,8 +44,6 @@ interface Avoir {
   montantTva: number;
   montantTtc: number;
   statut: string;
-  voiture?: string;
-  matricule?: string;
 }
 
 interface StatutOption {
@@ -114,8 +112,6 @@ export function AvoirsList() {
     montantTva: Number(a.montant_tva || a.montantTva || 0),
     montantTtc: Number(a.montant_ttc || a.montantTtc || 0),
     statut: a.statut || 'en_attente',
-    voiture: a.voiture,
-    matricule: a.matricule,
   });
 
   const fetchAvoirs = async () => {
@@ -216,8 +212,6 @@ export function AvoirsList() {
         clientId: avoir.clientId,
         dateEmission: avoir.dateEmission,
         dateEcheance: avoir.dateEmission,
-        voiture: avoir.voiture || '',
-        matricule: avoir.matricule || '',
         montantHt: avoir.montantHt,
         montantTva: avoir.montantTva,
         montantTtc: avoir.montantTtc,

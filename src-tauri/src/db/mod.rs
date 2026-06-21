@@ -145,17 +145,107 @@ fn apply_migrations(conn: &Connection) -> DbResult<()> {
             conn.execute_batch(stmt)?;
         }
 
-        // Idempotently add columns introduced after the initial schema to
-        // databases that already exist (CREATE TABLE IF NOT EXISTS won't add
-        // them). SQLite errors if the column already exists, so guard each one.
-        add_column_if_missing(conn, "factures", "voiture", "TEXT")?;
-        add_column_if_missing(conn, "factures", "matricule", "TEXT")?;
-        add_column_if_missing(conn, "devis", "voiture", "TEXT")?;
-        add_column_if_missing(conn, "devis", "matricule", "TEXT")?;
-        add_column_if_missing(conn, "avoirs", "voiture", "TEXT")?;
-        add_column_if_missing(conn, "avoirs", "matricule", "TEXT")?;
-        add_column_if_missing(conn, "bons_livraison_client", "voiture", "TEXT")?;
-        add_column_if_missing(conn, "bons_livraison_client", "matricule", "TEXT")?;
+        // -----------------------------------------------------------------
+        // OPTIQUE — optical columns added to existing tables.
+        //
+        // These extend the base SmartGestion tables for an optician
+        // business. They are added idempotently so that both fresh and
+        // pre-existing databases converge to the same shape without
+        // touching the original CREATE TABLE definitions.
+        // -----------------------------------------------------------------
+
+        // produits — article types & optical characteristics
+        add_column_if_missing(conn, "produits", "type_produit",        "TEXT DEFAULT 'monture'")?;
+        add_column_if_missing(conn, "produits", "monture_taille",      "TEXT")?;
+        add_column_if_missing(conn, "produits", "monture_couleur",     "TEXT")?;
+        add_column_if_missing(conn, "produits", "monture_matiere",     "TEXT")?;
+        add_column_if_missing(conn, "produits", "monture_forme",       "TEXT")?;
+        add_column_if_missing(conn, "produits", "monture_genre",       "TEXT")?;
+        add_column_if_missing(conn, "produits", "monture_largeur_nb",  "REAL")?;
+        add_column_if_missing(conn, "produits", "monture_hauteur_nb",  "REAL")?;
+        add_column_if_missing(conn, "produits", "monture_ponte_nb",    "REAL")?;
+        add_column_if_missing(conn, "produits", "verre_type",          "TEXT")?;
+        add_column_if_missing(conn, "produits", "verre_indice",        "REAL")?;
+        add_column_if_missing(conn, "produits", "verre_traitement",    "TEXT")?;
+        add_column_if_missing(conn, "produits", "verre_couleur",       "TEXT")?;
+        add_column_if_missing(conn, "produits", "lentille_type",       "TEXT")?;
+        add_column_if_missing(conn, "produits", "lentille_courbe_base","REAL")?;
+        add_column_if_missing(conn, "produits", "lentille_diametre",   "REAL")?;
+        add_column_if_missing(conn, "produits", "lentille_marque",     "TEXT")?;
+        add_column_if_missing(conn, "produits", "solution_volume_ml",  "INTEGER")?;
+        add_column_if_missing(conn, "produits", "solution_type",       "TEXT")?;
+        add_column_if_missing(conn, "produits", "fournisseur_ref",     "TEXT")?;
+        add_column_if_missing(conn, "produits", "emplacement",         "TEXT")?;
+        add_column_if_missing(conn, "produits", "date_peremption",     "TEXT")?;
+        add_column_if_missing(conn, "produits", "lot",                 "TEXT")?;
+        add_column_if_missing(conn, "produits", "garantie_mois",       "INTEGER DEFAULT 24")?;
+
+        // clients — medical / insurance fields
+        add_column_if_missing(conn, "clients", "type_client",            "TEXT DEFAULT 'particulier'")?;
+        add_column_if_missing(conn, "clients", "couverture_sociale",     "TEXT")?;
+        add_column_if_missing(conn, "clients", "couverture_sociale_detail", "TEXT")?;
+        add_column_if_missing(conn, "clients", "assurance_nom",          "TEXT")?;
+        add_column_if_missing(conn, "clients", "assurance_numero",       "TEXT")?;
+        add_column_if_missing(conn, "clients", "cnops_matricule",        "TEXT")?;
+        add_column_if_missing(conn, "clients", "cnss_numero",            "TEXT")?;
+        add_column_if_missing(conn, "clients", "mutuelle_nom",           "TEXT")?;
+        add_column_if_missing(conn, "clients", "mutuelle_numero",        "TEXT")?;
+        add_column_if_missing(conn, "clients", "medecin_traitant",       "TEXT")?;
+        add_column_if_missing(conn, "clients", "medecin_telephone",      "TEXT")?;
+        add_column_if_missing(conn, "clients", "medecin_adresse",        "TEXT")?;
+        add_column_if_missing(conn, "clients", "date_naissance",         "TEXT")?;
+        add_column_if_missing(conn, "clients", "genre",                  "TEXT")?;
+        add_column_if_missing(conn, "clients", "cine",                   "TEXT")?;
+        add_column_if_missing(conn, "clients", "lunette_expiration_date","TEXT")?;
+
+        // factures — optical / prise-en-charge fields
+        add_column_if_missing(conn, "factures", "type",                       "TEXT DEFAULT 'simple'")?;
+        add_column_if_missing(conn, "factures", "prescription_id",            "INTEGER")?;
+        add_column_if_missing(conn, "factures", "ordre_travail_id",           "INTEGER")?;
+        add_column_if_missing(conn, "factures", "type_prise_en_charge",       "TEXT")?;
+        add_column_if_missing(conn, "factures", "numero_bon_prise_en_charge", "TEXT")?;
+        add_column_if_missing(conn, "factures", "droit_timbre",               "REAL DEFAULT 0")?;
+        add_column_if_missing(conn, "factures", "ngap_code_id",               "INTEGER")?;
+        add_column_if_missing(conn, "factures", "montant_base_remboursement", "REAL DEFAULT 0")?;
+        add_column_if_missing(conn, "factures", "taux_remboursement",         "REAL DEFAULT 0")?;
+        add_column_if_missing(conn, "factures", "montant_rembourse",          "REAL DEFAULT 0")?;
+        add_column_if_missing(conn, "factures", "reste_a_charge_client",      "REAL DEFAULT 0")?;
+
+        // facture_lignes — optical per-line fields
+        add_column_if_missing(conn, "facture_lignes", "prescription_id", "INTEGER")?;
+        add_column_if_missing(conn, "facture_lignes", "od_og",           "TEXT")?;
+        add_column_if_missing(conn, "facture_lignes", "prix_od_ht",      "REAL")?;
+        add_column_if_missing(conn, "facture_lignes", "prix_og_ht",      "REAL")?;
+
+        // prescriptions — independent "Vision de près" (VP) Nature AV & Prisme
+        // columns (so Progressif VL/VP don't share the same values).
+        add_column_if_missing(conn, "prescriptions", "od_av_vp_vl",             "REAL")?;
+        add_column_if_missing(conn, "prescriptions", "og_av_vp_vl",             "REAL")?;
+        add_column_if_missing(conn, "prescriptions", "od_av_vp_nature",         "TEXT")?;
+        add_column_if_missing(conn, "prescriptions", "og_av_vp_nature",         "TEXT")?;
+        add_column_if_missing(conn, "prescriptions", "od_prisme_vp_horizontal", "REAL")?;
+        add_column_if_missing(conn, "prescriptions", "od_prisme_vp_vertical",   "REAL")?;
+        add_column_if_missing(conn, "prescriptions", "od_prisme_vp_base",       "TEXT")?;
+        add_column_if_missing(conn, "prescriptions", "og_prisme_vp_horizontal", "REAL")?;
+        add_column_if_missing(conn, "prescriptions", "og_prisme_vp_vertical",   "REAL")?;
+        add_column_if_missing(conn, "prescriptions", "og_prisme_vp_base",       "TEXT")?;
+
+        // bons_commande — Verre Commande (optical) fields
+        add_column_if_missing(conn, "bons_commande", "type",      "TEXT DEFAULT 'simple'")?;
+        add_column_if_missing(conn, "bons_commande", "client_id", "INTEGER")?;
+        // bon_commande_lignes — linked prescription for verre orders
+        add_column_if_missing(conn, "bon_commande_lignes", "prescription_id", "INTEGER")?;
+
+        // parametres — optician establishment settings
+        add_column_if_missing(conn, "parametres", "type_etablissement",    "TEXT DEFAULT 'opticien'")?;
+        add_column_if_missing(conn, "parametres", "numero_ordre_opticien", "TEXT")?;
+        add_column_if_missing(conn, "parametres", "licence",               "TEXT")?;
+        add_column_if_missing(conn, "parametres", "cnops_conventionne",    "INTEGER DEFAULT 0")?;
+        add_column_if_missing(conn, "parametres", "cnss_conventionne",     "INTEGER DEFAULT 0")?;
+        add_column_if_missing(conn, "parametres", "taux_cnops",            "REAL DEFAULT 80")?;
+        add_column_if_missing(conn, "parametres", "taux_cnss",             "REAL DEFAULT 70")?;
+        add_column_if_missing(conn, "parametres", "taux_tva_verre",        "REAL DEFAULT 20")?;
+        add_column_if_missing(conn, "parametres", "taux_tva_monture",      "REAL DEFAULT 20")?;
 
         // Record the version (idempotent thanks to INSERT OR IGNORE).
         conn.execute(

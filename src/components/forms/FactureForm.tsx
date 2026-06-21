@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,6 +35,7 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
   const isEditing = !!initialData?.id;
   const [clients, setClients] = useState<any[]>([]);
   const [produits, setProduits] = useState<any[]>([]);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [parametres, setParametres] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,6 +46,9 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     quantite: z.number().min(0.01, t('shared.validation.qty_min')),
     prixUnitaireHt: z.number().min(0, t('shared.validation.price_positive')),
     tva: z.number().min(0, t('shared.validation.vat_positive')),
+    prescriptionId: z.string().optional(),
+    prixOdHt: z.coerce.number().optional(),
+    prixOgHt: z.coerce.number().optional(),
   });
 
   const factureSchema = z.object({
@@ -53,10 +57,8 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     dateEcheance: z.string().optional(),
     statut: z.string().min(1, t('shared.validation.status_required')),
     modePaiement: z.string().optional(),
-    voiture: z.string().optional(),
-    matricule1: z.string().optional(),
-    matricule2: z.string().optional(),
-    matricule3: z.string().optional(),
+    type: z.string().optional(),
+    prescriptionId: z.string().optional(),
     notes: z.string().optional(),
     conditionsPaiement: z.string().optional(),
     resteAPayer: z.number().min(0, t('shared.validation.balance_positive')).optional(),
@@ -73,10 +75,8 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
       dateEcheance: '',
       statut: 'brouillon',
       modePaiement: 'Virement',
-      voiture: '',
-      matricule1: '',
-      matricule2: '',
-      matricule3: '',
+      type: 'simple',
+      prescriptionId: '',
       notes: '',
       conditionsPaiement: '',
       resteAPayer: 0,
@@ -112,20 +112,19 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
         setParametres(parametresData?.[0] || null);
         
         if (initialData) {
-          const matriculeRaw = initialData.matricule ?? initialData.matricule1 ?? '';
-          const matriculeParts = String(matriculeRaw).split('/').map((p: string) => p.trim());
           form.reset({
             ...initialData,
             clientId: initialData.clientId?.toString() || '',
-            voiture: initialData.voiture || '',
-            matricule1: initialData.matricule1 ?? matriculeParts[0] ?? '',
-            matricule2: initialData.matricule2 ?? matriculeParts[1] ?? '',
-            matricule3: initialData.matricule3 ?? matriculeParts[2] ?? '',
+            type: initialData.type || initialData.type_facture || 'simple',
+            prescriptionId: (initialData.prescriptionId ?? initialData.prescription_id)?.toString() || '',
             dateEmission: initialData.dateEmission ? new Date(initialData.dateEmission).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             dateEcheance: initialData.dateEcheance ? new Date(initialData.dateEcheance).toISOString().split('T')[0] : '',
             lignes: initialData.lignes?.map((l: any) => ({
               ...l,
               produitId: l.produitId?.toString() || '',
+              prescriptionId: l.prescriptionId?.toString() || '',
+              prixOdHt: l.prixOdHt ?? l.prix_od_ht ?? '',
+              prixOgHt: l.prixOgHt ?? l.prix_og_ht ?? '',
             })) || [],
           });
         } else if (parametresData?.[0]) {
@@ -143,6 +142,53 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
   const watchStatut = form.watch('statut');
   const watchResteAPayer = form.watch('resteAPayer');
   const watchModePaiement = form.watch('modePaiement');
+  const watchType = form.watch('type');
+  const isOptique = watchType === 'optique';
+  const watchClientId = form.watch('clientId');
+  const watchPrescriptionId = form.watch('prescriptionId');
+  const [selectedPrescription, setSelectedPrescription] = useState<any>(null);
+
+  // Fetch prescriptions when client changes — nothing is shown until a client
+  // is selected, and only that client's active ordonnances are listed.
+  useEffect(() => {
+    if (watchClientId) {
+      supabase
+        .from('prescriptions')
+        .select('*')
+        .eq('client_id', parseInt(watchClientId))
+        .eq('statut', 'active')
+        .order('date_ordonnance', { ascending: false })
+        .then(({ data }) => setPrescriptions(data || []));
+    } else {
+      setPrescriptions([]);
+    }
+  }, [watchClientId]);
+
+  // Update selected prescription when prescriptionId changes
+  useEffect(() => {
+    if (watchPrescriptionId) {
+      const p = prescriptions.find((p) => p.id.toString() === watchPrescriptionId);
+      setSelectedPrescription(p || null);
+    } else {
+      setSelectedPrescription(null);
+    }
+  }, [watchPrescriptionId, prescriptions]);
+
+  // When type changes to optique, set 2 lines (monture, verre); simple = 1 line
+  useEffect(() => {
+    if (!initialData) {
+      if (watchType === 'optique') {
+        form.setValue('lignes', [
+          { designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20 },
+          { designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20 },
+        ]);
+      } else if (watchType === 'simple') {
+        form.setValue('lignes', [
+          { designation: '', quantite: 1, prixUnitaireHt: 0, tva: 20 },
+        ]);
+      }
+    }
+  }, [watchType]);
 
   // Calculate totals
   const baseTotals = watchLignes.reduce(
@@ -210,10 +256,8 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
         numero: invoiceNum || initialData?.numero,
         statut: data.statut || 'brouillon',
         mode_paiement: data.modePaiement || 'Virement',
-        voiture: data.voiture || '',
-        matricule: [data.matricule1, data.matricule2, data.matricule3]
-          .map((p) => (p || '').trim())
-          .join(' / '),
+        type: data.type || 'simple',
+        prescription_id: data.type === 'optique' && data.prescriptionId ? Number(data.prescriptionId) : null,
         notes: data.notes || '',
         conditions_paiement: data.conditionsPaiement || '',
         montant_ht: Number(totals.ht) || 0,
@@ -250,6 +294,9 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
         tva: Number(ligne.tva) || 20,
         montant_ht: Number(ligne.prixUnitaireHt || 0) * Number(ligne.quantite || 1) || 0,
         montant_ttc: (Number(ligne.prixUnitaireHt || 0) * Number(ligne.quantite || 1)) * (1 + Number(ligne.tva || 20) / 100) || 0,
+        prix_od_ht: data.type === 'optique' ? (ligne.prixOdHt || null) : null,
+        prix_og_ht: data.type === 'optique' ? (ligne.prixOgHt || null) : null,
+        prescription_id: (ligne.prescriptionId || (data.type === 'optique' && data.prescriptionId)) ? Number(ligne.prescriptionId || data.prescriptionId) : null,
         ordre: index,
       }));
 
@@ -283,11 +330,22 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
   const handleProduitSelect = (index: number, produitId: string) => {
     const produit = produits.find((p) => p.id.toString() === produitId);
     if (produit) {
+      const isVerre = (produit.type_produit || produit.typeProduit) === 'verre';
       form.setValue(`lignes.${index}.produitId`, produit.id.toString());
       form.setValue(`lignes.${index}.reference`, produit.reference || '');
       form.setValue(`lignes.${index}.designation`, produit.designation || produit.nom || '');
-      form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt || produit.prix_vente_ht || 0));
       form.setValue(`lignes.${index}.tva`, Number(produit.taux_tva ?? produit.tauxTva ?? produit.tva ?? 20));
+      if (isVerre) {
+        const halfPrice = (Number(produit.prixVenteHt || produit.prix_vente_ht || 0) / 2);
+        form.setValue(`lignes.${index}.prixOdHt`, halfPrice);
+        form.setValue(`lignes.${index}.prixOgHt`, halfPrice);
+        form.setValue(`lignes.${index}.prixUnitaireHt`, halfPrice * 2);
+        form.setValue(`lignes.${index}.quantite`, 1);
+      } else {
+        form.setValue(`lignes.${index}.prixUnitaireHt`, Number(produit.prixVenteHt || produit.prix_vente_ht || 0));
+        form.setValue(`lignes.${index}.prixOdHt`, '' as any);
+        form.setValue(`lignes.${index}.prixOgHt`, '' as any);
+      }
     }
   };
 
@@ -295,6 +353,22 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
       <div className="dark:bg-slate-900/40 dark:border-white/10 bg-slate-50 p-4 rounded-sm border border-slate-200">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-2">
+            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('optique.invoice.type_label')}</Label>
+            <Select
+              value={form.watch('type') || 'simple'}
+              onValueChange={(val) => form.setValue('type', val)}
+            >
+              <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-300">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="simple">{t('optique.invoice.type_simple')}</SelectItem>
+                <SelectItem value="optique">{t('optique.invoice.type_optique')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.client_label')}</Label>
             <Select
@@ -369,41 +443,51 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
               </SelectContent>
             </Select>
           </div>
+        </div>
 
+      </div>
+
+      {isOptique && (
+        <div className="dark:bg-sky-900/20 dark:border-sky-500/30 bg-sky-50 p-4 rounded-sm border border-sky-200">
           <div className="space-y-2">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.vehicle')}</Label>
-            <Input
-              type="text"
-              placeholder={t('shared.form.vehicle_placeholder')}
-              className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300"
-              {...form.register('voiture')}
-            />
-          </div>
-
-          <div className="space-y-2 md:col-start-3">
-            <Label className="dark:text-slate-400 text-slate-700 font-semibold">{t('shared.form.matricule')}</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule1')}
-              />
-              <span className="text-slate-500 font-semibold">/</span>
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule2')}
-              />
-              <span className="text-slate-500 font-semibold">/</span>
-              <Input
-                type="text"
-                className="dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-300 text-center"
-                {...form.register('matricule3')}
-              />
-            </div>
+            <Label className="dark:text-sky-300 text-sky-700 font-semibold flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              {t('optique.invoice.prescription_label')}
+            </Label>
+            <Select
+              value={form.watch('prescriptionId') || ''}
+              onValueChange={(val) => form.setValue('prescriptionId', val)}
+            >
+              <SelectTrigger className="dark:bg-slate-950/50 dark:border-white/10 bg-white border-sky-300">
+                <SelectValue placeholder={t('optique.invoice.prescription_ph')} />
+              </SelectTrigger>
+              <SelectContent>
+                {prescriptions.length === 0 && (
+                  <SelectItem value="__none" disabled>
+                    {watchClientId ? 'Aucune ordonnance active pour ce client' : t('optique.invoice.prescription_ph')}
+                  </SelectItem>
+                )}
+                {prescriptions.map((p) => {
+                  const odStr = `OD: ${p.od_sph_vl ?? '-'}${p.od_cyl_vl ? ` (${p.od_cyl_vl})` : ''}`;
+                  const ogStr = `OG: ${p.og_sph_vl ?? '-'}${p.og_cyl_vl ? ` (${p.og_cyl_vl})` : ''}`;
+                  return (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      {p.date_ordonnance} — {odStr} / {ogStr}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {selectedPrescription && (
+              <div className="text-xs text-sky-600 dark:text-sky-400 mt-1 space-y-0.5">
+                <span className="font-medium">Verre prescrit:</span> {selectedPrescription.verre_type || 'Non spécifié'}
+                {selectedPrescription.verre_indice && <span> — Indice: {selectedPrescription.verre_indice}</span>}
+                {selectedPrescription.verre_traitement && <span> — Traitement: {selectedPrescription.verre_traitement}</span>}
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between border-b dark:border-white/10 pb-2">
@@ -418,7 +502,7 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
             }
           >
             <Plus className="h-4 w-4 mr-2" />
-            {t('shared.form.add_line')}
+            {isOptique ? t('shared.form.add_product') : t('shared.form.add_line')}
           </Button>
         </div>
 
@@ -448,77 +532,137 @@ export function FactureForm({ initialData, onSuccess }: FactureFormProps) {
                 const selectedProduct = selectedProductId ? produits.find(p => p.id.toString() === selectedProductId) : null;
                 const displayText = selectedProduct ? (selectedProduct.nom || selectedProduct.reference || '-') : (ligne?.designation || '');
 
+                const isOptiqueMode = isOptique;
+                const isOptiqueMontureLine = isOptiqueMode && index === 0;
+                const isOptiqueVerreLine = isOptiqueMode && index === 1;
+                // Extra optique lines (index >= 2) behave like a normal product
+                // line so the user can add a lentille / autre product.
+                const isOptiqueExtraLine = isOptiqueMode && index >= 2;
+                const isVerreProduct = (selectedProduct?.type_produit || selectedProduct?.typeProduit) === 'verre';
+                const showOdOgPrices = isOptiqueVerreLine || (isVerreProduct && !isOptiqueMode);
+
+                // Filter products by type for optique mode
+                let filteredProduits = produits;
+                if (isOptiqueMontureLine) {
+                  filteredProduits = produits.filter(p => (p.type_produit || p.typeProduit) === 'monture');
+                } else if (isOptiqueVerreLine) {
+                  filteredProduits = produits.filter(p => (p.type_produit || p.typeProduit) === 'verre');
+                } else if (isOptiqueExtraLine) {
+                  filteredProduits = produits.filter(p => {
+                    const tp = p.type_produit || p.typeProduit;
+                    return tp !== 'monture' && tp !== 'verre';
+                  });
+                }
+
                 return (
-                  <tr key={field.id}>
-                    <td className="p-2">
-                      <Select
-                        value={selectedProductId || ""}
-                        onValueChange={(val) => handleProduitSelect(index, val)}
-                      >
-                        <SelectTrigger className="h-9 dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-200">
-                          {selectedProductId ? (
-                            <span className={!selectedProduct ? 'text-orange-500' : ''}>
-                              {displayText}
-                            </span>
-                          ) : (
-                            <SelectValue placeholder={t('shared.form.choose_product')} />
-                          )}
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[400px] overflow-y-auto">
-                          {produits.map((p) => (
-                            <SelectItem key={p.id} value={p.id.toString()}>
-                              {p.nom || p.reference || '-'}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        className="h-9 dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
-                        {...form.register(`lignes.${index}.designation`)}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="h-9 text-right dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
-                        {...form.register(`lignes.${index}.quantite`, { valueAsNumber: true })}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="h-9 text-right dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
-                        {...form.register(`lignes.${index}.prixUnitaireHt`, { valueAsNumber: true })}
-                      />
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        className="h-9 text-right dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
-                        {...form.register(`lignes.${index}.tva`, { valueAsNumber: true })}
-                      />
-                    </td>
-                    <td className="p-2 text-right font-semibold dark:text-card-foreground text-slate-700 align-middle">
-                      {formatCurrency(totalHt)}
-                    </td>
-                    <td className="p-2 text-center align-middle">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-red-400 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => remove(index)}
-                        disabled={fields.length === 1}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={field.id}>
+                    <tr className={isOptiqueMode ? (isOptiqueMontureLine ? 'dark:bg-amber-500/5 bg-amber-50/30' : 'dark:bg-sky-500/5 bg-sky-50/30') : ''}>
+                      <td className="p-2">
+                        <Select
+                          value={selectedProductId || ""}
+                          onValueChange={(val) => handleProduitSelect(index, val)}
+                        >
+                          <SelectTrigger className="h-9 dark:bg-slate-950/50 dark:border-white/10 bg-white border-slate-200">
+                            {selectedProductId ? (
+                              <span className={!selectedProduct ? 'text-orange-500' : ''}>
+                                {displayText}
+                              </span>
+                            ) : (
+                              <SelectValue placeholder={isOptiqueMontureLine ? 'Choisir une monture...' : isOptiqueVerreLine ? 'Choisir un verre...' : t('shared.form.choose_product')} />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[400px] overflow-y-auto">
+                            {filteredProduits.length === 0 && (
+                              <SelectItem value="__none" disabled>Aucun produit disponible</SelectItem>
+                            )}
+                            {filteredProduits.map((p) => (
+                              <SelectItem key={p.id} value={p.id.toString()}>
+                                {p.nom || p.reference || '-'}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        <Input
+                          className="h-9 dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
+                          {...form.register(`lignes.${index}.designation`)}
+                        />
+                      </td>
+                      <td className="p-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-9 text-right dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
+                          {...form.register(`lignes.${index}.quantite`, { valueAsNumber: true })}
+                        />
+                      </td>
+                      <td className="p-2">
+                        {showOdOgPrices ? (
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Prix OD"
+                              className="h-9 text-right dark:bg-amber-500/5 dark:border-amber-500/30 bg-amber-50 border-amber-200 text-xs"
+                              {...form.register(`lignes.${index}.prixOdHt`, { valueAsNumber: true })}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value) || 0;
+                                const og = parseFloat(String(form.watch(`lignes.${index}.prixOgHt`))) || 0;
+                                form.setValue(`lignes.${index}.prixOdHt`, v);
+                                form.setValue(`lignes.${index}.prixUnitaireHt`, v + og);
+                              }}
+                            />
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Prix OG"
+                              className="h-9 text-right dark:bg-sky-500/5 dark:border-sky-500/30 bg-sky-50 border-sky-200 text-xs"
+                              {...form.register(`lignes.${index}.prixOgHt`, { valueAsNumber: true })}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value) || 0;
+                                const od = parseFloat(String(form.watch(`lignes.${index}.prixOdHt`))) || 0;
+                                form.setValue(`lignes.${index}.prixOgHt`, v);
+                                form.setValue(`lignes.${index}.prixUnitaireHt`, od + v);
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="h-9 text-right dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
+                            {...form.register(`lignes.${index}.prixUnitaireHt`, { valueAsNumber: true })}
+                          />
+                        )}
+                      </td>
+                      <td className="p-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-9 text-right dark:bg-slate-950/50 dark:border-white/10 dark:focus:border-[#267E54] bg-white border-slate-200"
+                          {...form.register(`lignes.${index}.tva`, { valueAsNumber: true })}
+                        />
+                      </td>
+                      <td className="p-2 text-right font-semibold dark:text-card-foreground text-slate-700 align-middle">
+                        {formatCurrency(totalHt)}
+                      </td>
+                      <td className="p-2 text-center align-middle">
+                        {(!isOptiqueMode || isOptiqueExtraLine) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 dark:text-muted-foreground dark:hover:text-red-400 dark:hover:bg-red-500/10 text-red-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => remove(index)}
+                            disabled={fields.length === 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 );
               })}
             </tbody>

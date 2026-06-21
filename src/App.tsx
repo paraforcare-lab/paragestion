@@ -25,6 +25,9 @@ import { Parametres } from './pages/parametres/Parametres'
 import { DatabaseManager } from './pages/DatabaseManager'
 import { SqlEditor } from './pages/SqlEditor'
 import { TransactionsList } from './pages/transactions/TransactionsList'
+import { PrescriptionsList } from './pages/prescriptions/PrescriptionsList'
+import { RendezVousList } from './pages/rendez-vous/RendezVousList'
+import { OrdresTravailList } from './pages/ordres-travail/OrdresTravailList'
 import { Toaster } from '@/components/ui/sonner'
 import i18n from './lib/i18n'
 
@@ -81,6 +84,9 @@ export default function App() {
               <Route path="clients" element={<ClientsList />} />
               <Route path="fournisseurs" element={<FournisseursList />} />
               <Route path="produits" element={<ProduitsList />} />
+              <Route path="prescriptions" element={<PrescriptionsList />} />
+              <Route path="rendez-vous" element={<RendezVousList />} />
+              <Route path="ordres-travail" element={<OrdresTravailList />} />
               <Route path="factures" element={<FacturesList />} />
               <Route path="ventes-passagers" element={<VentesPassagers />} />
               <Route path="avoirs" element={<AvoirsList />} />

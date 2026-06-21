@@ -55,8 +55,6 @@ interface BonLivraisonClient {
   montantTva: number;
   montantTtc: number;
   statut: string;
-  voiture?: string;
-  matricule?: string;
   lignes?: any[];
 }
 
@@ -131,8 +129,6 @@ export function BonsLivraisonClientList() {
     montantTva: Number(b.montant_tva || 0),
     montantTtc: Number(b.montant_ttc || 0),
     statut: b.statut || 'en_attente',
-    voiture: b.voiture,
-    matricule: b.matricule,
   });
 
   const fetchBons = async () => {

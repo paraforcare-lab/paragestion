@@ -51,6 +51,8 @@ export const RELATIONS: RelationMap = {
     devis:          { kind: 'belongsTo', fkColumn: 'devis_id' },
     facture_lignes: { kind: 'hasMany',   fkColumn: 'facture_id' },
     avoirs:         { kind: 'hasMany',   fkColumn: 'facture_id' },
+    prescriptions:  { kind: 'belongsTo', fkColumn: 'prescription_id' },
+    ordres_travail: { kind: 'belongsTo', fkColumn: 'ordre_travail_id' },
   },
   facture_lignes: {
     factures: { kind: 'belongsTo', fkColumn: 'facture_id' },
@@ -78,6 +80,7 @@ export const RELATIONS: RelationMap = {
   // -------------------- purchasing-side --------------------------------
   bons_commande: {
     fournisseurs:        { kind: 'belongsTo', fkColumn: 'fournisseur_id' },
+    clients:             { kind: 'belongsTo', fkColumn: 'client_id' },
     bon_commande_lignes: { kind: 'hasMany',   fkColumn: 'bon_commande_id' },
     bons_livraison:      { kind: 'hasMany',   fkColumn: 'bon_commande_id' },
     avoirs_fournisseur:  { kind: 'hasMany',   fkColumn: 'bon_commande_id' },
@@ -85,6 +88,7 @@ export const RELATIONS: RelationMap = {
   bon_commande_lignes: {
     bons_commande: { kind: 'belongsTo', fkColumn: 'bon_commande_id' },
     produits:      { kind: 'belongsTo', fkColumn: 'produit_id' },
+    prescriptions: { kind: 'belongsTo', fkColumn: 'prescription_id' },
   },
   bons_livraison: {
     fournisseurs:         { kind: 'belongsTo', fkColumn: 'fournisseur_id' },
@@ -138,12 +142,36 @@ export const RELATIONS: RelationMap = {
     produits: { kind: 'belongsTo', fkColumn: 'produit_id' },
   },
 
+  // -------------------- optique ----------------------------------------
+  prescriptions: {
+    clients:        { kind: 'belongsTo', fkColumn: 'client_id' },
+    rendez_vous:    { kind: 'hasMany',   fkColumn: 'prescription_id' },
+    ordres_travail: { kind: 'hasMany',   fkColumn: 'prescription_id' },
+  },
+  rendez_vous: {
+    clients:        { kind: 'belongsTo', fkColumn: 'client_id' },
+    prescriptions:  { kind: 'belongsTo', fkColumn: 'prescription_id' },
+    ordres_travail: { kind: 'belongsTo', fkColumn: 'ordre_travail_id' },
+  },
+  ordres_travail: {
+    clients:       { kind: 'belongsTo', fkColumn: 'client_id' },
+    prescriptions: { kind: 'belongsTo', fkColumn: 'prescription_id' },
+    produits:      { kind: 'belongsTo', fkColumn: 'produit_monture_id' },
+  },
+  ayants_droit: {
+    clients: { kind: 'belongsTo', fkColumn: 'client_id' },
+  },
+
   // -------------------- reverse lookups from the master tables --------
   clients: {
     factures:              { kind: 'hasMany', fkColumn: 'client_id' },
     devis:                 { kind: 'hasMany', fkColumn: 'client_id' },
     avoirs:                { kind: 'hasMany', fkColumn: 'client_id' },
     bons_livraison_client: { kind: 'hasMany', fkColumn: 'client_id' },
+    prescriptions:         { kind: 'hasMany', fkColumn: 'client_id' },
+    rendez_vous:           { kind: 'hasMany', fkColumn: 'client_id' },
+    ordres_travail:        { kind: 'hasMany', fkColumn: 'client_id' },
+    ayants_droit:          { kind: 'hasMany', fkColumn: 'client_id' },
   },
   fournisseurs: {
     bons_commande:      { kind: 'hasMany', fkColumn: 'fournisseur_id' },
@@ -204,8 +232,12 @@ export function parseSelectString(input: string): ParsedSelect {
     const part = raw.trim();
     if (!part) continue;
 
-    // relation form: `alias:table(cols)` or `table(cols)`
-    const relMatch = part.match(/^(?:([A-Za-z_][A-Za-z0-9_]*)\s*:\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)$/);
+    // relation form: `alias:table(cols)` or `table(cols)`.
+    // PostgREST inner/left-join hints (`clients!inner(nom)`,
+    // `clients!left(nom)`) are accepted and ignored — the local adapter
+    // always stitches via the declared RELATIONS map regardless of join
+    // kind, so the hint has no effect on the produced SQL.
+    const relMatch = part.match(/^(?:([A-Za-z_][A-Za-z0-9_]*)\s*:\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:![A-Za-z_]+)?\s*\(([^)]*)\)$/);
     if (relMatch) {
       const [, aliasMaybe, table, colsRaw] = relMatch;
       const cols = colsRaw

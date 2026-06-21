@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useMemo, type CSSProperties } from 'react'
 import { format, isValid, parseISO } from 'date-fns'
 import { getDateLocale } from '@/lib/utils'
 import { numberToFrenchWords } from '@/lib/numberToWords'
@@ -48,6 +48,29 @@ const makeFmtDate = (lang?: string) => (d: any): string => {
   }
 }
 
+/** Two-decimal money formatter for the optique layout. */
+const fmt2Money = (n: number): string =>
+  new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+
+function fmtSph(v: any): string {
+  if (v === null || v === undefined || v === '') return ''
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
+  if (isNaN(n)) return ''
+  const sign = n < 0 ? '- ' : n > 0 ? '+ ' : ''
+  return `${sign}${Math.abs(n).toFixed(2)}`
+}
+
+/** Optique prescription line, e.g. "- 5.00 (- 1.00 à 31°)". */
+function formatSphCyl(sph: any, cyl: any, axe: any): string {
+  const s = fmtSph(sph)
+  if (!s) return ''
+  const c = fmtSph(cyl)
+  const hasAxe = axe !== null && axe !== undefined && axe !== ''
+  if (!c && !hasAxe) return s
+  const a = hasAxe ? ` à ${axe}°` : ''
+  return `${s} (${c}${a})`
+}
+
 interface TvaBucket {
   rate: number
   baseHt: number
@@ -73,9 +96,303 @@ function computeTvaBuckets(lignes: any[]): TvaBucket[] {
   return Array.from(map.values()).sort((a, b) => b.rate - a.rate)
 }
 
+/** Single ordonnance cell value (Sph/Cyl/Axe/Add) → "- 0.25" / "-" when empty. */
+function fmtCell(v: any): string {
+  if (v === null || v === undefined || v === '') return '-'
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
+  if (isNaN(n)) return String(v)
+  // Sphere/cyl/add keep a sign; axis is an integer angle.
+  return n.toString()
+}
+
+/**
+ * Optique Bon de Commande layout — same simple paragestion document style as
+ * the standard bon (accent title pill, watermark, totals stack, amount in
+ * words, signatures, legal footer) but with optical content: the patient +
+ * ordonnance box, the VL / VP prescription grid (Sph/Cyl/Axe/Add for OD/OG)
+ * and a verre summary line. Used when the bon's `type === 'verre'`. Single A4.
+ */
+function OptiqueBonCommandeDocument({ bon, entreprise, lang }: { bon: any; entreprise: any; lang?: string }) {
+  const fmtDate = makeFmtDate(lang)
+  const p = bon.prescription || {}
+  const lignes = bon.lignes || []
+  const verreLigne = lignes[0] || {}
+  const totalTtc = pickNum(bon, 'montantTtc', 'montant_ttc')
+  const totalHt = pickNum(bon, 'montantHt', 'montant_ht')
+  const totalTva = pickNum(bon, 'montantTva', 'montant_tva')
+  const tvaRate = safeNum(verreLigne.tva ?? p.tva, 20)
+  const amountWords = numberToFrenchWords(Math.abs(Number(totalTtc)))
+  const numero = bon.numero || '-'
+  const dateEmission = fmtDate(pickVal(bon, 'dateEmission', 'dateCommande', 'date', 'date_emission'))
+
+  const client = bon.client || {}
+  const el = entreprise || {}
+
+  const verrePrix = pickNum(verreLigne, 'prixUnitaireHt', 'prix_unitaire_ht', 'montantHt', 'montant_ht')
+  const verreQte = safeNum(verreLigne.quantite, 1)
+  const verreType = p.verre_type || ''
+  const dateOrdonnance = fmtDate(pickVal(p, 'date_ordonnance', 'dateOrdonnance'))
+
+  // Type de vision label — Progressif / Vision de près / Vision de loin.
+  const visionTypeLabel = p.type_vision === 'progressif'
+    ? 'Progressif'
+    : p.type_vision === 'vp'
+      ? 'Vision de près'
+      : p.type_vision === 'vl'
+        ? 'Vision de loin'
+        : ''
+
+  const baseName = (client?.nomSociete || client?.nom || '-').toString().toUpperCase()
+
+  // Short OD/OG recap shown in the summary line (uses the chosen vision).
+  const odRecap = formatSphCyl(p.od_sph_vl, p.od_cyl_vl, p.od_axe_vl) || formatSphCyl(p.od_sph_vp, p.od_cyl_vp, p.od_axe_vp)
+  const ogRecap = formatSphCyl(p.og_sph_vl, p.og_cyl_vl, p.og_axe_vl) || formatSphCyl(p.og_sph_vp, p.og_cyl_vp, p.og_axe_vp)
+
+  // Prescription rows — Sph / Cyl / Axe / Add for both vision groups.
+  const rows = [
+    {
+      eye: 'OD',
+      vl: [p.od_sph_vl, p.od_cyl_vl, p.od_axe_vl, p.od_add_vl],
+      vp: [p.od_sph_vp, p.od_cyl_vp, p.od_axe_vp, p.od_add_vp],
+    },
+    {
+      eye: 'OG',
+      vl: [p.og_sph_vl, p.og_cyl_vl, p.og_axe_vl, p.og_add_vl],
+      vp: [p.og_sph_vp, p.og_cyl_vp, p.og_axe_vp, p.og_add_vp],
+    },
+  ]
+
+  const thMini: CSSProperties = { padding: '5px 6px', fontSize: '8pt', fontWeight: 700, textAlign: 'center', color: C.muted, textTransform: 'uppercase', letterSpacing: 0.3 }
+  const tdMini: CSSProperties = { padding: '8px 6px', fontSize: '9pt', textAlign: 'center', color: C.text, borderTop: `0.5pt solid ${C.borderSoft}` }
+
+  return (
+    <>
+      <style>{`
+        @page { margin: 0; size: A4; }
+        @media print {
+          html, body { margin: 0 !important; padding: 0 !important; }
+        }
+        .bcv-doc {
+          font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
+          color: ${C.text};
+          background: #fff;
+          position: relative;
+        }
+        .bcv-doc table { border-collapse: collapse; }
+        .bcv-watermark {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(-45deg);
+          font-size: 80pt;
+          font-weight: 900;
+          color: ${C.watermark};
+          z-index: 0;
+          white-space: nowrap;
+          pointer-events: none;
+          letter-spacing: 12px;
+          text-transform: uppercase;
+          user-select: none;
+        }
+      `}</style>
+      <div className="bcv-doc">
+        <div style={{
+          width: '210mm',
+          minHeight: '297mm',
+          padding: '15mm',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          boxSizing: 'border-box',
+        }}>
+          {entreprise?.activerFiligrane !== false && (
+            <div className="bcv-watermark">{entreprise?.watermarkText || 'SmartGestion'}</div>
+          )}
+
+          {/* ===== HEADER — same pill design as the standard bon ===== */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+              {el.logoUrl && (
+                <img src={el.logoUrl} alt="Logo" style={{ width: 100, height: 60, objectFit: 'contain', flexShrink: 0 }} />
+              )}
+              <div style={{ fontSize: '9pt', lineHeight: 1.6, color: C.text }}>
+                <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 6, letterSpacing: 0.3 }}>
+                  {(el.nom || el.nomEntreprise || 'Nom de l\'entreprise').toUpperCase()}
+                </div>
+                {el.adresse   && <div style={{ color: C.muted }}>{el.adresse}</div>}
+                {el.ville     && <div style={{ color: C.muted }}>{el.ville}</div>}
+                {el.telephone && <div style={{ color: C.muted }}>Tel: {el.telephone}</div>}
+                {el.email     && <div style={{ color: C.muted }}>Email: {el.email}</div>}
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'right', minWidth: 240 }}>
+              <div style={{
+                display: 'inline-block',
+                background: C.accent,
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: '13pt',
+                letterSpacing: 1.2,
+                padding: '10px 22px',
+                textTransform: 'uppercase',
+              }}>
+                Bon de Commande de Verre
+              </div>
+              <div style={{ fontSize: '9pt', marginTop: 8, color: C.text }}>
+                <strong style={{ color: C.title }}>N°:</strong> {numero}
+                <span style={{ marginLeft: 16 }}>
+                  <strong style={{ color: C.title }}>Date:</strong> {dateEmission}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ borderTop: `2px solid ${C.accent}`, marginBottom: 16 }} />
+
+          {/* ===== PATIENT + ORDONNANCE BOX ===== */}
+          <div style={{ border: `1px solid ${C.border}`, marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '12px 16px', borderBottom: `1px solid ${C.borderSoft}` }}>
+              <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, letterSpacing: 0.3 }}>
+                {baseName}
+              </div>
+              <div style={{ textAlign: 'right', fontSize: '9pt', color: C.muted, lineHeight: 1.6 }}>
+                {dateOrdonnance !== '-' && <div>Ordonnance du {dateOrdonnance}</div>}
+                {visionTypeLabel && <div>Type de vision: {visionTypeLabel}</div>}
+                {verreType && <div>Type: {verreType}</div>}
+              </div>
+            </div>
+
+            {/* Prescription grid — VL / VP, columns Sph/Cyl/Axe/Add */}
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={{ ...thMini, width: '8%' }}></th>
+                  <th colSpan={4} style={{ ...thMini, borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.title }}>VL (Vision de Loin)</th>
+                  <th colSpan={4} style={{ ...thMini, borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.title, borderLeft: `0.5pt solid ${C.borderSoft}` }}>VP (Vision de Près)</th>
+                </tr>
+                <tr>
+                  <th style={thMini}></th>
+                  <th style={thMini}>Sph</th>
+                  <th style={thMini}>Cyl</th>
+                  <th style={thMini}>Axe</th>
+                  <th style={thMini}>Add</th>
+                  <th style={{ ...thMini, borderLeft: `0.5pt solid ${C.borderSoft}` }}>Sph</th>
+                  <th style={thMini}>Cyl</th>
+                  <th style={thMini}>Axe</th>
+                  <th style={thMini}>Add</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.eye}>
+                    <td style={{ ...tdMini, fontWeight: 700, color: C.title }}>{r.eye}</td>
+                    {r.vl.map((v, i) => (
+                      <td key={`vl-${i}`} style={{ ...tdMini, ...(i === 0 ? { fontWeight: 700 } : null) }}>{fmtCell(v)}</td>
+                    ))}
+                    {r.vp.map((v, i) => (
+                      <td key={`vp-${i}`} style={{ ...tdMini, ...(i === 0 ? { borderLeft: `0.5pt solid ${C.borderSoft}`, fontWeight: 700 } : null) }}>{fmtCell(v)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* ===== VERRE SUMMARY LINE ===== */}
+          <div style={{ textAlign: 'right', fontSize: '9pt', color: C.text, marginBottom: 8 }}>
+            <strong style={{ color: C.title }}>
+              Verre{verreType ? ` ${verreType}` : ''}
+            </strong>
+            {(odRecap || ogRecap) && (
+              <span> — OD: {odRecap || '-'} / OG: {ogRecap || '-'}</span>
+            )}
+            <span> — PU HT: {fmt2Money(verrePrix)} DH × {verreQte}</span>
+          </div>
+
+          {/* Push totals + footer to the bottom of the page */}
+          <div style={{ flex: 1 }} />
+
+          {/* ===== AMOUNT IN WORDS (left) + TOTALS STACK (right) ===== */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 30, marginTop: 14 }}>
+            <div style={{ flex: 1, fontSize: '9pt', color: C.text, lineHeight: 1.6 }}>
+              <div style={{ fontStyle: 'italic', color: C.muted, marginBottom: 4 }}>
+                Arrêté le présent document à la somme de :
+              </div>
+              <div style={{ fontWeight: 700, color: C.title, textTransform: 'uppercase' }}>
+                {amountWords} dirhams
+              </div>
+            </div>
+            <table style={{ borderCollapse: 'collapse', fontSize: '9.5pt', width: 280 }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '8px 14px', textAlign: 'left',  background: C.rowAlt, borderBottom: `1px solid ${C.borderSoft}`, color: C.text }}>Total H.T</td>
+                  <td style={{ padding: '8px 14px', textAlign: 'right', background: C.rowAlt, borderBottom: `1px solid ${C.borderSoft}`, color: C.text, fontWeight: 700 }}>{fmt2Money(totalHt)}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '8px 14px', textAlign: 'left',  background: C.rowAlt, color: C.text }}>TVA {tvaRate}%</td>
+                  <td style={{ padding: '8px 14px', textAlign: 'right', background: C.rowAlt, color: C.text, fontWeight: 700 }}>{fmt2Money(totalTva)}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '12px 14px', textAlign: 'left',  background: C.accent, color: '#fff', fontWeight: 700, fontSize: '11pt', letterSpacing: 0.5, textTransform: 'uppercase' }}>Total TTC</td>
+                  <td style={{ padding: '12px 14px', textAlign: 'right', background: C.accent, color: '#fff', fontWeight: 800, fontSize: '11pt' }}>{fmt2Money(totalTtc)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ===== SIGNATURES ===== */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 40, gap: 60 }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ borderTop: `1px solid ${C.title}`, width: 200, margin: '0 auto 6px' }} />
+              <div style={{ fontSize: '9pt', color: C.muted, letterSpacing: 0.3 }}>
+                Cachet et Signature du Client
+              </div>
+            </div>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ borderTop: `1px solid ${C.title}`, width: 200, margin: '0 auto 6px' }} />
+              <div style={{ fontSize: '9pt', color: C.muted, letterSpacing: 0.3 }}>
+                Cachet et Signature de la Société
+              </div>
+            </div>
+          </div>
+
+          {/* ===== LEGAL FOOTER ===== */}
+          <div style={{
+            marginTop: 18,
+            paddingTop: 8,
+            borderTop: `1px solid ${C.borderSoft}`,
+            textAlign: 'center',
+            fontSize: '7.5pt',
+            lineHeight: 1.5,
+            color: C.muted,
+          }}>
+            {entreprise?.formeJuridique && entreprise?.capitalSocial && (
+              <span>{entreprise.formeJuridique} au Capital de {entreprise.capitalSocial} — </span>
+            )}
+            {entreprise?.rc && <span>R.C: {entreprise.rc} — </span>}
+            {entreprise?.ifNumber && <span>I.F: {entreprise.ifNumber} — </span>}
+            {entreprise?.ice && <span>I.C.E: {entreprise.ice}</span>}
+          </div>
+
+        </div>
+      </div>
+    </>
+  )
+}
+
 export const BonCommandeDocument = forwardRef<HTMLDivElement, BonCommandeDocumentProps>(
   ({ bon, entreprise, lang }, ref) => {
     if (!bon) return null
+
+    // Verre commandes use the dedicated optical layout (single page).
+    if (bon.type === 'verre') {
+      return (
+        <div ref={ref}>
+          <OptiqueBonCommandeDocument bon={bon} entreprise={entreprise} lang={lang} />
+        </div>
+      )
+    }
 
     const fmtDate = makeFmtDate(lang)
 

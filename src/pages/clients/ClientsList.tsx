@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  ArrowLeft, Plus, Search, FileEdit, Trash2, Users, Building2, User,
+  Plus, Search, FileEdit, Trash2, Users, Building2, User, ArrowLeft,
   ChevronLeft, ChevronRight, Mail, Phone, MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button'
@@ -154,7 +154,7 @@ export function ClientsList() {
   const particuliersCount = clients.filter(c => c.type === 'particulier').length;
 
   return (
-    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <ConfirmDialog
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
@@ -164,21 +164,23 @@ export function ClientsList() {
       />
 
       {showForm ? (
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={closeForm}>
-              <ArrowLeft className="h-5 w-5 rtl:rotate-180" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="min-w-0">
-              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground">
                 {editingClient ? t('clients.dialog_edit') : t('clients.dialog_create')}
               </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                {editingClient ? t('clients.dialog_subtitle_edit', { name: editingClient.nom }) : t('clients.dialog_subtitle_create')}
+              <p className="text-sm text-muted-foreground">
+                {editingClient
+                  ? t('clients.dialog_subtitle_edit', { name: editingClient.nom })
+                  : t('clients.dialog_subtitle_create')}
               </p>
             </div>
           </div>
-          <div className="rounded-sm dark:bg-card dark:border-white/10 border border-slate-200 bg-white p-4 sm:p-6">
+          <div className="rounded-[6px] border border-slate-200 bg-white p-8 dark:bg-slate-900 dark:border-white/10">
             <ClientForm
               initialData={editingClient}
               onSuccess={() => {
@@ -190,179 +192,46 @@ export function ClientsList() {
         </div>
       ) : (
         <>
-          {/* Header — stacks below sm, becomes inline at sm+ */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-emerald-50 border border-emerald-200/50 dark:bg-emerald-500/10 dark:border-emerald-500/20 shrink-0">
-                <Users className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">{t('clients.page_title')}</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
-                  {t('clients.page_subtitle')}
-                </p>
-              </div>
-            </div>
-            {/* On mobile the button is full-width for easy tapping; from sm
-                up it shrinks back to its content width. */}
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center h-10 w-10 rounded-[6px] bg-blue-50 border border-blue-200/50 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+            <Users className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">{t('clients.page_title')}</h2>
+            <p className="text-sm text-muted-foreground">
+              {t('clients.page_subtitle')}
+            </p>
+          </div>
+        </div>
+
             <Button
               onClick={openNewForm}
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-[4px] h-10 px-5 shadow-none"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-[4px] h-10 px-5 shadow-none"
             >
-              <Plus className="me-2 h-4 w-4" />
+              <Plus className="mr-2 h-4 w-4" />
               {t('clients.new_button')}
             </Button>
-          </div>
+      </div>
 
-      {/* Main grid:
-          - Mobile/tablet (<lg): single column. The summary card moves BELOW
-            the list so the user-critical data table is visible first on
-            short screens.
-          - Desktop (lg+): 3-col table + 1-col summary side-by-side. */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-        {/* Left Column - List */}
-        <div className="lg:col-span-3 space-y-4 min-w-0">
-          {/* Search — logical `start-3` so the icon flips to the right edge
-              in RTL. Full width on mobile, max-w-md from sm up. */}
-          <div className="relative w-full sm:max-w-md">
-            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Column - Table */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Search */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none dark:text-slate-500" />
             <Input
               type="text"
               placeholder={t('clients.search_ph')}
-              className="ps-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-400"
+              className="pl-9 h-10 bg-white border-slate-200 rounded-[4px] focus:border-slate-300 shadow-none text-sm dark:bg-[#0F172A] dark:border-white/10 dark:text-white dark:placeholder:text-slate-400"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
 
-          {/* Mobile card list (<md) — each client becomes a tappable card.
-              This avoids horizontal scrolling on phones where the 6-column
-              table cannot fit. The same data is shown, prioritised vertically. */}
-          <div className="md:hidden space-y-2">
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 rounded-[6px] border border-slate-200 bg-white dark:bg-slate-900/60 dark:border-white/10">
-                <div className="h-8 w-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
-                <p className="text-sm text-muted-foreground font-medium">{t('clients.loading')}</p>
-              </div>
-            ) : paginatedClients.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 rounded-[6px] border border-slate-200 bg-white dark:bg-slate-900/60 dark:border-white/10">
-                <div className="bg-slate-50 rounded-[6px] p-4 border border-slate-100 dark:bg-slate-900/40 dark:border-white/5">
-                  <Users className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-                </div>
-                <p className="text-sm text-slate-500 font-medium dark:text-slate-400 text-center px-4">
-                  {searchQuery ? t('clients.empty_filtered') : t('clients.empty_all')}
-                </p>
-                {!searchQuery && (
-                  <Button variant="outline" className="rounded-[4px] text-sm" onClick={openNewForm}>
-                    <Plus className="me-2 h-4 w-4" />
-                    {t('clients.create_first')}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              paginatedClients.map((client) => {
-                const initials = (client.nom || '?').charAt(0).toUpperCase();
-                return (
-                  <div
-                    key={client.id}
-                    className="rounded-[6px] border border-slate-200 bg-white p-3 dark:bg-slate-900/60 dark:border-white/10"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar size="sm" className="h-9 w-9 border border-slate-200 dark:border-white/10 shrink-0">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${client.nom}`} />
-                        <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                          {initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-white truncate">{client.nom || '-'}</p>
-                            <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
-                              {client.code || `C${client.id}`}
-                            </p>
-                          </div>
-                          {/* Type badge */}
-                          <span className={cn(
-                            "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0",
-                            client.type === 'entreprise'
-                              ? "bg-sky-50 text-sky-700 border border-sky-200/50 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200/50 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
-                          )}>
-                            {client.type === 'entreprise' ? (
-                              <Building2 className="h-3 w-3 me-1" />
-                            ) : (
-                              <User className="h-3 w-3 me-1" />
-                            )}
-                            {client.type === 'entreprise' ? t('clients.type_company') : t('clients.type_individual')}
-                          </span>
-                        </div>
-
-                        {/* Contact strip */}
-                        <div className="mt-2 space-y-1">
-                          {client.email && (
-                            <p className="text-xs text-slate-500 flex items-center gap-1.5 dark:text-slate-400 truncate">
-                              <Mail className="h-3 w-3 text-slate-400 shrink-0 dark:text-slate-500" />
-                              {client.email}
-                            </p>
-                          )}
-                          {client.telephone && (
-                            <p className="text-xs text-slate-500 flex items-center gap-1.5 dark:text-slate-400" dir="ltr">
-                              <Phone className="h-3 w-3 text-slate-400 shrink-0 dark:text-slate-500" />
-                              {client.telephone}
-                            </p>
-                          )}
-                          {client.adresse && (
-                            <p className="text-[11px] text-slate-400 flex items-start gap-1 dark:text-slate-500">
-                              <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
-                              <span className="line-clamp-1">{client.adresse}</span>
-                            </p>
-                          )}
-                          {client.ice && (
-                            <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
-                              {t('clients.col_ice')}: {client.ice}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Actions */}
-                        <div className="mt-3 flex items-center justify-end gap-1 border-t border-slate-100 dark:border-white/5 pt-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-[4px] dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
-                            onClick={() => handleEdit(client)}
-                          >
-                            <FileEdit className="h-3.5 w-3.5 me-1" />
-                            {t('shared.actions.edit')}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-[4px] dark:text-slate-400 dark:hover:text-red-400 dark:hover:bg-red-500/10"
-                            onClick={() => {
-                              setClientToDelete(client.id);
-                              setDeleteConfirmOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 me-1" />
-                            {t('shared.actions.delete')}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Desktop table (md+) — `overflow-x-auto` is a safety net in case
-              translated labels (notably Arabic) make a column wider than the
-              card. The Card itself stays `overflow-hidden` so the rounded
-              corners are preserved. */}
-          <Card className="hidden md:block border border-slate-200 shadow-none rounded-[6px] overflow-hidden dark:bg-slate-900/60 dark:border-white/10">
-            <div className="overflow-x-auto">
+          {/* Table */}
+          <Card className="border border-slate-200 shadow-none rounded-[6px] overflow-hidden dark:bg-slate-900/60 dark:border-white/10">
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-slate-100 dark:border-white/5">
@@ -371,7 +240,7 @@ export function ClientsList() {
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_type')}</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_contact')}</TableHead>
                   <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 dark:text-slate-400">{t('clients.col_ice')}</TableHead>
-                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-end dark:text-slate-400">{t('clients.col_actions')}</TableHead>
+                  <TableHead className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3 text-right dark:text-slate-400">{t('clients.col_actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -400,7 +269,7 @@ export function ClientsList() {
                             className="rounded-[4px] text-sm"
                             onClick={openNewForm}
                           >
-                            <Plus className="me-2 h-4 w-4" />
+                            <Plus className="mr-2 h-4 w-4" />
                             {t('clients.create_first')}
                           </Button>
                         )}
@@ -445,12 +314,12 @@ export function ClientsList() {
                             "inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium",
                             client.type === 'entreprise'
                               ? "bg-sky-50 text-sky-700 border border-sky-200/50 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/20"
-                              : "bg-emerald-50 text-emerald-700 border border-emerald-200/50 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20"
+                              : "bg-emerald-50 text-emerald-700 border border-emerald-200/50 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20"
                           )}>
                             {client.type === 'entreprise' ? (
-                              <Building2 className="h-3 w-3 me-1" />
+                              <Building2 className="h-3 w-3 mr-1" />
                             ) : (
-                              <User className="h-3 w-3 me-1" />
+                              <User className="h-3 w-3 mr-1" />
                             )}
                             {client.type === 'entreprise' ? t('clients.type_company') : t('clients.type_individual')}
                           </span>
@@ -479,7 +348,7 @@ export function ClientsList() {
                             {client.ice || '-'}
                           </span>
                         </TableCell>
-                        <TableCell className="px-4 py-5 text-end">
+                        <TableCell className="px-4 py-5 text-right">
                           <div className="flex justify-end gap-0.5">
                             <Button
                               variant="ghost"
@@ -508,59 +377,53 @@ export function ClientsList() {
                     );
                   })
                 )}
-                </TableBody>
+              </TableBody>
             </Table>
-            </div>
-          </Card>
 
-          {/* Pagination — shared by mobile cards and desktop table.
-              On very narrow screens we wrap to two rows (count above, page
-              buttons below) so the strip never overflows horizontally. The
-              page-number list is also `flex-wrap` for the edge case of
-              many pages. */}
-          {!isLoading && paginatedClients.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-1 sm:px-0 py-2">
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClients.length)} {t('shared.pagination.of')} {filteredClients.length}
-              </p>
-              <div className="flex items-center gap-1 flex-wrap">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
-                  disabled={currentPage === 1}
-                  onClick={() => handlePageChange(currentPage - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
-                </Button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {!isLoading && paginatedClients.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 dark:border-white/5">
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredClients.length)} {t('shared.pagination.of')} {filteredClients.length}
+                </p>
+                <div className="flex items-center gap-1">
                   <Button
-                    key={page}
                     variant="ghost"
-                    size="sm"
-                    className={cn(
-                      "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
-                      page === currentPage
-                        ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
-                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:text-slate-500 dark:hover:text-white dark:hover:bg-white/5"
-                    )}
-                    onClick={() => handlePageChange(page)}
+                    size="icon"
+                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
+                    disabled={currentPage === 1}
+                    onClick={() => handlePageChange(currentPage - 1)}
                   >
-                    {page}
+                    <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   </Button>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
-                  disabled={currentPage === totalPages}
-                  onClick={() => handlePageChange(currentPage + 1)}
-                >
-                  <ChevronRight className="h-4 w-4 rtl:rotate-180" />
-                </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "h-8 min-w-[32px] rounded-[4px] text-sm font-medium",
+                        page === currentPage
+                          ? "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-white"
+                          : "text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:text-slate-500 dark:hover:text-white dark:hover:bg-white/5"
+                      )}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-[4px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
+                    disabled={currentPage === totalPages}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </Card>
         </div>
 
         {/* Right Column - Summary */}
@@ -571,7 +434,7 @@ export function ClientsList() {
             </CardHeader>
             <CardContent className="px-4 py-4 space-y-5">
               <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-emerald-50 border border-emerald-200/50 shrink-0 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+                <div className="flex items-center justify-center h-9 w-9 rounded-[6px] bg-blue-50 border border-blue-200/50 shrink-0 dark:bg-emerald-500/10 dark:border-emerald-500/20">
                   <Users className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                 </div>
                 <div className="flex-1 min-w-0">

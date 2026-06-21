@@ -73,9 +73,254 @@ function computeTvaBuckets(lignes: any[]): TvaBucket[] {
   return Array.from(map.values()).sort((a, b) => b.rate - a.rate)
 }
 
+/** Two-decimal money formatter for the optique layout. */
+const fmt2 = (n: number): string =>
+  new Intl.NumberFormat('fr-FR', { style: 'decimal', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
+
+/** Civilité derived from the patient's `genre` (femme → Mme, homme → Mr). */
+const civilite = (client: any) => {
+  const g = (client?.genre || '').toString().toLowerCase()
+  if (g === 'femme') return 'Mme'
+  if (g === 'homme') return 'Mr'
+  return 'Mr / Mme'
+}
+
+function fmtSph(v: any): string {
+  if (v === null || v === undefined || v === '') return ''
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'))
+  if (isNaN(n)) return ''
+  // Space the sign away from the digits → "- 5.00" / "+ 1.25" (matches the
+  // optique prescription style shown on the printed invoice).
+  const sign = n < 0 ? '- ' : n > 0 ? '+ ' : ''
+  return `${sign}${Math.abs(n).toFixed(2)}`
+}
+
+/**
+ * Optique prescription line, e.g. "- 5.00 (- 1.00 à 31°)".
+ * The sphere stays outside; cylinder (and axis) are wrapped in parentheses.
+ * Returns '' when no sphere value is present.
+ */
+function formatSphCyl(sph: any, cyl: any, axe: any): string {
+  const s = fmtSph(sph)
+  if (!s) return ''
+  const c = fmtSph(cyl)
+  const hasAxe = axe !== null && axe !== undefined && axe !== ''
+  if (!c && !hasAxe) return s
+  const a = hasAxe ? ` à ${axe}°` : ''
+  return `${s} (${c}${a})`
+}
+
+/**
+ * Optique invoice layout — mirrors the optique app's printable format
+ * (centered logo + company name, meta box, patient line, a 2×2 grid of
+ * Vision de loin / Vision de Près / Fournitures / Prix, TOTAL row, amount
+ * in words, and the legal footer) BUT rendered with paragestion's own
+ * document palette (`DOC_COLORS`) so it matches the rest of our PDFs.
+ * Single A4 page — no continuation pages.
+ */
+function OptiqueFactureDocument({ facture, entreprise, lang }: { facture: any; entreprise: any; lang?: string }) {
+  const fmtDate = makeFmtDate(lang)
+  const p = facture.prescription || {}
+  const lignes = facture.lignes || []
+  const montureLigne = lignes[0] || {}
+  const verreLigne = lignes[1] || {}
+  const totalTtc = pickNum(facture, 'montantTtc', 'montant_ttc')
+  const amountWords = numberToFrenchWords(Math.abs(Number(totalTtc)))
+  const client = facture.client || {}
+  const el = entreprise || {}
+
+  const odPrix = pickNum(verreLigne, 'prixOdHt', 'prix_od_ht')
+  const ogPrix = pickNum(verreLigne, 'prixOgHt', 'prix_og_ht')
+  const monturePrix = pickNum(montureLigne, 'prixUnitaireHt', 'prix_unitaire_ht')
+
+  // The ordonnance stores its OD/OG values in the *_vl columns and records
+  // the user's choice in `type_vision` ('vl' = loin, 'vp' = près,
+  // 'progressif' = both). Route the captured OD/OG into the box the user
+  // actually selected so the PDF shows "Vision de Près" when près was chosen
+  // (and "Vision de loin" otherwise). For progressif, both boxes are filled
+  // from their respective *_vl / *_vp columns.
+  const isVp = p.type_vision === 'vp'
+  const isProgressif = p.type_vision === 'progressif'
+  const odVal = formatSphCyl(p.od_sph_vl, p.od_cyl_vl, p.od_axe_vl) || formatSphCyl(p.od_sph_vp, p.od_cyl_vp, p.od_axe_vp)
+  const ogVal = formatSphCyl(p.og_sph_vl, p.og_cyl_vl, p.og_axe_vl) || formatSphCyl(p.og_sph_vp, p.og_cyl_vp, p.og_axe_vp)
+  const odVpVal = formatSphCyl(p.od_sph_vp, p.od_cyl_vp, p.od_axe_vp)
+  const ogVpVal = formatSphCyl(p.og_sph_vp, p.og_cyl_vp, p.og_axe_vp)
+  const vlOd = isProgressif ? formatSphCyl(p.od_sph_vl, p.od_cyl_vl, p.od_axe_vl) : (isVp ? '' : odVal)
+  const vlOg = isProgressif ? formatSphCyl(p.og_sph_vl, p.og_cyl_vl, p.og_axe_vl) : (isVp ? '' : ogVal)
+  const vpOd = isProgressif ? odVpVal : (isVp ? odVal : '')
+  const vpOg = isProgressif ? ogVpVal : (isVp ? ogVal : '')
+
+  // ADD (Addition) values — only shown for progressif under each OD/OG line.
+  const vlOdAdd = fmtSph(p.od_add_vl)
+  const vlOgAdd = fmtSph(p.og_add_vl)
+  const vpOdAdd = fmtSph(p.od_add_vp)
+  const vpOgAdd = fmtSph(p.og_add_vp)
+
+  const visionTypeLabel = isProgressif ? 'Progressif' : isVp ? 'Vision de près' : p.type_vision === 'vl' ? 'Vision de loin' : ''
+
+  const baseName = client?.nomSociete || client?.nom || '-'
+
+  return (
+    <div className="fw-optique-wrap" style={{ background: '#f4f4f4', padding: 20 }}>
+      <style>{`
+        @page { margin: 0; size: A4; }
+        @media print {
+          html, body { margin: 0 !important; padding: 0 !important; }
+          /* Strip the on-screen grey backdrop/padding so the white page is
+             the only printed surface — otherwise the extra 20px pushes the
+             content past 297mm and spills onto a blank second page. */
+          .fw-optique-wrap { padding: 0 !important; background: #fff !important; }
+          .fw-optique-page { border: none !important; }
+        }
+        /* Clamp the document to exactly one A4 page; box-sizing keeps the
+           border inside the 297mm so it never overflows. */
+        .fw-optique-page { box-sizing: border-box; }
+      `}</style>
+      <div className="fw-optique-page" style={{ width: '210mm', height: '297mm', overflow: 'hidden', margin: 'auto', background: '#fff', border: `1px solid ${C.border}`, fontFamily: "'Inter', 'Helvetica', 'Arial', sans-serif", color: C.text }}>
+        <div style={{ padding: '12mm' }}>
+
+          {/* Centered logo + company name */}
+          <div style={{ textAlign: 'center', marginBottom: 18 }}>
+            {el.logoUrl && (
+              <img src={el.logoUrl} alt="Logo" style={{ maxWidth: 120, maxHeight: 60, objectFit: 'contain' }} />
+            )}
+            <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: 1.5, color: C.accent, marginTop: 6 }}>
+              {(el.nom || el.nomEntreprise || 'Nom de l\'entreprise').toUpperCase()}
+            </div>
+          </div>
+
+          {/* Meta box: company contact (left) / invoice no + date (right) */}
+          <div style={{ width: '100%', border: `1px solid ${C.border}`, display: 'flex', marginBottom: 18 }}>
+            <div style={{ width: '50%', padding: 12, borderRight: `1px solid ${C.border}`, minHeight: 110, fontSize: 13, lineHeight: 1.6 }}>
+              {el.adresse && <div style={{ marginBottom: 6 }}>{el.adresse}</div>}
+              {el.ville && <div style={{ marginBottom: 6 }}>{el.ville}</div>}
+              {el.telephone && <div style={{ marginBottom: 6 }}>GSM {el.telephone}</div>}
+            </div>
+            <div style={{ width: '50%', padding: 12, minHeight: 110, fontSize: 13, lineHeight: 1.6 }}>
+              <div style={{ marginBottom: 14 }}><strong style={{ color: C.title }}>Facture N° :</strong> {facture.numero || '-'}</div>
+              <div><strong style={{ color: C.title }}>{el.ville ? `${el.ville} Le :` : 'Le :'}</strong> {fmtDate(pickVal(facture, 'dateEmission', 'date_emission'))}</div>
+            </div>
+          </div>
+
+          {/* Patient line */}
+          <div style={{ textAlign: 'center', marginBottom: 18, fontSize: 17 }}>
+            <strong style={{ color: C.accent }}>{civilite(client)} :</strong> {baseName}
+          </div>
+
+          {/* Type de vision */}
+          {visionTypeLabel && (
+            <div style={{ textAlign: 'center', marginBottom: 14, fontSize: 14 }}>
+              <strong style={{ color: C.title }}>Type de vision :</strong> {visionTypeLabel}
+            </div>
+          )}
+
+          {/* 2×2 grid: Vision de loin | Vision de Près, Fournitures | Prix */}
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '50%', border: `1px solid ${C.border}`, verticalAlign: 'top', padding: 12, fontSize: 13, lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 8 }}>Vision de loin</div>
+                  <div><strong>OD :</strong> {vlOd || '/'}</div>
+                  <div><strong>OG :</strong> {vlOg || '/'}</div>
+                  {isProgressif && (
+                    <>
+                      <div><strong>ADD OD :</strong> {vlOdAdd || '/'}</div>
+                      <div><strong>ADD OG :</strong> {vlOgAdd || '/'}</div>
+                    </>
+                  )}
+                </td>
+                <td style={{ width: '50%', border: `1px solid ${C.border}`, verticalAlign: 'top', padding: 12, fontSize: 13, lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 8 }}>Vision de Près</div>
+                  <div><strong>OD :</strong> {vpOd || '/'}</div>
+                  <div><strong>OG :</strong> {vpOg || '/'}</div>
+                  {isProgressif && (
+                    <>
+                      <div><strong>ADD OD :</strong> {vpOdAdd || '/'}</div>
+                      <div><strong>ADD OG :</strong> {vpOgAdd || '/'}</div>
+                    </>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ width: '50%', border: `1px solid ${C.border}`, verticalAlign: 'top', padding: 12, fontSize: 13, lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.accent, marginBottom: 8 }}>Fournitures</div>
+                  <div><strong>Monture :</strong> {montureLigne.monture_matiere || montureLigne.designation || '-'}</div>
+                  <br />
+                  <div><strong>Verres :</strong></div>
+                  <div>{p.verre_type || '-'}</div>
+                  <div>{p.verre_indice || '-'}</div>
+                  <div>{p.verre_traitement || '-'}</div>
+                </td>
+                <td style={{ width: '50%', border: `1px solid ${C.border}`, verticalAlign: 'top', padding: 12, fontSize: 13, lineHeight: 1.8 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.title, marginBottom: 8 }}>Prix</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span>Monture</span>
+                    <span>{monturePrix > 0 ? `${fmt2(monturePrix)} MAD` : '-'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span>Verre OD</span>
+                    <span>{odPrix > 0 ? `${fmt2(odPrix)} MAD` : '-'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <span>Verre OG</span>
+                    <span>{ogPrix > 0 ? `${fmt2(ogPrix)} MAD` : '-'}</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* TOTAL row — uses the brand accent for emphasis */}
+          <div style={{ border: `1px solid ${C.border}`, borderTop: 'none', padding: 14, textAlign: 'right', fontSize: 22, fontWeight: 800, color: C.title }}>
+            <span style={{ color: C.accent }}>TOTAL :</span> {fmt2(totalTtc)} MAD
+          </div>
+
+          {/* Amount in words */}
+          <div style={{ border: `1px solid ${C.border}`, borderTop: 'none', padding: 16, minHeight: 80, lineHeight: 1.8, fontSize: 14 }}>
+            <strong style={{ color: C.title }}>Arrêtée la présente facture à la somme de :</strong>
+            <br /><br />
+            {amountWords} dirhams
+          </div>
+
+          {/* Notes (optional) */}
+          {facture.notes && (
+            <div style={{ marginTop: 12, fontSize: 12, color: C.muted }}>
+              <strong style={{ color: C.title }}>Notes:</strong> {facture.notes}
+            </div>
+          )}
+
+          {/* Legal footer */}
+          <div style={{ marginTop: 36, textAlign: 'center', fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
+            <div>
+              {el.patente && <span>Patente : {el.patente} — </span>}
+              {el.ifNumber && <span>IF : {el.ifNumber} — </span>}
+              {el.ice && <span>ICE : {el.ice}</span>}
+            </div>
+            {el.inpe && (
+              <div style={{ marginTop: 8, fontWeight: 700, letterSpacing: 1, color: C.title }}>
+                INPE : {el.inpe}
+              </div>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
   ({ facture, entreprise, lang }, ref) => {
     if (!facture) return null
+
+    // Optique invoices use the dedicated optical layout (single page).
+    if (facture.type === 'optique') {
+      return (
+        <div ref={ref}>
+          <OptiqueFactureDocument facture={facture} entreprise={entreprise} lang={lang} />
+        </div>
+      )
+    }
 
     const fmtDate = makeFmtDate(lang)
 
@@ -86,11 +331,38 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
     const dateEmission = fmtDate(pickVal(facture, 'dateEmission', 'date_emission'))
     const numero = facture.numero || '-'
     const modePaiement = (pickVal(facture, 'modePaiement', 'mode_paiement') as string) || ''
-    const voiture = (pickVal(facture, 'voiture') as string) || ''
-    const matricule = (pickVal(facture, 'matricule') as string) || ''
+    const typeFacture = (pickVal(facture, 'type', 'type_facture') as string) || 'simple'
+    const isOptique = typeFacture === 'optique'
+    const typePriseEnCharge = (pickVal(facture, 'typePriseEnCharge', 'type_prise_en_charge') as string) || ''
+    const numeroBonPEC = (pickVal(facture, 'numeroBonPriseEnCharge', 'numero_bon_prise_en_charge') as string) || ''
     const client = pickVal(facture, 'client', 'fournisseur') || {}
     const ville = client?.ville || 'CASABLANCA'
-    const entityName = client?.nomSociete || client?.nom || '-'
+    // Optique client identity — civilité is derived from the patient's `genre`
+    // exactly like the optique app (femme → Mme, homme → Mr, else Mr / Mme).
+    const civilite = (() => {
+      const g = (client?.genre || '').toString().toLowerCase()
+      if (g === 'femme') return 'Mme'
+      if (g === 'homme') return 'Mr'
+      return ''
+    })()
+    const clientCine = client?.cine || client?.CINE || ''
+    const clientCouverture = client?.couverture_sociale || client?.couvertureSociale || ''
+    const clientCouvertureDetail = client?.couverture_sociale_detail || client?.couvertureSocialeDetail || ''
+    const baseName = client?.nomSociete || client?.nom || '-'
+    const entityName = civilite && baseName !== '-' ? `${civilite} ${baseName}` : baseName
+    // OD/OG breakdown for optique invoices. Prefer the per-eye prices
+    // (prix_od_ht / prix_og_ht) captured on the verre line; fall back to the
+    // legacy free-text od_og marker when no per-eye price exists.
+    const getOdOg = (l: any): string => {
+      const od = pickVal(l, 'prixOdHt', 'prix_od_ht')
+      const og = pickVal(l, 'prixOgHt', 'prix_og_ht')
+      const hasOd = od !== null && od !== undefined && od !== '' && safeNum(od) > 0
+      const hasOg = og !== null && og !== undefined && og !== '' && safeNum(og) > 0
+      if (hasOd || hasOg) {
+        return `OD: ${fmt3(safeNum(od))} / OG: ${fmt3(safeNum(og))}`
+      }
+      return (pickVal(l, 'odOg', 'od_og') as string) || ''
+    }
 
     const tvaBuckets = useMemo(() => computeTvaBuckets(lignes), [lignes])
 
@@ -216,7 +488,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                   padding: '10px 28px',
                   textTransform: 'uppercase',
                 }}>
-                  {facture?.isAvoir ? 'Avoir' : 'Facture'}
+                  {facture?.isAvoir ? 'Avoir' : (isOptique ? 'Facture Optique' : 'Facture')}
                 </div>
                 <div style={{ fontSize: '9pt', marginTop: 8, color: C.text }}>
                   <strong style={{ color: C.title }}>N°:</strong> {numero}
@@ -257,8 +529,10 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 <div style={{ fontWeight: 700, fontSize: '11pt', color: C.title, marginBottom: 4, letterSpacing: 0.3 }}>
                   {(entityName || '-').toUpperCase()}
                 </div>
-                {voiture   && <div><strong style={{ color: C.title }}>Voiture:</strong> {voiture}</div>}
-                {matricule && <div><strong style={{ color: C.title }}>Matricule:</strong> {matricule}</div>}
+                {isOptique && clientCine && <div>CINE: {clientCine}</div>}
+                {isOptique && clientCouverture && (
+                  <div>Couverture: {clientCouverture.toString().toUpperCase()}{clientCouvertureDetail ? ` (${clientCouvertureDetail})` : ''}</div>
+                )}
                 {client?.ice       && <div>ICE: {client.ice}</div>}
                 {client?.telephone && <div>{client.telephone}</div>}
                 {client?.adresse   && <div>{client.adresse}</div>}
@@ -279,6 +553,23 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                 borderBottom: `1px solid ${C.borderSoft}`,
               }}>
                 <strong style={{ color: C.title }}>Mode de paiement:</strong> {modePaiement}
+              </div>
+            )}
+
+            {isOptique && (typePriseEnCharge || numeroBonPEC) && (
+              <div style={{
+                fontSize: '9pt',
+                color: C.muted,
+                marginBottom: 12,
+                paddingBottom: 6,
+                borderBottom: `1px solid ${C.borderSoft}`,
+              }}>
+                {typePriseEnCharge && (
+                  <span><strong style={{ color: C.title }}>Prise en charge:</strong> {typePriseEnCharge.toUpperCase()}</span>
+                )}
+                {numeroBonPEC && (
+                  <span style={{ marginLeft: 16 }}><strong style={{ color: C.title }}>N° Bon:</strong> {numeroBonPEC}</span>
+                )}
               </div>
             )}
             </>
@@ -313,16 +604,18 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
               <table className="fw-items-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <colgroup>
-                  <col style={{ width: '8%' }} />
-                  <col style={{ width: '40%' }} />
-                  <col style={{ width: '17%' }} />
-                  <col style={{ width: '13%' }} />
-                  <col style={{ width: '22%' }} />
+                  <col style={{ width: isOptique ? '6%' : '8%' }} />
+                  <col style={{ width: isOptique ? '30%' : '40%' }} />
+                  {isOptique && <col style={{ width: '22%' }} />}
+                  <col style={{ width: isOptique ? '14%' : '17%' }} />
+                  <col style={{ width: isOptique ? '10%' : '13%' }} />
+                  <col style={{ width: isOptique ? '18%' : '22%' }} />
                 </colgroup>
                 <thead>
                   <tr style={{ background: C.accent, color: '#fff' }}>
                     <th style={{ padding: '10px 8px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>N°</th>
                     <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'left',   textTransform: 'uppercase', letterSpacing: 0.5 }}>Désignation</th>
+                    {isOptique && <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>OD/OG</th>}
                     <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>P.U. HT</th>
                     <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5 }}>Qté</th>
                     <th style={{ padding: '10px 12px', fontSize: '9.5pt', fontWeight: 700, textAlign: 'right',  textTransform: 'uppercase', letterSpacing: 0.5 }}>Montant HT</th>
@@ -339,6 +632,11 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'left', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {ligne.designation || '-'}
                       </td>
+                      {isOptique && (
+                        <td style={{ padding: '8px 10px', fontSize: '8.5pt', textAlign: 'center', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text, fontWeight: 600 }}>
+                          {getOdOg(ligne) || '—'}
+                        </td>
+                      )}
                       <td style={{ padding: '8px 12px', fontSize: '9.5pt', textAlign: 'right', borderBottom: `0.5pt solid ${C.borderSoft}`, color: C.text }}>
                         {fmt3(getPu(ligne))} DH
                       </td>
@@ -353,7 +651,7 @@ export const FactureDocument = forwardRef<HTMLDivElement, FactureDocumentProps>(
                   })}
                   {page.items.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>
+                      <td colSpan={isOptique ? 6 : 5} style={{ padding: '10px 8px', fontSize: '9pt', textAlign: 'center', fontStyle: 'italic', color: C.subtle, borderBottom: `0.5pt solid ${C.borderSoft}` }}>
                         Aucun article
                       </td>
                     </tr>
