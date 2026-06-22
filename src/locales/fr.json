@@ -13,7 +13,7 @@
     "sign_in":            "Se connecter",
     "signing_in":         "Connexion en cours...",
     "badge_secure":       "Sécurisé",
-    "badge_pharmacy":     "Pharmacy Ready",
+    "badge_pharmacy":     "Automobile Ready",
     "footer_copyright":   "© {{year}} SmartGestion. Tous droits réservés.",
     "toast_invalid":      "Email ou mot de passe incorrect",
     "toast_success":      "Connexion réussie. Bienvenue sur SmartGestion!",

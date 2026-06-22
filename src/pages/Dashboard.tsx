@@ -1113,7 +1113,7 @@ export function Dashboard() {
               </p>
               {/* Progress bar always reads left→right */}
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden" dir="ltr">
-                <div className="h-full bg-gradient-to-r from-primary to-primary/60 rounded-full w-[70%]" />
+                <div className={cn('h-full bg-gradient-to-r from-primary to-primary/60 rounded-full', Number(stats?.totalTvaCollectee ?? 0) === 0 ? 'w-0' : 'w-[70%]')} />
               </div>
             </div>
 
@@ -1130,7 +1130,7 @@ export function Dashboard() {
                 <span className="text-sm font-medium text-muted-foreground">{td('tva.currency_short')}</span>
               </p>
               <div className="h-2 w-full bg-muted rounded-full overflow-hidden" dir="ltr">
-                <div className="h-full bg-gradient-to-r from-[#0EA5E9] to-[#0EA5E9]/70 rounded-full w-[45%]" />
+                <div className={cn('h-full bg-gradient-to-r from-[#0EA5E9] to-[#0EA5E9]/70 rounded-full', Number(stats?.totalTvaDeductible ?? 0) === 0 ? 'w-0' : 'w-[45%]')} />
               </div>
             </div>
 

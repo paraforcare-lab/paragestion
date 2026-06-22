@@ -69,10 +69,10 @@ const STORAGE_KEY = 'pg_ticket_settings'
 
 /** Sensible defaults shown the first time the user opens the dialog. */
 export const DEFAULT_TICKET_SETTINGS: TicketSettings = {
-  storeName: 'ENTREPRISE X',
-  subtitle:  'Vente et achat de matériel informatique',
-  phone:     '0637601280',
-  address:   'AVENUE MED 5 Salé',
+  storeName: 'SmartGestion',
+  subtitle:  'Automobile',
+  phone:     '06xxxxxxxxx',
+  address:   'SmartGestion Address',
   footer:    'Merci de votre visite !',
   font:      'monospace',
   size:      'large',
